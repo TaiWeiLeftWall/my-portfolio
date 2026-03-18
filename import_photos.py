@@ -3,11 +3,11 @@
 图片导入工具
 - 压缩大于10MB的图片到10MB
 - 按分类（年份+事件）存储到 images 目录
-- 生成 data.js 代码
+- 生成 photoGroups 格式（按事件分组）
 """
 
 import os
-import sys
+import shutil
 from PIL import Image
 import re
 
@@ -16,57 +16,51 @@ SOURCE_DIR = r"G:\1A新闻片作品汇总\1A新闻片作品汇总\公务摄影"
 # 目标目录
 TARGET_BASE = r"C:\Users\1222\my-website\images\官方"
 # 最大文件大小 (10MB)
-MAX_SIZE = 10 * 1024 * 1024
+MAX_SIZE_MB = 10
 # 最大尺寸（宽或高）
-MAX_DIMENSION = 3000
-# 压缩质量
-QUALITY = 85
+MAX_DIMENSION = 2500
 
 def get_file_size_mb(filepath):
     """获取文件大小(MB)"""
     return os.path.getsize(filepath) / (1024 * 1024)
 
-def compress_image(src_path, dst_path, max_size_mb=10, max_dimension=3000):
+def compress_image(src_path, dst_path):
     """压缩图片到指定大小和尺寸"""
     try:
         img = Image.open(src_path)
 
         # 检查并调整尺寸
         width, height = img.size
-        if width > max_dimension or height > max_dimension:
-            # 按比例缩放
-            ratio = min(max_dimension / width, max_dimension / height)
+        if width > MAX_DIMENSION or height > MAX_DIMENSION:
+            ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
             new_width = int(width * ratio)
             new_height = int(height * ratio)
-            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
 
         # 如果格式是 RGBA，转换为 RGB
         if img.mode == 'RGBA':
-            img = img.convert('RGB')
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])
+            img = background
 
-        # 逐步降低质量直到文件大小合适
-        quality = 95
-        img.save(dst_path, 'JPEG', quality=quality, optimize=True)
-
-        # 如果文件还是太大，继续降低质量
-        while os.path.getsize(dst_path) > max_size_mb * 1024 * 1024 and quality > 50:
-            quality -= 5
+        # 保存，逐步降低质量直到合适
+        for quality in [90, 80, 70, 60]:
             img.save(dst_path, 'JPEG', quality=quality, optimize=True)
+            if os.path.getsize(dst_path) < MAX_SIZE_MB * 1024 * 1024:
+                return True
 
         return True
     except Exception as e:
-        print(f"  压缩失败: {src_path} - {e}")
+        print(f"    Error: {e}")
         return False
 
 def process_images():
     """处理所有图片"""
-    # 创建目标目录
     os.makedirs(TARGET_BASE, exist_ok=True)
 
-    # 存储生成的数据
-    photo_entries = []
+    # 存储生成的组照数据
+    photo_groups = []
 
-    # 遍历年份目录
     years = ['2021', '2022', '2023', '2024']
 
     for year in years:
@@ -74,132 +68,149 @@ def process_images():
         if not os.path.exists(year_dir):
             continue
 
-        print(f"\n=== Processing {year} ===")
+        print(f"\n=== {year} 年 ===")
 
-        # 获取该年份下所有事件目录
+        # 获取所有事件目录
         try:
             events = [d for d in os.listdir(year_dir) if os.path.isdir(os.path.join(year_dir, d))]
-        except PermissionError:
-            print(f"  Permission denied, skipping {year}")
+        except Exception as e:
+            print(f"  Error: {e}")
             continue
+
         events.sort()
 
         for event in events:
             event_dir = os.path.join(year_dir, event)
-            print(f"\nProcessing: {event}")
+            print(f"\n处理: {event}")
 
-            # 创建事件目录
-            # 清理事件名中的非法字符
+            # 清理事件名
             safe_event = re.sub(r'[<>:"/\\|?*]', '_', event)
             event_category = f"{year}-{safe_event}"
             target_dir = os.path.join(TARGET_BASE, event_category)
             os.makedirs(target_dir, exist_ok=True)
 
-            # 获取该事件下所有图片（排除 Mac 系统文件）
+            # 获取所有图片
             images = []
             try:
                 for f in os.listdir(event_dir):
-                    # 跳过 Mac 临时文件和目录
-                    if f.startswith('._') or f.startswith('.@') or f.startswith('__'):
+                    if f.startswith('.') or f.startswith('@'):
                         continue
                     if f.lower().endswith(('.jpg', '.jpeg', '.png')):
                         images.append(f)
-            except PermissionError:
-                print(f"  Permission denied, skipping")
+            except Exception as e:
+                print(f"  Error reading: {e}")
                 continue
 
             if not images:
-                print(f"  No images, skipping")
+                print(f"  无图片")
                 continue
 
-            # 清理事件名作为标题
-            title = event
-
-            for img_name in images:
+            # 处理每张图片
+            group_images = []
+            for img_name in sorted(images):
                 src_path = os.path.join(event_dir, img_name)
 
-                # 生成目标文件名
+                # 目标文件名
                 dst_name = f"{safe_event}_{img_name}"
                 dst_path = os.path.join(target_dir, dst_name)
 
-                # 检查是否需要压缩
+                # 检查大小并处理
                 try:
                     file_size = get_file_size_mb(src_path)
-                except:
-                    print(f"  Cannot read: {img_name}, skipping")
-                    continue
-
-                needs_compress = file_size > 10
-
-                if needs_compress:
-                    print(f"  Compressing: {img_name} ({file_size:.1f}MB) -> ", end="")
-                    if compress_image(src_path, dst_path):
-                        new_size = get_file_size_mb(dst_path)
-                        print(f"{new_size:.1f}MB")
+                    if file_size > MAX_SIZE_MB:
+                        print(f"  压缩: {img_name} ({file_size:.1f}MB)...")
+                        if compress_image(src_path, dst_path):
+                            new_size = get_file_size_mb(dst_path)
+                            print(f"    -> {new_size:.1f}MB")
+                        else:
+                            print(f"    失败，跳过")
+                            continue
                     else:
-                        print("Failed, skipping")
-                        continue
-                else:
-                    # 直接复制或调整尺寸
-                    try:
+                        # 检查尺寸
                         img = Image.open(src_path)
                         width, height = img.size
-                        # 如果尺寸太大也需要压缩
                         if width > MAX_DIMENSION or height > MAX_DIMENSION:
-                            print(f"  Resizing: {img_name}")
+                            print(f"  调整尺寸: {img_name}")
                             compress_image(src_path, dst_path)
                         else:
-                            img.save(dst_path, quality=95, optimize=True)
-                            print(f"  Copying: {img_name}")
-                    except Exception as e:
-                        print(f"  Copy failed: {img_name} - {e}")
-                        continue
+                            # 直接复制
+                            shutil.copy2(src_path, dst_path)
 
-                # 生成相对路径
-                rel_path = f"images/官方/{event_category}/{dst_name}"
+                    # 添加到组
+                    rel_path = f"images/官方/{event_category}/{dst_name}"
+                    group_images.append({
+                        'src': rel_path,
+                        'title': os.path.splitext(img_name)[0],
+                        'description': ''
+                    })
 
-                # 生成日期格式 YYYY-MM
-                month_match = re.search(r'(\d{4})(\d{2})', event)
-                if month_match:
-                    date_str = f"{month_match.group(1)}-{month_match.group(2)}"
-                else:
-                    date_str = f"{year}-01"
+                except Exception as e:
+                    print(f"  Error: {img_name} - {e}")
+                    continue
 
-                # 生成条目
-                # 检测图片方向
-                try:
-                    img = Image.open(dst_path)
-                    width, height = img.size
-                    orientation = "vertical" if height > width * 1.2 else "horizontal"
-                except:
-                    orientation = "horizontal"
+            print(f"  完成: {len(group_images)} 张")
 
-                entry = f"""    {{
-        category: "official",
-        orientation: "{orientation}",
-        title: "{title}",
-        description: "",
-        date: "{date_str}",
-        src: "{rel_path}"
-    }}"""
-                photo_entries.append(entry)
+            # 提取日期
+            month_match = re.search(r'(\d{4})(\d{2})', event)
+            date_str = f"{year}-{month_match.group(2)}" if month_match else f"{year}-01"
 
-    # 生成 data.js 代码
-    print("\n\n=== Generated Code ===\n")
-    code = "const photos = [\n" + ",\n".join(photo_entries) + "\n];"
+            # 确定列数
+            cols = 3
+            if len(group_images) <= 4:
+                cols = 2
+            elif len(group_images) > 12:
+                cols = 4
 
-    # 保存到文件
-    output_file = os.path.join(os.path.dirname(__file__), "generated_photos.js")
-    try:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(code)
-        print(f"Code saved to: {output_file}")
-    except Exception as e:
-        print(f"Failed to save code: {e}")
-        # Print to stdout
-        print(code)
+            # 添加到组照
+            photo_groups.append({
+                'category': 'official',
+                'title': event,
+                'description': '',
+                'date': date_str,
+                'cols': cols,
+                'images': group_images
+            })
 
-    print(f"\nTotal photos processed: {len(photo_entries)}")
+    # 生成代码
+    print("\n\n=== 生成代码 ===")
+
+    code_lines = []
+    code_lines.append("// 公务摄影照片组 - 由 import_photos.py 自动生成")
+    code_lines.append("const photoGroups = [")
+    code_lines.append("")
+
+    for i, group in enumerate(photo_groups):
+        code_lines.append(f"    {{")
+        code_lines.append(f'        category: "official",')
+        code_lines.append(f'        title: "{group["title"]}",')
+        code_lines.append(f'        description: "",')
+        code_lines.append(f'        date: "{group["date"]}",')
+        code_lines.append(f'        cols: {group["cols"]},')
+        code_lines.append(f'        images: [')
+
+        for j, img in enumerate(group['images']):
+            code_lines.append(f'            {{')
+            code_lines.append(f'                src: "{img["src"]}",')
+            code_lines.append(f'                title: "{img["title"]}",')
+            code_lines.append(f'                description: ""')
+            code_lines.append(f'            }}{"," if j < len(group["images"]) - 1 else ""}')
+
+        code_lines.append(f'        ]')
+        code_lines.append(f'    }}{"," if i < len(photo_groups) - 1 else ""}')
+        code_lines.append("")
+
+    code_lines.append("];")
+
+    code = "\n".join(code_lines)
+
+    # 保存
+    output_file = os.path.join(os.path.dirname(__file__), "generated_groups.js")
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(code)
+
+    print(f"代码已保存: {output_file}")
+    total_photos = sum(len(g['images']) for g in photo_groups)
+    print(f"共 {len(photo_groups)} 个组, {total_photos} 张照片")
 
 if __name__ == "__main__":
     process_images()

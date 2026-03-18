@@ -17,6 +17,7 @@ const photos = [
         orientation: "horizontal",
         title: "日出金山",
         description: "清晨的阳光洒在山峰上",
+        date: "2024-03",
         src: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=800&fit=crop"
     },
     // 风光类 - 竖版
@@ -25,6 +26,7 @@ const photos = [
         orientation: "vertical",
         title: "峡谷深处",
         description: "大自然的鬼斧神工",
+        date: "2024-03",
         src: "https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?w=800&h=1200&fit=crop"
     },
     {
@@ -32,6 +34,7 @@ const photos = [
         orientation: "horizontal",
         title: "湖面倒影",
         description: "平静的湖面如镜",
+        date: "2024-05",
         src: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=1200&h=800&fit=crop"
     },
     {
@@ -39,6 +42,7 @@ const photos = [
         orientation: "horizontal",
         title: "银河星空",
         description: "夜晚的星空璀璨",
+        date: "2024-07",
         src: "https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1200&h=800&fit=crop"
     },
     // 人像类 - 竖版为主
@@ -47,6 +51,7 @@ const photos = [
         orientation: "vertical",
         title: "少女",
         description: "自然光人像",
+        date: "2025-01",
         src: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&h=1200&fit=crop"
     },
     {
@@ -54,6 +59,7 @@ const photos = [
         orientation: "vertical",
         title: "眼神",
         description: "特写人像",
+        date: "2025-01",
         src: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=800&h=1200&fit=crop"
     },
     {
@@ -61,6 +67,7 @@ const photos = [
         orientation: "vertical",
         title: "侧脸",
         description: "光影人像",
+        date: "2025-02",
         src: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=800&h=1200&fit=crop"
     },
     // 街头类
@@ -69,6 +76,7 @@ const photos = [
         orientation: "horizontal",
         title: "城市角落",
         description: "日常街景",
+        date: "2024-11",
         src: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=1200&h=800&fit=crop"
     },
     {
@@ -76,6 +84,7 @@ const photos = [
         orientation: "horizontal",
         title: "雨夜",
         description: "雨中的城市",
+        date: "2024-12",
         src: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=1200&h=800&fit=crop"
     },
     // 旅行类
@@ -84,6 +93,7 @@ const photos = [
         orientation: "horizontal",
         title: "古镇清晨",
         description: "清晨的古镇街道",
+        date: "2024-06",
         src: "https://images.unsplash.com/photo-1532274402911-5a369e4c4bb5?w=1200&h=800&fit=crop"
     },
     {
@@ -91,6 +101,7 @@ const photos = [
         orientation: "horizontal",
         title: "海滩日落",
         description: "热带海滩的日落",
+        date: "2024-08",
         src: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&h=800&fit=crop"
     }
 ];
@@ -106,6 +117,7 @@ const photoGroups = [
         category: "portrait",
         title: "人像系列 - 自然光",
         description: "一组自然光人像作品",
+        date: "2025-01",
         cols: 3,
         images: [
             {
@@ -129,6 +141,7 @@ const photoGroups = [
         category: "landscape",
         title: "山川风光",
         description: "登山途中记录的美景",
+        date: "2024-04",
         cols: 2,
         images: [
             {
@@ -147,6 +160,7 @@ const photoGroups = [
         category: "travel",
         title: "日本之旅",
         description: "东京大阪漫步",
+        date: "2024-09",
         cols: 3,
         images: [
             {
@@ -170,6 +184,7 @@ const photoGroups = [
         category: "street",
         title: "城市扫街",
         description: "日常citywalk",
+        date: "2024-10",
         cols: 4,
         images: [
             {

@@ -24,23 +24,17 @@
     <main class="about-page">
         <div class="container">
             <div class="about-content">
-                <div class="about-accounts">
-                    <div class="account-card">
-                        <img src="https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31kv4fmc1jq0g5plnp5pnc8kn2ksp4r0?imageView2/2/w/540/format/webp|imageMogr2/strip2" alt="主号头像">
-                        <h3>沉礁</h3>
-                        <p class="account-desc">杭州/自由摄影师/偶尔找些好吃的</p>
-                        <a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank">进入主页</a>
-                    </div>
-                    <div class="account-card">
-                        <img src="https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31kv4fmc1jq005plnp5pnc8kn3l4s878?imageView2/2/w/540/format/webp|imageMogr2/strip2" alt="人像号头像">
-                        <h3>沉礁（人像版）</h3>
-                        <p class="account-desc">天上有多少星星</p>
-                        <a href="https://www.xiaohongshu.com/user/profile/66b7c973000000001d022297" target="_blank">进入主页</a>
-                    </div>
+                <div class="about-image">
+                    <img src="https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31kv4fmc1jq0g5plnp5pnc8kn2ksp4r0?imageView2/2/w/540/format/webp|imageMogr2/strip2" alt="沉礁">
                 </div>
                 <div class="about-text">
                     <h1>关于我</h1>
+                    <p>沉礁｜杭州自由摄影师</p>
                     <p>把没想明白的事情再嚼一遍。</p>
+                    <p class="about-desc">偶尔找些好吃的，记录生活中的光影。</p>
+                    <h2>小红书</h2>
+                    <p><a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank">@沉礁</a>（主号）</p>
+                    <p><a href="https://www.xiaohongshu.com/user/profile/66b7c973000000001d022297" target="_blank">@沉礁（人像版）</a></p>
                     <h2>联系方式</h2>
                     <p>合作：sleepylagoon2894</p>
                 </div>
@@ -55,33 +49,10 @@
             <div class="social-links">
                 <a href="#" id="instagram-link">Instagram</a>
                 <a href="#" id="weibo-link">微博</a>
-                <span id="xiaohongshu-links"></span>
+                <a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank" id="xiaohongshu-link">小红书</a>
             </div>
         </div>
     </footer>
 
-    <script src="data.js"></script>
-    <script>
-        if (typeof socialLinks !== 'undefined') {
-            if (socialLinks.instagram) {
-                document.getElementById('instagram-link').href = socialLinks.instagram;
-            }
-            if (socialLinks.weibo) {
-                document.getElementById('weibo-link').href = socialLinks.weibo;
-            }
-            const xhsContainer = document.getElementById('xiaohongshu-links');
-            if (Array.isArray(socialLinks.xiaohongshu)) {
-                socialLinks.xiaohongshu.forEach((link, i) => {
-                    const a = document.createElement('a');
-                    a.href = link.url;
-                    a.textContent = link.name;
-                    if (i > 0) a.style.marginLeft = '15px';
-                    xhsContainer.appendChild(a);
-                });
-            } else if (socialLinks.xiaohongshu) {
-                xhsContainer.innerHTML = '<a href="' + socialLinks.xiaohongshu + '">小红书</a>';
-            }
-        }
-    </script>
 </body>
 </html>

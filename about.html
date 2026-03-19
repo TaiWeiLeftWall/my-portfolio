@@ -11,7 +11,7 @@
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="logo">摄影师名称</a>
+            <a href="index.html" class="logo">沉礁</a>
             <ul class="nav-links">
                 <li><a href="index.html">作品</a></li>
                 <li><a href="videos.html">视频</a></li>
@@ -24,16 +24,25 @@
     <main class="about-page">
         <div class="container">
             <div class="about-content">
-                <div class="about-image">
-                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop" alt="摄影师照片">
+                <div class="about-accounts">
+                    <div class="account-card">
+                        <img src="https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31kv4fmc1jq0g5plnp5pnc8kn2ksp4r0?imageView2/2/w/540/format/webp|imageMogr2/strip2" alt="主号头像">
+                        <h3>沉礁</h3>
+                        <p class="account-desc">杭州/自由摄影师/偶尔找些好吃的</p>
+                        <a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank">进入主页</a>
+                    </div>
+                    <div class="account-card">
+                        <img src="https://sns-avatar-qc.xhscdn.com/avatar/1040g2jo31kv4fmc1jq005plnp5pnc8kn3l4s878?imageView2/2/w/540/format/webp|imageMogr2/strip2" alt="人像号头像">
+                        <h3>沉礁（人像版）</h3>
+                        <p class="account-desc">天上有多少星星</p>
+                        <a href="https://www.xiaohongshu.com/user/profile/66b7c973000000001d022297" target="_blank">进入主页</a>
+                    </div>
                 </div>
                 <div class="about-text">
                     <h1>关于我</h1>
-                    <p>你好，我是摄影师。热爱用镜头记录生活中的美好瞬间。</p>
-                    <p>专注于风光、人像和街头摄影，相信每一张照片都有一个故事。</p>
+                    <p>把没想明白的事情再嚼一遍。</p>
                     <h2>联系方式</h2>
-                    <p>Email: email@example.com</p>
-                    <p>微信: photographer</p>
+                    <p>合作：sleepylagoon2894</p>
                 </div>
             </div>
         </div>
@@ -42,14 +51,37 @@
     <!-- 页脚 -->
     <footer>
         <div class="container">
-            <p>&copy; 2026 摄影师名称. All rights reserved.</p>
+            <p>&copy; 2026 沉礁. All rights reserved.</p>
             <div class="social-links">
-                <a href="#">Instagram</a>
-                <a href="#">微博</a>
-                <a href="#">小红书</a>
+                <a href="#" id="instagram-link">Instagram</a>
+                <a href="#" id="weibo-link">微博</a>
+                <span id="xiaohongshu-links"></span>
             </div>
         </div>
     </footer>
 
+    <script src="data.js"></script>
+    <script>
+        if (typeof socialLinks !== 'undefined') {
+            if (socialLinks.instagram) {
+                document.getElementById('instagram-link').href = socialLinks.instagram;
+            }
+            if (socialLinks.weibo) {
+                document.getElementById('weibo-link').href = socialLinks.weibo;
+            }
+            const xhsContainer = document.getElementById('xiaohongshu-links');
+            if (Array.isArray(socialLinks.xiaohongshu)) {
+                socialLinks.xiaohongshu.forEach((link, i) => {
+                    const a = document.createElement('a');
+                    a.href = link.url;
+                    a.textContent = link.name;
+                    if (i > 0) a.style.marginLeft = '15px';
+                    xhsContainer.appendChild(a);
+                });
+            } else if (socialLinks.xiaohongshu) {
+                xhsContainer.innerHTML = '<a href="' + socialLinks.xiaohongshu + '">小红书</a>';
+            }
+        }
+    </script>
 </body>
 </html>

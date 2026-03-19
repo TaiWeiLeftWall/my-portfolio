@@ -107,35 +107,27 @@ function createGalleryItem(photo) {
     return item;
 }
 
-// 创建成组图片
+// 创建成组图片 - 叠放样式
 function createPhotoGroup(group) {
     const groupElement = document.createElement('div');
-    groupElement.className = 'photo-group';
+    groupElement.className = 'photo-group-stacked';
 
-    // 确定列类
-    const colsClass = `cols-${group.cols}`;
+    const coverImg = group.images[0];
+    const otherCount = group.images.length - 1;
 
     groupElement.innerHTML = `
-        <div class="photo-group-header">
-            <span class="photo-group-badge">组照</span>
-            <span class="photo-group-title">${group.title}</span>
-        </div>
-        <div class="photo-group-grid ${colsClass}">
-            ${group.images.map(img => `
-                <div class="photo-group-item">
-                    <img src="${img.src}" alt="${img.title}" loading="lazy">
-                </div>
-            `).join('')}
+        <div class="stacked-cover">
+            <img src="${coverImg.src}" alt="${coverImg.title}" loading="lazy">
+            ${otherCount > 0 ? `<div class="stacked-count">+${otherCount}</div>` : ''}
+            <div class="stacked-overlay">
+                <span class="stacked-title">${group.title}</span>
+            </div>
         </div>
     `;
 
-    // 为组内每张图片添加点击事件
-    const items = groupElement.querySelectorAll('.photo-group-item');
-    items.forEach((item, index) => {
-        item.addEventListener('click', () => {
-            const img = group.images[index];
-            openLightbox(img.src, img.title, img.description);
-        });
+    // 点击打开组内第一张图片
+    groupElement.querySelector('.stacked-cover').addEventListener('click', () => {
+        openLightbox(coverImg.src, coverImg.title, coverImg.description);
     });
 
     return groupElement;

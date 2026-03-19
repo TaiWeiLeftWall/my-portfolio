@@ -63,14 +63,37 @@
         <div class="container">
             <p>&copy; 2026 摄影师名称. All rights reserved.</p>
             <div class="social-links">
-                <a href="#">Instagram</a>
-                <a href="#">微博</a>
-                <a href="#">小红书</a>
+                <a href="#" id="instagram-link">Instagram</a>
+                <a href="#" id="weibo-link">微博</a>
+                <span id="xiaohongshu-links"></span>
             </div>
         </div>
     </footer>
 
     <script src="data.js"></script>
     <script src="script.js"></script>
+    <script>
+        // 填充社交链接
+        if (typeof socialLinks !== 'undefined') {
+            if (socialLinks.instagram) {
+                document.getElementById('instagram-link').href = socialLinks.instagram;
+            }
+            if (socialLinks.weibo) {
+                document.getElementById('weibo-link').href = socialLinks.weibo;
+            }
+            const xhsContainer = document.getElementById('xiaohongshu-links');
+            if (Array.isArray(socialLinks.xiaohongshu)) {
+                socialLinks.xiaohongshu.forEach((link, i) => {
+                    const a = document.createElement('a');
+                    a.href = link.url;
+                    a.textContent = link.name;
+                    if (i > 0) a.style.marginLeft = '15px';
+                    xhsContainer.appendChild(a);
+                });
+            } else if (socialLinks.xiaohongshu) {
+                xhsContainer.innerHTML = '<a href="' + socialLinks.xiaohongshu + '">小红书</a>';
+            }
+        }
+    </script>
 </body>
 </html>

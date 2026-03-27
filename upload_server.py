@@ -9,7 +9,7 @@ import json
 from urllib.parse import urlparse, parse_qs
 
 PORT = 8080
-UPLOAD_DIR = "images"
+UPLOAD_DIR = os.path.join("images", "images")
 
 class UploadHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
@@ -48,7 +48,7 @@ class UploadHandler(http.server.SimpleHTTPRequestHandler):
                         result.append({
                             'success': True,
                             'filename': filename,
-                            'path': f'images/{filename}'
+                            'path': f'images/images/{filename}'
                         })
 
                 self.send_response(200)
@@ -75,9 +75,8 @@ class UploadHandler(http.server.SimpleHTTPRequestHandler):
         return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
 if __name__ == '__main__':
-    # 确保 images 目录存在
-    if not os.path.exists(UPLOAD_DIR):
-        os.makedirs(UPLOAD_DIR)
+    # 确保 images/images 目录存在
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
     with socketserver.TCPServer(("", PORT), UploadHandler) as httpd:
         print(f"上传服务器运行在 http://localhost:{PORT}")

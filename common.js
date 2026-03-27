@@ -7,6 +7,14 @@
     // 检测当前页面
     const page = location.pathname.split('/').pop() || 'index.html';
 
+    // 强制刷新 data.js，避免浏览器缓存旧数据
+    const dataScript = document.querySelector('script[src^="data.js"]');
+    if (dataScript) {
+        const fresh = document.createElement('script');
+        fresh.src = 'data.js?t=' + Date.now();
+        dataScript.parentNode.replaceChild(fresh, dataScript);
+    }
+
     // 渲染导航栏
     function renderNavbar() {
         const nav = document.querySelector('nav.navbar');

@@ -570,9 +570,11 @@
             try {
                 const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
 
+                // 进入 images/images 子目录（与 data.js 中的路径一致）
                 let imagesHandle;
                 try {
-                    imagesHandle = await dirHandle.getDirectoryHandle('images', { create: true });
+                    const imagesDir = await dirHandle.getDirectoryHandle('images', { create: true });
+                    imagesHandle = await imagesDir.getDirectoryHandle('images', { create: true });
                 } catch {
                     imagesHandle = dirHandle;
                 }
@@ -614,7 +616,7 @@
 
                         savedByGroup[date].push({
                             filename,
-                            path: `images/${filename}`,
+                            path: `images/images/${filename}`,
                             title: filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
                         });
                     }
@@ -628,7 +630,8 @@
                     保存成功！<br>
                     已保存 ${selectedFiles.length} 张图片<br>
                     已按日期自动编为 ${Object.keys(groups).length} 个组<br>
-                    已同步到 data.js
+                    已同步到 data.js<br>
+                    <a href="index.html?t=${Date.now()}" style="color:#c9a962;">点击查看主页 &rarr;</a>
                 `;
 
                 selectedFiles = [];

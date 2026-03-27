@@ -25,6 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setupLightbox();
 });
 
+// 水印图片URL
+const watermarkUrl = 'images/icons/LOGO_white.png';
+
 // 加载画廊照片
 function loadGallery(category = 'all') {
     const galleryGrid = document.getElementById('gallery-grid');
@@ -49,10 +52,23 @@ function loadGallery(category = 'all') {
         filteredGroups = filteredGroups.filter(group => group.date && group.date.startsWith(currentYear));
     }
 
-    // 按月份筛选
+    // 按月份筛选（结合年份）
     if (currentMonth !== 'all') {
-        filteredPhotos = filteredPhotos.filter(photo => photo.date && photo.date.endsWith('-' + currentMonth));
-        filteredGroups = filteredGroups.filter(group => group.date && group.date.endsWith('-' + currentMonth));
+        const monthStr = '-' + currentMonth;
+        filteredPhotos = filteredPhotos.filter(photo => {
+            if (!photo.date) return false;
+            if (currentYear !== 'all') {
+                return photo.date === currentYear + monthStr;
+            }
+            return photo.date.endsWith(monthStr);
+        });
+        filteredGroups = filteredGroups.filter(group => {
+            if (!group.date) return false;
+            if (currentYear !== 'all') {
+                return group.date === currentYear + monthStr;
+            }
+            return group.date.endsWith(monthStr);
+        });
     }
 
     // 添加单独图片到画廊
@@ -92,7 +108,8 @@ function createGalleryItem(photo) {
     const item = document.createElement('div');
     item.className = `gallery-item ${photo.orientation}`;
     item.innerHTML = `
-        <img src="${photo.src}" alt="${photo.title}" loading="lazy">
+        <img src="${photo.src}" alt="${photo.title}" loading="lazy" draggable="false">
+        <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
         <div class="overlay">
             <h3>${photo.title}</h3>
             <p>${photo.description || ''}</p>
@@ -117,7 +134,8 @@ function createPhotoGroup(group) {
 
     groupElement.innerHTML = `
         <div class="stacked-cover">
-            <img src="${coverImg.src}" alt="${coverImg.title}" loading="lazy">
+            <img src="${coverImg.src}" alt="${coverImg.title}" loading="lazy" draggable="false">
+            <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
             ${otherCount > 0 ? `<div class="stacked-count">+${otherCount}</div>` : ''}
             <div class="stacked-overlay">
                 <span class="stacked-title">${group.title}</span>
@@ -214,7 +232,7 @@ function setupDateFilters() {
     });
 }
 
-// 加载视频
+// 加载视频（带懒加载）
 function loadVideos() {
     const videoGrid = document.getElementById('video-grid');
     videoGrid.innerHTML = '';
@@ -224,20 +242,52 @@ function loadVideos() {
         item.className = 'video-item';
         item.innerHTML = `
             <div class="video-wrapper">
-                <iframe
-                    src="${video.url}"
-                    title="${video.title}"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowfullscreen>
-                </iframe>
+                <div class="video-placeholder" data-src="${video.url}">▶</div>
             </div>
             <div class="video-info">
-                <h3>${video.title}</h3>
+                <h3>${video.title || '加载中...'}</h3>
                 <p>${video.description || ''}</p>
             </div>
         `;
         videoGrid.appendChild(item);
+
+        // 点击占位符加载 iframe
+        const placeholder = item.querySelector('.video-placeholder');
+        placeholder.addEventListener('click', () => {
+            loadVideoIframe(placeholder, video);
+        });
     });
+
+    // 使用 IntersectionObserver 预加载（滚动到视口时自动加载）
+    if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const placeholder = entry.target;
+                    loadVideoIframe(placeholder, videos.find(v => v.url === placeholder.dataset.src));
+                    observer.unobserve(placeholder);
+                }
+            });
+        }, { rootMargin: '200px' });
+
+        document.querySelectorAll('.video-placeholder').forEach(el => {
+            observer.observe(el);
+        });
+    }
+}
+
+// 加载单个视频 iframe
+function loadVideoIframe(placeholder, video) {
+    if (!video || placeholder.dataset.loaded) return;
+    placeholder.dataset.loaded = 'true';
+
+    const wrapper = placeholder.parentElement;
+    const iframe = document.createElement('iframe');
+    iframe.src = video.url;
+    iframe.title = video.title || '视频';
+    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+    iframe.allowFullscreen = true;
+    wrapper.replaceChild(iframe, placeholder);
 }
 
 // 灯箱功能
@@ -259,12 +309,11 @@ function setupLightbox() {
         }
     });
 
-    // ESC 键关闭
+    // ESC 键关闭 & 左右箭头切换
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeLightbox();
         }
-        // 左右箭头切换图片
         if (e.key === 'ArrowLeft') {
             navigateLightbox(-1);
         }
@@ -272,6 +321,20 @@ function setupLightbox() {
             navigateLightbox(1);
         }
     });
+
+    // 触摸手势支持
+    let touchStartX = 0;
+    lightbox.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    lightbox.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].screenX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+            navigateLightbox(diff > 0 ? 1 : -1);
+        }
+    }, { passive: true });
 
     // 添加导航按钮
     const prevBtn = document.createElement('div');

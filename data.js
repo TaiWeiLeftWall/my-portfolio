@@ -36,7 +36,14 @@ const photoGroups = [
 ];
 
 // 视频作品
-const videos = [];
+const videos = [
+    { title: "视频作品 1", description: "", url: "https://player.bilibili.com/player.html?bvid=BV18R6oBVEqy" },
+    { title: "视频作品 2", description: "", url: "https://player.bilibili.com/player.html?bvid=BV1SprGBnEjn" },
+    { title: "视频作品 3", description: "", url: "https://player.bilibili.com/player.html?bvid=BV1PQYZzzEkh" },
+    { title: "视频作品 4", description: "", url: "https://player.bilibili.com/player.html?bvid=BV1EZg1zqEmg" },
+    { title: "视频作品 5", description: "", url: "https://player.bilibili.com/player.html?bvid=BV1M996YqE98" },
+    { title: "视频作品 6", description: "", url: "https://player.bilibili.com/player.html?bvid=BV14nrkBPEQj" }
+];
 
 // 社交媒体链接
 const socialLinks = {

@@ -3,22 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="沉礁摄影作品集 - 杭州自由摄影师，风光、人像、街头、旅行摄影作品">
+    <meta property="og:title" content="摄影作品集 | 沉礁">
+    <meta property="og:description" content="沉礁摄影作品集 - 杭州自由摄影师，风光、人像、街头、旅行摄影作品">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="images/icons/LOGO_white.png">
+    <link rel="icon" href="images/icons/LOGO_white.png" type="image/png">
     <title>摄影作品集 | 沉礁</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <a href="index.html" class="logo">沉礁</a>
-            <ul class="nav-links">
-                <li><a href="index.html" class="active">作品</a></li>
-                <li><a href="videos.html">视频</a></li>
-                <li><a href="about.html">关于</a></li>
-            </ul>
-        </div>
-    </nav>
+    <nav class="navbar"></nav>
 
     <!-- 分类筛选 -->
     <section class="categories">
@@ -54,22 +50,17 @@
     <!-- 灯箱 -->
     <div class="lightbox" id="lightbox">
         <span class="lightbox-close">&times;</span>
-        <img class="lightbox-img" id="lightbox-img" src="" alt="">
+        <div class="lightbox-img-wrapper">
+            <img class="lightbox-img" id="lightbox-img" src="" alt="">
+            <img class="watermark-overlay" src="images/icons/LOGO_white.png" alt="watermark">
+        </div>
         <p class="lightbox-caption" id="lightbox-caption"></p>
     </div>
 
     <!-- 页脚 -->
-    <footer>
-        <div class="container">
-            <p>&copy; 2026 沉礁. All rights reserved.</p>
-            <div class="social-links">
-                <a href="#" id="instagram-link">Instagram</a>
-                <a href="#" id="weibo-link">微博</a>
-                <a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank" id="xiaohongshu-link">小红书</a>
-            </div>
-        </div>
-    </footer>
+    <footer></footer>
 
+    <script src="common.js"></script>
     <script src="data.js"></script>
     <script src="script.js"></script>
 </body>

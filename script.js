@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 水印图片URL
-const watermarkUrl = 'images/icons/LOGO_white.png';
+const watermarkUrl = 'icons/LOGO_white.png';
 
 // 加载画廊照片
 function loadGallery(category = 'all') {

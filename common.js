@@ -2,7 +2,7 @@
 // 公共组件 - 导航栏和页脚
 // ==========================================
 (function() {
-    const logoPath = 'images/icons/LOGO_white.png';
+    const logoPath = 'icons/LOGO_white.png';
 
     // 检测当前页面
     const page = location.pathname.split('/').pop() || 'index.html';

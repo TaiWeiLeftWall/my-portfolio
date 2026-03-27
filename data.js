@@ -17,20 +17,35 @@ const photoGroups = [
         date: "2025-11",
         cols: 3,
         images: [
-            { src: "images/images/20251121-A7402521.jpg", title: "A7402521", description: "" },
-            { src: "images/images/20251121-A7402525.jpg", title: "A7402525", description: "" },
-            { src: "images/images/20251121-A7402556.jpg", title: "A7402556", description: "" },
-            { src: "images/images/20251121-A7402577.jpg", title: "A7402577", description: "" },
-            { src: "images/images/20251121-A7402584.jpg", title: "A7402584", description: "" },
-            { src: "images/images/20251121-A7402612.jpg", title: "A7402612", description: "" },
-            { src: "images/images/20251121-A7402613.jpg", title: "A7402613", description: "" },
-            { src: "images/images/20251121-A7402618.jpg", title: "A7402618", description: "" },
-            { src: "images/images/20251121-A7402621.jpg", title: "A7402621", description: "" },
-            { src: "images/images/20251121-A7402631.jpg", title: "A7402631", description: "" },
-            { src: "images/images/20251121-A7402632.jpg", title: "A7402632", description: "" },
-            { src: "images/images/20251121-A7402648.jpg", title: "A7402648", description: "" },
-            { src: "images/images/20251121-A7402651.jpg", title: "A7402651", description: "" },
-            { src: "images/images/20251121-A7402658.jpg", title: "A7402658", description: "" }
+            { src: "images/2025_11_21/20251121-A7402521.jpg", title: "A7402521", description: "" },
+            { src: "images/2025_11_21/20251121-A7402525.jpg", title: "A7402525", description: "" },
+            { src: "images/2025_11_21/20251121-A7402556.jpg", title: "A7402556", description: "" },
+            { src: "images/2025_11_21/20251121-A7402577.jpg", title: "A7402577", description: "" },
+            { src: "images/2025_11_21/20251121-A7402584.jpg", title: "A7402584", description: "" },
+            { src: "images/2025_11_21/20251121-A7402612.jpg", title: "A7402612", description: "" },
+            { src: "images/2025_11_21/20251121-A7402613.jpg", title: "A7402613", description: "" },
+            { src: "images/2025_11_21/20251121-A7402618.jpg", title: "A7402618", description: "" },
+            { src: "images/2025_11_21/20251121-A7402621.jpg", title: "A7402621", description: "" },
+            { src: "images/2025_11_21/20251121-A7402631.jpg", title: "A7402631", description: "" },
+            { src: "images/2025_11_21/20251121-A7402632.jpg", title: "A7402632", description: "" },
+            { src: "images/2025_11_21/20251121-A7402648.jpg", title: "A7402648", description: "" },
+            { src: "images/2025_11_21/20251121-A7402651.jpg", title: "A7402651", description: "" },
+            { src: "images/2025_11_21/20251121-A7402658.jpg", title: "A7402658", description: "" }
+        ]
+    },
+    {
+        category: "landscape",
+        title: "2025年12月照片",
+        description: "",
+        date: "2025-12",
+        cols: 3,
+        images: [
+            { src: "images/2025_12_20/20251220-A7403981.jpg", title: "A7403981", description: "" },
+            { src: "images/2025_12_20/20251220-A7403987.jpg", title: "A7403987", description: "" },
+            { src: "images/2025_12_20/20251220-A7404103.jpg", title: "A7404103", description: "" },
+            { src: "images/2025_12_20/20251220-A7404105.jpg", title: "A7404105", description: "" },
+            { src: "images/2025_12_20/20251220-A7404116.jpg", title: "A7404116", description: "" },
+            { src: "images/2025_12_20/20251220-A7404136.jpg", title: "A7404136", description: "" }
         ]
     }
 ];

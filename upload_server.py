@@ -7,9 +7,28 @@ import os
 import cgi
 import json
 from urllib.parse import urlparse, parse_qs
+from PIL import Image
+from PIL.ExifTags import TAGS
+import io
+from datetime import datetime
 
 PORT = 8080
 UPLOAD_DIR = os.path.join("images", "images")
+
+
+def get_exif_date(image_data):
+    """从图片EXIF数据中提取日期"""
+    try:
+        img = Image.open(io.BytesIO(image_data))
+        exif = img._getexif()
+        if exif:
+            for tag, value in exif.items():
+                if TAGS.get(tag) == 'DateTimeOriginal':
+                    # Format: "YYYY:MM:DD HH:MM:SS"
+                    return value.split(' ')[0].replace(':', '-')[:7]  # "YYYY-MM"
+    except:
+        pass
+    return None
 
 class UploadHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
@@ -31,7 +50,20 @@ class UploadHandler(http.server.SimpleHTTPRequestHandler):
                 for item in files:
                     if item.filename:
                         filename = os.path.basename(item.filename)
-                        filepath = os.path.join(UPLOAD_DIR, filename)
+
+                        # 读取文件数据用于EXIF提取
+                        file_data = item.file.read()
+                        item.file.seek(0)
+
+                        # 获取日期（优先EXIF，其次当前日期）
+                        exif_date = get_exif_date(file_data)
+                        date_folder = exif_date or datetime.now().strftime('%Y-%m')
+
+                        # 创建日期子目录
+                        date_dir = os.path.join(UPLOAD_DIR, date_folder)
+                        os.makedirs(date_dir, exist_ok=True)
+
+                        filepath = os.path.join(date_dir, filename)
 
                         # 处理重名文件
                         if os.path.exists(filepath):
@@ -39,16 +71,16 @@ class UploadHandler(http.server.SimpleHTTPRequestHandler):
                             counter = 1
                             while os.path.exists(filepath):
                                 filename = f"{name}_{counter}{ext}"
-                                filepath = os.path.join(UPLOAD_DIR, filename)
+                                filepath = os.path.join(date_dir, filename)
                                 counter += 1
 
                         with open(filepath, 'wb') as f:
-                            f.write(item.file.read())
+                            f.write(file_data)
 
                         result.append({
                             'success': True,
                             'filename': filename,
-                            'path': f'images/images/{filename}'
+                            'path': f'images/{date_folder}/{filename}'
                         })
 
                 self.send_response(200)

@@ -596,13 +596,16 @@
                 const savedByGroup = {};
                 for (const date in groups) {
                     savedByGroup[date] = [];
+                    // 创建日期子目录 (YYYY-MM格式)
+                    const dateDirHandle = await imagesHandle.getDirectoryHandle(date, { create: true });
+
                     for (const item of groups[date]) {
                         let filename = item.name;
                         let fileHandle;
 
                         while (true) {
                             try {
-                                fileHandle = await imagesHandle.getFileHandle(filename, { create: true });
+                                fileHandle = await dateDirHandle.getFileHandle(filename, { create: true });
                                 break;
                             } catch {
                                 const nameParts = filename.match(/^(.+?)(\.[^.]+)?$/);
@@ -616,7 +619,7 @@
 
                         savedByGroup[date].push({
                             filename,
-                            path: `images/images/${filename}`,
+                            path: `images/${date}/${filename}`,
                             title: filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
                         });
                     }

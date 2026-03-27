@@ -19,12 +19,17 @@
     <!-- 分类筛选 -->
     <section class="categories">
         <div class="container">
-            <button class="category-btn active" data-category="official">公务摄影</button>
-            <button class="category-btn" data-category="landscape">风光</button>
+            <button class="category-btn active" data-category="landscape">风光</button>
             <button class="category-btn" data-category="portrait">人像</button>
             <button class="category-btn" data-category="street">街头</button>
             <button class="category-btn" data-category="travel">旅行</button>
             <button class="category-btn" data-category="all">全部</button>
+
+            <!-- 显示模式切换 -->
+            <div class="display-mode-toggle">
+                <button class="mode-btn active" data-mode="stacked">时间线</button>
+                <button class="mode-btn" data-mode="random">随机展示</button>
+            </div>
 
             <!-- 年份筛选 -->
             <select id="year-filter" class="date-filter">

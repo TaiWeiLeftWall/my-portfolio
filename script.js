@@ -5,6 +5,7 @@ let allImages = [];
 let currentCategory = 'all';
 let currentYear = 'all';
 let currentMonth = 'all';
+let currentDisplayMode = 'stacked';
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loadGallery();
         setupCategoryFilter();
         setupDateFilters();
+        setupDisplayModeToggle();
     }
 
     if (videoGrid) {
@@ -86,21 +88,39 @@ function loadGallery(category = 'all') {
     });
 
     // 添加成组图片到画廊
-    filteredGroups.forEach(group => {
-        const groupElement = createPhotoGroup(group);
-        galleryGrid.appendChild(groupElement);
-
-        // 添加组内图片到灯箱列表
-        group.images.forEach(img => {
+    if (currentDisplayMode === 'random') {
+        // 随机模式：每组只展示1张随机图片
+        filteredGroups.forEach(group => {
+            if (group.images.length === 0) return;
+            const randomIndex = Math.floor(Math.random() * group.images.length);
+            const randomImg = group.images[randomIndex];
+            const item = createGalleryItem(randomImg);
+            galleryGrid.appendChild(item);
             allImages.push({
-                src: img.src,
-                title: img.title,
-                description: img.description,
-                type: 'group',
-                groupTitle: group.title
+                src: randomImg.src,
+                title: randomImg.title,
+                description: randomImg.description,
+                type: 'single'
             });
         });
-    });
+    } else {
+        // 时间线模式：原有堆叠展示
+        filteredGroups.forEach(group => {
+            const groupElement = createPhotoGroup(group);
+            galleryGrid.appendChild(groupElement);
+
+            // 添加组内图片到灯箱列表
+            group.images.forEach(img => {
+                allImages.push({
+                    src: img.src,
+                    title: img.title,
+                    description: img.description,
+                    type: 'group',
+                    groupTitle: group.title
+                });
+            });
+        });
+    }
 }
 
 // 创建单独图片项
@@ -229,6 +249,20 @@ function setupDateFilters() {
     monthFilter.addEventListener('change', () => {
         currentMonth = monthFilter.value;
         loadGallery(currentCategory);
+    });
+}
+
+// 设置显示模式切换
+function setupDisplayModeToggle() {
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            modeBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentDisplayMode = btn.dataset.mode;
+            loadGallery(currentCategory);
+        });
     });
 }
 

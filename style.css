@@ -233,6 +233,38 @@ a {
     color: var(--text-color);
 }
 
+/* 显示模式切换 */
+.display-mode-toggle {
+    display: inline-flex;
+    margin-left: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mode-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.mode-btn:first-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.mode-btn:hover {
+    color: var(--accent-color);
+}
+
+.mode-btn.active {
+    background: var(--accent-color);
+    color: #0a0a0a;
+}
+
 /* 画廊 - 瀑布流布局 */
 .gallery {
     padding: 20px 0 80px;

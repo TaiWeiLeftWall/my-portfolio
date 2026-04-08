@@ -1,0 +1,7 @@
+name = "r2-upload"
+main = "r2-upload.js"
+compatibility_date = "2026-04-08"
+
+[[r2_buckets]]
+binding = "MY_BUCKET"
+bucket_name = "pub"

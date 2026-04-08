@@ -3,8 +3,22 @@
  * Receives images and uploads to Cloudflare R2
  */
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
 export default {
   async fetch(request, env, ctx) {
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: CORS_HEADERS
+      });
+    }
+
     if (request.method !== 'POST' || !request.url.endsWith('/upload')) {
       return new Response('Not Found', { status: 404 });
     }
@@ -16,7 +30,10 @@ export default {
       const dateStr = formData.get('date') || new Date().toISOString().slice(0, 10);
 
       if (!file || !(file instanceof File)) {
-        return Response.json({ error: 'No image provided' }, { status: 400 });
+        return new Response(JSON.stringify({ error: 'No image provided' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
+        });
       }
 
       // Read image data
@@ -38,16 +55,22 @@ export default {
       // Return the R2 URL
       const r2Url = `https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/${r2Path}`;
 
-      return Response.json({
+      return new Response(JSON.stringify({
         success: true,
         filename,
         path: r2Path,
         url: r2Url
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
       });
 
     } catch (error) {
       console.error('Upload error:', error);
-      return Response.json({ error: error.message }, { status: 500 });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
+      });
     }
   }
 };

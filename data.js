@@ -11,6 +11,35 @@ const photos = [];
 // 公务摄影照片组
 const photoGroups = [
     {
+        category: "portrait",
+        title: "",
+        description: "",
+        date: "2025-10-10",
+        cols: 3,
+        images: [
+            {
+                src: "https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/images/portrait/2025-10-10/1775641076969-hecisj22ns7.jpg",
+                title: "",
+                description: ""
+            },
+            {
+                src: "https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/images/portrait/2025-10-10/1775641081496-9b0lwabiu6.jpg",
+                title: "",
+                description: ""
+            },
+            {
+                src: "https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/images/portrait/2025-10-10/1775641084910-l75l2a2q5qc.jpg",
+                title: "",
+                description: ""
+            },
+            {
+                src: "https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/images/portrait/2025-10-10/1775641089772-9pe1p64vwoj.jpg",
+                title: "",
+                description: ""
+            }
+        ]
+    },
+    {
         category: "landscape",
         title: "",
         description: "",

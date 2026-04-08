@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Compressed images (use rclone to sync)
+images-compressed/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+latest

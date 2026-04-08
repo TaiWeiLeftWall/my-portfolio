@@ -17,10 +17,10 @@ const photoGroups = [
         date: "2025-12-06",
         cols: 3,
         images: [
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/landscape/2025-12-06/20251206-A7402757.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/landscape/2025-12-06/20251206-A7402768.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/landscape/2025-12-06/20251206-A7402760.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/landscape/2025-12-06/20251206-A7402770.jpg", title: "", description: "" }
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/landscape/2025-12-06/20251206-A7402757.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/landscape/2025-12-06/20251206-A7402768.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/landscape/2025-12-06/20251206-A7402760.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/landscape/2025-12-06/20251206-A7402770.jpg", title: "", description: "" }
         ]
     },
     {
@@ -30,20 +30,20 @@ const photoGroups = [
         date: "2025-11-21",
         cols: 3,
         images: [
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402521.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402525.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402556.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402577.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402584.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402612.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402613.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402618.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402621.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402631.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402632.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402648.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402651.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-11-21/20251121-A7402658.jpg", title: "", description: "" }
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402521.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402525.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402556.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402577.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402584.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402612.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402613.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402618.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402621.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402631.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402632.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402648.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402651.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-21/20251121-A7402658.jpg", title: "", description: "" }
         ]
     },
     {
@@ -53,12 +53,12 @@ const photoGroups = [
         date: "2025-12-20",
         cols: 3,
         images: [
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-12-20/20251220-A7403981.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-12-20/20251220-A7403987.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-12-20/20251220-A7404103.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-12-20/20251220-A7404105.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-12-20/20251220-A7404116.jpg", title: "", description: "" },
-            { src: "https://my-website.7152812ee97f3aa35783f0efacfd558f.r2.dev/images/portrait/2025-12-20/20251220-A7404136.jpg", title: "", description: "" }
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-12-20/20251220-A7403981.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-12-20/20251220-A7403987.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-12-20/20251220-A7404103.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-12-20/20251220-A7404105.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-12-20/20251220-A7404116.jpg", title: "", description: "" },
+            { src: "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-12-20/20251220-A7404136.jpg", title: "", description: "" }
         ]
     }
 ];

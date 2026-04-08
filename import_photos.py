@@ -15,8 +15,8 @@ import re
 SOURCE_DIR = r"G:\1A新闻片作品汇总\1A新闻片作品汇总\公务摄影"
 # 目标目录
 TARGET_BASE = r"C:\Users\1222\my-website\images\官方"
-# 最大文件大小 (10MB)
-MAX_SIZE_MB = 10
+# 最大文件大小 (1.5MB)
+MAX_SIZE_MB = 1.5
 # 最大尺寸（宽或高）
 MAX_DIMENSION = 2500
 
@@ -43,8 +43,8 @@ def compress_image(src_path, dst_path):
             background.paste(img, mask=img.split()[3])
             img = background
 
-        # 保存，逐步降低质量直到合适
-        for quality in [90, 80, 70, 60]:
+        # 保存，逐步降低质量直到合适 (1.5MB)
+        for quality in [90, 80, 70, 60, 50, 40]:
             img.save(dst_path, 'JPEG', quality=quality, optimize=True)
             if os.path.getsize(dst_path) < MAX_SIZE_MB * 1024 * 1024:
                 return True

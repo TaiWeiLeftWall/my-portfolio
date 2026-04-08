@@ -11,9 +11,14 @@ from PIL import Image
 from PIL.ExifTags import TAGS
 import io
 from datetime import datetime
+import subprocess
+import shutil
 
 PORT = 8080
 UPLOAD_DIR = os.path.join("images", "images")
+# Target file size: 1.5MB
+TARGET_SIZE_KB = 1536
+MAX_DIMENSION = 2500
 
 
 def get_exif_date(image_data):
@@ -29,6 +34,37 @@ def get_exif_date(image_data):
     except:
         pass
     return None
+
+
+def compress_and_save(src_data, dst_path):
+    """压缩图片到1.5MB并保存"""
+    try:
+        img = Image.open(io.BytesIO(src_data))
+
+        # 调整尺寸
+        width, height = img.size
+        if width > MAX_DIMENSION or height > MAX_DIMENSION:
+            ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
+            new_width = int(width * ratio)
+            new_height = int(height * ratio)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+
+        # 转换 RGBA to RGB if needed
+        if img.mode == 'RGBA':
+            background = Image.new('RGB', img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])
+            img = background
+
+        # 逐步降低质量直到小于目标大小
+        for quality in [90, 80, 70, 60, 50]:
+            img.save(dst_path, 'JPEG', quality=quality, optimize=True)
+            if os.path.getsize(dst_path) < TARGET_SIZE_KB * 1024:
+                return True
+
+        return True
+    except Exception as e:
+        print(f"Compression error: {e}")
+        return False
 
 class UploadHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
@@ -74,14 +110,24 @@ class UploadHandler(http.server.SimpleHTTPRequestHandler):
                                 filepath = os.path.join(date_dir, filename)
                                 counter += 1
 
-                        with open(filepath, 'wb') as f:
-                            f.write(file_data)
-
-                        result.append({
-                            'success': True,
-                            'filename': filename,
-                            'path': f'images/{date_folder}/{filename}'
-                        })
+                        # 压缩并保存图片
+                        if compress_and_save(file_data, filepath):
+                            result.append({
+                                'success': True,
+                                'filename': filename,
+                                'path': f'images/{date_folder}/{filename}',
+                                'compressed': True
+                            })
+                        else:
+                            # 压缩失败，直接保存原图
+                            with open(filepath, 'wb') as f:
+                                f.write(file_data)
+                            result.append({
+                                'success': True,
+                                'filename': filename,
+                                'path': f'images/{date_folder}/{filename}',
+                                'compressed': False
+                            })
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

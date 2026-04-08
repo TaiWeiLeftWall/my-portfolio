@@ -31,7 +31,7 @@
                 <span class="logo-text">沉礁</span>
             </a>
             <ul class="nav-links">
-                <li><a href="index.html" class="${activeIndex}">作品</a></li>
+                <li><a href="index.html" class="${activeIndex}">图片</a></li>
                 <li><a href="videos.html" class="${activeVideos}">视频</a></li>
                 <li><a href="about.html" class="${activeAbout}">关于</a></li>
             </ul>
@@ -48,8 +48,8 @@
             <img src="${logoPath}" alt="沉礁" class="footer-logo">
             <p>&copy; 2026 沉礁. All rights reserved.</p>
             <div class="social-links">
-                <a href="#" id="instagram-link">Instagram</a>
-                <a href="#" id="weibo-link">微博</a>
+                <a href="https://www.douyin.com/user/MS4wLjABAAAA7JQxOJE2ZpmOut3zgFxONESR0I6k9DhHVqTRPIfoVkJjBkw6tTMeSqQBqC6pa87S" target="_blank" id="douyin-link">抖音</a>
+                <a href="https://space.bilibili.com/7611277" target="_blank" id="bilibili-link">哔哩哔哩</a>
                 <a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank" id="xiaohongshu-link">小红书</a>
             </div>
         </div>`;

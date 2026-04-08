@@ -128,17 +128,13 @@ function createGalleryItem(photo) {
     const item = document.createElement('div');
     item.className = `gallery-item ${photo.orientation}`;
     item.innerHTML = `
-        <img src="${photo.src}" alt="${photo.title}" loading="lazy" draggable="false">
+        <img src="${photo.src}" alt="" loading="lazy" draggable="false">
         <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
-        <div class="overlay">
-            <h3>${photo.title}</h3>
-            <p>${photo.description || ''}</p>
-        </div>
     `;
 
     // 点击打开灯箱
     item.addEventListener('click', () => {
-        openLightbox(photo.src, photo.title, photo.description);
+        openLightbox(photo.src, '', '');
     });
 
     return item;
@@ -149,23 +145,22 @@ function createPhotoGroup(group) {
     const groupElement = document.createElement('div');
     groupElement.className = 'photo-group-stacked';
 
-    const coverImg = group.images[0];
+    // 随机选择一张图片作为封面
+    const randomIndex = Math.floor(Math.random() * group.images.length);
+    const coverImg = group.images[randomIndex];
     const otherCount = group.images.length - 1;
 
     groupElement.innerHTML = `
         <div class="stacked-cover">
-            <img src="${coverImg.src}" alt="${coverImg.title}" loading="lazy" draggable="false">
+            <img src="${coverImg.src}" alt="" loading="lazy" draggable="false">
             <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
             ${otherCount > 0 ? `<div class="stacked-count">+${otherCount}</div>` : ''}
-            <div class="stacked-overlay">
-                <span class="stacked-title">${group.title}</span>
-            </div>
         </div>
     `;
 
-    // 点击打开组内第一张图片
+    // 点击打开组内随机一张图片
     groupElement.querySelector('.stacked-cover').addEventListener('click', () => {
-        openLightbox(coverImg.src, coverImg.title, coverImg.description);
+        openLightbox(coverImg.src, '', '');
     });
 
     return groupElement;
@@ -278,10 +273,6 @@ function loadVideos() {
             <div class="video-wrapper">
                 <div class="video-placeholder" data-src="${video.url}">▶</div>
             </div>
-            <div class="video-info">
-                <h3>${video.title || '加载中...'}</h3>
-                <p>${video.description || ''}</p>
-            </div>
         `;
         videoGrid.appendChild(item);
 
@@ -317,9 +308,9 @@ function loadVideoIframe(placeholder, video) {
 
     const wrapper = placeholder.parentElement;
     const iframe = document.createElement('iframe');
-    iframe.src = video.url;
+    iframe.src = video.url + (video.url.includes('?') ? '&autoplay=0' : '?autoplay=0');
     iframe.title = video.title || '视频';
-    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+    iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
     iframe.allowFullscreen = true;
     wrapper.replaceChild(iframe, placeholder);
 }
@@ -400,12 +391,7 @@ function openLightbox(src, title, description) {
     currentImageIndex = allImages.findIndex(img => img.src === src);
 
     lightboxImg.src = src;
-
-    let captionText = title;
-    if (description) {
-        captionText += ` - ${description}`;
-    }
-    lightboxCaption.textContent = captionText;
+    lightboxCaption.textContent = '';
 
     lightbox.classList.add('active');
     document.body.style.overflow = 'hidden';

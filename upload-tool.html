@@ -282,7 +282,7 @@
             </div>
 
             <div class="form-group">
-                <label>图片标签类型（可多选）</label>
+                <label>图片分类（必选）</label>
                 <div class="tag-options" id="tag-options">
                     <label class="tag-option">
                         <input type="checkbox" name="tags" value="landscape">
@@ -299,14 +299,6 @@
                     <label class="tag-option">
                         <input type="checkbox" name="tags" value="travel">
                         旅行
-                    </label>
-                    <label class="tag-option">
-                        <input type="checkbox" name="tags" value="night">
-                        夜景
-                    </label>
-                    <label class="tag-option">
-                        <input type="checkbox" name="tags" value="macro">
-                        微距
                     </label>
                 </div>
             </div>
@@ -459,11 +451,21 @@
             let processed = 0;
             let hasExif = false;
 
+            // 从文件名提取日期 (格式: yyyymmdd 或 yyyy-mm-dd)
+            function extractDateFromFilename(filename) {
+                const match = filename.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})/);
+                if (match) {
+                    return `${match[1]}-${match[2]}-${match[3]}`;
+                }
+                return null;
+            }
+
             for (const file of files) {
                 if (!file.type.startsWith('image/')) continue;
 
                 const exifDate = await getExifDate(file);
-                const date = exifDate || new Date(file.lastModified).toISOString().slice(0, 7);
+                const filenameDate = extractDateFromFilename(file.name);
+                const date = filenameDate || exifDate || new Date(file.lastModified).toISOString().slice(0, 7);
 
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -567,14 +569,20 @@
                 return;
             }
 
+            const tags = getSelectedTags();
+            if (tags.length === 0) {
+                status.className = 'status error';
+                status.innerHTML = '请至少选择一个图片标签类型';
+                return;
+            }
+
             try {
                 const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
 
-                // 进入 images/images 子目录（与 data.js 中的路径一致）
+                // 进入 images 子目录
                 let imagesHandle;
                 try {
-                    const imagesDir = await dirHandle.getDirectoryHandle('images', { create: true });
-                    imagesHandle = await imagesDir.getDirectoryHandle('images', { create: true });
+                    imagesHandle = await dirHandle.getDirectoryHandle('images', { create: true });
                 } catch {
                     imagesHandle = dirHandle;
                 }
@@ -590,14 +598,18 @@
                     groups[date].push(item);
                 });
 
-                const tags = getSelectedTags();
+                // 使用第一个选中的标签作为分类文件夹
+                const category = tags[0];
 
                 // 保存图片并记录路径
                 const savedByGroup = {};
                 for (const date in groups) {
                     savedByGroup[date] = [];
-                    // 创建日期子目录 (YYYY-MM格式)
-                    const dateDirHandle = await imagesHandle.getDirectoryHandle(date, { create: true });
+                    // 创建分类子目录
+                    const categoryDirHandle = await imagesHandle.getDirectoryHandle(category, { create: true });
+                    // 使用完整日期作为文件夹名 (yyyy-mm-dd)
+                    const dateStr = date; // date 已经是 yyyy-mm-dd 格式
+                    const dateDirHandle = await categoryDirHandle.getDirectoryHandle(dateStr, { create: true });
 
                     for (const item of groups[date]) {
                         let filename = item.name;
@@ -619,8 +631,8 @@
 
                         savedByGroup[date].push({
                             filename,
-                            path: `images/${date}/${filename}`,
-                            title: filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+                            path: `images/${category}/${dateStr}/${filename}`,
+                            title: ''
                         });
                     }
                 }
@@ -672,14 +684,14 @@
                 const images = savedByGroup[date].map(img => {
                     return `            {
                 src: "${img.path}",
-                title: "${img.title}",
+                title: "",
                 description: ""
             }`;
                 }).join(',\n');
 
                 return `    {
         category: "${tags.join(',') || 'landscape'}",
-        title: "${date} 照片",
+        title: "",
         description: "",
         date: "${date}",
         cols: 3,

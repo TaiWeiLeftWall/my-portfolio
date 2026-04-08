@@ -9,8 +9,10 @@
     --bg-color: #0a0a0a;
     --text-color: #f5f5f5;
     --accent-color: #c9a962;
+    --accent-glow: rgba(201, 169, 98, 0.3);
     --card-bg: #141414;
     --nav-height: 70px;
+    --border-color: #3a3a3a;
 }
 
 body {
@@ -31,7 +33,6 @@ body {
         transform: translateY(0);
     }
 }
-
 
 /* 图片加载动画 */
 .gallery-item,
@@ -62,7 +63,7 @@ a {
     background: rgba(10, 10, 10, 0.95);
     backdrop-filter: blur(10px);
     z-index: 1000;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .nav-container {
@@ -89,6 +90,7 @@ a {
     height: 40px;
     width: auto;
     object-fit: contain;
+    object-position: center center;
 }
 
 .logo-text {
@@ -166,29 +168,56 @@ a {
     color: var(--accent-color);
 }
 
-/* 分类筛选 */
-.categories {
-    padding-top: calc(var(--nav-height) + 40px);
-    padding-bottom: 30px;
-    text-align: center;
+/* 筛选栏 - 主容器 */
+.filter-bar {
+    padding-top: calc(var(--nav-height) + 20px);
+    padding-bottom: 20px;
+}
+
+.filter-bar-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 分类标签组 */
+.filter-categories {
+    gap: 4px;
+}
+
+.filter-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 4px;
 }
 
 .category-btn {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.7);
-    padding: 10px 25px;
-    margin: 5px;
-    font-size: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.55);
+    padding: 6px 16px;
+    font-size: 0.75rem;
     letter-spacing: 1px;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.25s ease;
 }
 
 .category-btn:hover {
-    border-color: var(--accent-color);
-    color: var(--accent-color);
+    border-color: rgba(201, 169, 98, 0.5);
+    color: rgba(201, 169, 98, 0.8);
 }
 
 .category-btn.active {
@@ -197,35 +226,44 @@ a {
     color: #0a0a0a;
 }
 
-/* 日期筛选下拉框 */
+/* 右侧筛选区 */
+.filter-right {
+    gap: 12px;
+}
+
+/* 日期筛选组 */
+.date-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .date-filter {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.7);
-    padding: 10px 20px;
-    margin: 5px;
-    font-size: 0.85rem;
-    letter-spacing: 1px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.55);
+    padding: 6px 28px 6px 12px;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
     cursor: pointer;
-    transition: all 0.3s;
-    border-radius: 0;
+    transition: all 0.25s ease;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='rgba(255,255,255,0.7)' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 10 10'%3E%3Cpath fill='rgba(255,255,255,0.4)' d='M5 6.5L1 2h8z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 10px center;
-    padding-right: 30px;
+    background-position: right 8px center;
 }
 
 .date-filter:hover {
-    border-color: var(--accent-color);
-    color: var(--accent-color);
+    border-color: rgba(201, 169, 98, 0.5);
+    color: rgba(201, 169, 98, 0.8);
 }
 
 .date-filter:focus {
     outline: none;
     border-color: var(--accent-color);
+    color: var(--accent-color);
 }
 
 .date-filter option {
@@ -235,29 +273,31 @@ a {
 
 /* 显示模式切换 */
 .display-mode-toggle {
-    display: inline-flex;
-    margin-left: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 .mode-btn {
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.7);
-    padding: 8px 16px;
-    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.55);
+    padding: 6px 12px;
+    font-size: 0.7rem;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.25s ease;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
-    letter-spacing: 1px;
 }
 
 .mode-btn:first-child {
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .mode-btn:hover {
     color: var(--accent-color);
+    background: rgba(201, 169, 98, 0.08);
 }
 
 .mode-btn.active {
@@ -267,8 +307,9 @@ a {
 
 /* 画廊 - 瀑布流布局 */
 .gallery {
-    padding: 20px 0 80px;
+    padding: 40px 0 80px;
     min-height: calc(100vh - 200px);
+    position: relative;
 }
 
 .gallery-grid {
@@ -283,6 +324,7 @@ a {
     overflow: hidden;
     cursor: pointer;
     background: var(--card-bg);
+    border: 1px solid var(--border-color);
 }
 
 .gallery-item.horizontal {
@@ -336,6 +378,7 @@ a {
     break-inside: avoid;
     margin-bottom: 20px;
     position: relative;
+    border: 1px solid var(--border-color);
 }
 
 .stacked-cover {
@@ -483,6 +526,23 @@ a {
     background: var(--card-bg);
     border-radius: 8px;
     overflow: hidden;
+    border: 1px solid var(--border-color);
+    position: relative;
+}
+
+.video-item::before {
+    content: 'VIDEO';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    padding: 2px 8px;
+    font-size: 0.6rem;
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    z-index: 2;
+    letter-spacing: 1px;
 }
 
 .video-item .video-wrapper {
@@ -553,6 +613,7 @@ a {
     aspect-ratio: 1;
     object-fit: cover;
     border-radius: 8px;
+    border: 2px solid var(--border-color);
 }
 
 .about-text h1 {
@@ -560,6 +621,61 @@ a {
     font-weight: 300;
     margin-bottom: 30px;
     letter-spacing: 3px;
+}
+
+.social-modules {
+    display: flex;
+    gap: 16px;
+    margin: 30px 0;
+    flex-wrap: wrap;
+}
+
+.social-module {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    flex: 1;
+    min-width: 180px;
+}
+
+.social-module .social-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.social-label {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.social-handle {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    word-break: break-all;
+}
+
+.social-module:hover {
+    border-color: var(--accent-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(201, 169, 98, 0.15);
+}
+
+.social-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    object-fit: contain;
 }
 
 .about-text h2 {
@@ -592,7 +708,7 @@ a {
 /* 页脚 */
 footer {
     padding: 40px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--border-color);
     text-align: center;
 }
 
@@ -630,6 +746,29 @@ footer p {
         gap: 20px;
     }
 
+    .filter-bar-inner {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .filter-right {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .date-filter-group {
+        padding-left: 0;
+        border-left: none;
+    }
+
+    .category-btn {
+        padding: 5px 12px;
+        font-size: 0.7rem;
+    }
+
     .gallery-grid {
         column-count: 2;
         column-gap: 10px;
@@ -656,6 +795,19 @@ footer p {
         margin: 0 auto;
     }
 
+    .social-modules {
+        flex-direction: column;
+    }
+
+    .social-module {
+        min-width: 100%;
+    }
+
+    .about-text {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
     .lightbox-nav {
         font-size: 35px;
         padding: 10px;
@@ -673,5 +825,23 @@ footer p {
 @media (max-width: 480px) {
     .gallery-grid {
         column-count: 1;
+    }
+
+    .filter-categories {
+        flex-wrap: wrap;
+    }
+
+    .filter-divider {
+        display: none;
+    }
+
+    .filter-right {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .category-btn {
+        padding: 6px 14px;
+        font-size: 0.7rem;
     }
 }

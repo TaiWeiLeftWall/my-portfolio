@@ -7,8 +7,8 @@
     <meta property="og:title" content="摄影作品集 | 沉礁">
     <meta property="og:description" content="沉礁摄影作品集 - 杭州自由摄影师，风光、人像、街头、旅行摄影作品">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="icons/LOGO_white.png">
-    <link rel="icon" href="icons/LOGO_white.png" type="image/png">
+    <meta property="og:image" content="https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/icons/LOGO_white.png">
+    <link rel="icon" href="https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/icons/LOGO_white.png" type="image/png">
     <title>摄影作品集 | 沉礁</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -17,29 +17,35 @@
     <nav class="navbar"></nav>
 
     <!-- 分类筛选 -->
-    <section class="categories">
-        <div class="container">
-            <button class="category-btn active" data-category="landscape">风光</button>
-            <button class="category-btn" data-category="portrait">人像</button>
-            <button class="category-btn" data-category="street">街头</button>
-            <button class="category-btn" data-category="travel">旅行</button>
-            <button class="category-btn" data-category="all">全部</button>
-
-            <!-- 显示模式切换 -->
-            <div class="display-mode-toggle">
-                <button class="mode-btn active" data-mode="stacked">时间线</button>
-                <button class="mode-btn" data-mode="random">随机展示</button>
+    <section class="filter-bar">
+        <div class="filter-bar-inner">
+            <!-- 左侧：分类标签 -->
+            <div class="filter-group filter-categories">
+                <button class="category-btn active" data-category="landscape">风光</button>
+                <button class="category-btn" data-category="portrait">人像</button>
+                <button class="category-btn" data-category="street">街头</button>
+                <span class="filter-divider"></span>
+                <button class="category-btn" data-category="all">全部</button>
             </div>
 
-            <!-- 年份筛选 -->
-            <select id="year-filter" class="date-filter">
-                <option value="all">所有年份</option>
-            </select>
+            <!-- 右侧：视图模式 + 时间筛选 -->
+            <div class="filter-group filter-right">
+                <!-- 显示模式切换 -->
+                <div class="display-mode-toggle">
+                    <button class="mode-btn active" data-mode="stacked">时间线</button>
+                    <button class="mode-btn" data-mode="random">随机</button>
+                </div>
 
-            <!-- 月份筛选 -->
-            <select id="month-filter" class="date-filter">
-                <option value="all">所有月份</option>
-            </select>
+                <!-- 时间筛选 -->
+                <div class="date-filter-group">
+                    <select id="year-filter" class="date-filter">
+                        <option value="all">全部年份</option>
+                    </select>
+                    <select id="month-filter" class="date-filter">
+                        <option value="all">全部月份</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -57,7 +63,7 @@
         <span class="lightbox-close">&times;</span>
         <div class="lightbox-img-wrapper">
             <img class="lightbox-img" id="lightbox-img" src="" alt="">
-            <img class="watermark-overlay" src="icons/LOGO_white.png" alt="watermark">
+            <img class="watermark-overlay" src="https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/icons/LOGO_white.png" alt="watermark">
         </div>
         <p class="lightbox-caption" id="lightbox-caption"></p>
     </div>

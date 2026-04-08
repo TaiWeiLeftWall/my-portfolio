@@ -328,6 +328,80 @@
         let selectedFiles = [];
         const isSupported = 'showDirectoryPicker' in window;
 
+        // ========== R2 上传配置 ==========
+        const R2_UPLOAD_URL = ''; // 部署 Worker 后填入，如: https://r2-upload.your-subdomain.workers.dev/upload
+        const R2_BASE_URL = 'https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev';
+        const MAX_DIMENSION = 2500;
+        const TARGET_SIZE_KB = 1500;
+
+        // Canvas 压缩图片
+        async function compressImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+
+                    // 调整尺寸
+                    if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+                        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+                        width = Math.floor(width * ratio);
+                        height = Math.floor(height * ratio);
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 逐步降低质量直到合适
+                    let quality = 0.9;
+                    let blob;
+
+                    const tryCompress = () => {
+                        canvas.toBlob((b) => {
+                            if (b && b.size <= TARGET_SIZE_KB * 1024) {
+                                blob = b;
+                                resolve(blob);
+                            } else if (quality > 0.3) {
+                                quality -= 0.1;
+                                tryCompress();
+                            } else {
+                                // 最后尝试，直接返回当前结果
+                                resolve(blob || b);
+                            }
+                        }, 'image/jpeg', quality);
+                    };
+
+                    tryCompress();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // 上传到 R2
+        async function uploadToR2(blob, filename, category, dateStr) {
+            if (!R2_UPLOAD_URL) {
+                throw new Error('请先配置 R2_UPLOAD_URL');
+            }
+
+            const formData = new FormData();
+            formData.append('image', blob, filename);
+            formData.append('category', category);
+            formData.append('date', dateStr);
+
+            const response = await fetch(R2_UPLOAD_URL, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`上传失败: ${response.statusText}`);
+            }
+
+            return await response.json();
+        }
+
         if (!isSupported) {
             document.getElementById('not-support').style.display = 'block';
         }
@@ -576,76 +650,57 @@
                 return;
             }
 
+            if (!R2_UPLOAD_URL) {
+                status.className = 'status error';
+                status.innerHTML = '请先配置 R2_UPLOAD_URL（联系管理员部署 Worker）';
+                return;
+            }
+
             try {
-                const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'desktop' });
-
-                // 进入 images 子目录
-                let imagesHandle;
-                try {
-                    imagesHandle = await dirHandle.getDirectoryHandle('images', { create: true });
-                } catch {
-                    imagesHandle = dirHandle;
-                }
-
                 status.className = 'status info';
-                status.innerHTML = `正在保存 ${selectedFiles.length} 张图片...`;
+                status.innerHTML = `正在压缩并上传 ${selectedFiles.length} 张图片到 R2...`;
 
-                // 按日期分组
-                const groups = {};
-                selectedFiles.forEach(item => {
-                    const date = item.date || '未知日期';
-                    if (!groups[date]) groups[date] = [];
-                    groups[date].push(item);
-                });
-
-                // 使用第一个选中的标签作为分类文件夹
                 const category = tags[0];
-
-                // 保存图片并记录路径
                 const savedByGroup = {};
-                for (const date in groups) {
-                    savedByGroup[date] = [];
-                    // 创建分类子目录
-                    const categoryDirHandle = await imagesHandle.getDirectoryHandle(category, { create: true });
-                    // 使用完整日期作为文件夹名 (yyyy-mm-dd)
-                    const dateStr = date; // date 已经是 yyyy-mm-dd 格式
-                    const dateDirHandle = await categoryDirHandle.getDirectoryHandle(dateStr, { create: true });
+                let uploaded = 0;
 
-                    for (const item of groups[date]) {
-                        let filename = item.name;
-                        let fileHandle;
+                for (const item of selectedFiles) {
+                    const date = item.date || new Date().toISOString().slice(0, 10);
+                    const dateStr = date.length > 7 ? date : `${date}-01`;
 
-                        while (true) {
-                            try {
-                                fileHandle = await dateDirHandle.getFileHandle(filename, { create: true });
-                                break;
-                            } catch {
-                                const nameParts = filename.match(/^(.+?)(\.[^.]+)?$/);
-                                filename = `${nameParts[1]}_${Date.now()}${nameParts[2] || ''}`;
-                            }
-                        }
+                    // 压缩
+                    status.innerHTML = `压缩中 ${uploaded + 1}/${selectedFiles.length}...`;
+                    const compressedBlob = await compressImage(item.file);
 
-                        const writable = await fileHandle.createWritable();
-                        await writable.write(item.file);
-                        await writable.close();
+                    // 生成文件名
+                    const ext = item.name.split('.').pop() || 'jpg';
+                    const filename = `${dateStr.replace(/-/g, '')}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-                        savedByGroup[date].push({
-                            filename,
-                            path: `images/${category}/${dateStr}/${filename}`,
-                            title: ''
-                        });
-                    }
+                    // 上传
+                    status.innerHTML = `上传中 ${uploaded + 1}/${selectedFiles.length}...`;
+                    const result = await uploadToR2(compressedBlob, filename, category, dateStr);
+
+                    // 记录
+                    if (!savedByGroup[date]) savedByGroup[date] = [];
+                    savedByGroup[date].push({
+                        filename,
+                        path: result.url,
+                        title: ''
+                    });
+
+                    uploaded++;
                 }
 
-                // 更新 data.js
-                await updateDataJs(dirHandle, savedByGroup, tags);
+                // 更新本地 data.js
+                status.innerHTML = '更新 data.js...';
+                await updateDataJsLocal(savedByGroup, tags);
 
                 status.className = 'status success';
                 status.innerHTML = `
-                    保存成功！<br>
-                    已保存 ${selectedFiles.length} 张图片<br>
-                    已按日期自动编为 ${Object.keys(groups).length} 个组<br>
-                    已同步到 data.js<br>
+                    上传成功！<br>
+                    已上传 ${selectedFiles.length} 张图片到 R2<br>
+                    已按日期自动编为 ${Object.keys(savedByGroup).length} 个组<br>
+                    data.js 已更新，请提交到 GitHub<br>
                     <a href="index.html?t=${Date.now()}" style="color:#c9a962;">点击查看主页 &rarr;</a>
                 `;
 
@@ -660,36 +715,41 @@
                     return;
                 }
                 status.className = 'status error';
-                status.innerHTML = `保存失败: ${error.message}`;
+                status.innerHTML = `上传失败: ${error.message}`;
+                console.error(error);
             }
         }
 
-        async function updateDataJs(dirHandle, savedByGroup, tags) {
-            let dataJsHandle;
-            let dataJsContent = '';
-
+        // 更新本地 data.js（R2 URL 版本）
+        async function updateDataJsLocal(savedByGroup, tags) {
             try {
-                dataJsHandle = await dirHandle.getFileHandle('data.js');
-                const file = await dataJsHandle.getFile();
-                dataJsContent = await file.text();
-            } catch {
-                return;
-            }
+                const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                let dataJsHandle;
+                let dataJsContent = '';
 
-            // 按日期排序（最新的在前面）
-            const sortedDates = Object.keys(savedByGroup).sort().reverse();
+                try {
+                    dataJsHandle = await dirHandle.getFileHandle('data.js');
+                    const file = await dataJsHandle.getFile();
+                    dataJsContent = await file.text();
+                } catch {
+                    alert('无法读取 data.js，请确保在项目根目录运行');
+                    return;
+                }
 
-            // 构建新的 photoGroups 条目
-            const newGroups = sortedDates.map(date => {
-                const images = savedByGroup[date].map(img => {
-                    return `            {
+                // 按日期排序
+                const sortedDates = Object.keys(savedByGroup).sort().reverse();
+
+                // 构建新的 photoGroups 条目
+                const newGroups = sortedDates.map(date => {
+                    const images = savedByGroup[date].map(img => {
+                        return `            {
                 src: "${img.path}",
                 title: "",
                 description: ""
             }`;
-                }).join(',\n');
+                    }).join(',\n');
 
-                return `    {
+                    return `    {
         category: "${tags.join(',') || 'landscape'}",
         title: "",
         description: "",
@@ -699,25 +759,29 @@
 ${images}
         ]
     }`;
-            }).join(',\n');
+                }).join(',\n');
 
-            // 检查是否有空的 photoGroups
-            if (dataJsContent.includes('const photoGroups = []')) {
-                dataJsContent = dataJsContent.replace(
-                    'const photoGroups = []',
-                    `const photoGroups = [\n${newGroups}\n]`
-                );
-            } else {
-                // 在 photoGroups = [ 后面添加
-                dataJsContent = dataJsContent.replace(
-                    'const photoGroups = [',
-                    `const photoGroups = [\n${newGroups},`
-                );
+                // 检查是否有空的 photoGroups
+                if (dataJsContent.includes('const photoGroups = []')) {
+                    dataJsContent = dataJsContent.replace(
+                        'const photoGroups = []',
+                        `const photoGroups = [\n${newGroups}\n]`
+                    );
+                } else {
+                    dataJsContent = dataJsContent.replace(
+                        'const photoGroups = [',
+                        `const photoGroups = [\n${newGroups},`
+                    );
+                }
+
+                const writable = await dataJsHandle.createWritable();
+                await writable.write(dataJsContent);
+                await writable.close();
+
+            } catch (error) {
+                console.error('更新 data.js 失败:', error);
+                throw error;
             }
-
-            const writable = await dataJsHandle.createWritable();
-            await writable.write(dataJsContent);
-            await writable.close();
         }
     </script>
 </body>

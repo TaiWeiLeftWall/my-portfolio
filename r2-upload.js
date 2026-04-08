@@ -53,7 +53,7 @@ export default {
       });
 
       // Return the R2 URL
-      const r2Url = `https://pub-ba17e7db6d874ec89ad295b72ef1e9d8.r2.dev/${r2Path}`;
+      const r2Url = `https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/${r2Path}`;
 
       return new Response(JSON.stringify({
         success: true,

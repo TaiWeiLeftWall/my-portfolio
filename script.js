@@ -27,6 +27,18 @@ document.addEventListener('DOMContentLoaded', function() {
     setupLightbox();
 });
 
+// 窗口大小变化时重新布局
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        const galleryGrid = document.getElementById('gallery-grid');
+        if (galleryGrid && galleryGrid.querySelector('.masonry-columns')) {
+            loadGallery(); // 重新加载以适应新列数
+        }
+    }, 250);
+});
+
 // 水印图片URL
 const watermarkUrl = 'icons/LOGO_white.png';
 
@@ -95,7 +107,6 @@ function loadGallery(category = 'all') {
             const randomIndex = Math.floor(Math.random() * group.images.length);
             const randomImg = group.images[randomIndex];
             const item = createGalleryItem(randomImg);
-            galleryGrid.appendChild(item);
             allImages.push({
                 src: randomImg.src,
                 title: randomImg.title,
@@ -103,11 +114,18 @@ function loadGallery(category = 'all') {
                 type: 'single'
             });
         });
+        // 瀑布流布局：插入到最短列
+        filteredGroups.forEach(group => {
+            if (group.images.length === 0) return;
+            const randomIndex = Math.floor(Math.random() * group.images.length);
+            const randomImg = group.images[randomIndex];
+            const item = createGalleryItem(randomImg);
+            insertIntoShortestColumn(item);
+        });
     } else {
-        // 时间线模式：原有堆叠展示
+        // 时间线模式：瀑布流布局
         filteredGroups.forEach(group => {
             const groupElement = createPhotoGroup(group);
-            galleryGrid.appendChild(groupElement);
 
             // 添加组内图片到灯箱列表
             group.images.forEach(img => {
@@ -119,8 +137,142 @@ function loadGallery(category = 'all') {
                     groupTitle: group.title
                 });
             });
+
+            // 瀑布流布局：插入到最短列
+            insertIntoShortestColumn(groupElement);
         });
     }
+
+    // 等待图片加载完成后重新平衡列高度
+    requestAnimationFrame(() => {
+        imagesLoaded(galleryGrid, () => {
+            relayoutMasonry();
+        });
+    });
+}
+
+// 瀑布流：将元素插入到最短列
+function insertIntoShortestColumn(element) {
+    const galleryGrid = document.getElementById('gallery-grid');
+    const columns = getOrCreateColumns();
+
+    let shortestColumn = columns[0];
+    let minHeight = columns[0].offsetHeight;
+
+    for (let i = 1; i < columns.length; i++) {
+        if (columns[i].offsetHeight < minHeight) {
+            minHeight = columns[i].offsetHeight;
+            shortestColumn = columns[i];
+        }
+    }
+
+    shortestColumn.appendChild(element);
+}
+
+// 获取或创建列容器
+function getOrCreateColumns() {
+    const galleryGrid = document.getElementById('gallery-grid');
+
+    // 根据屏幕宽度决定列数
+    const width = window.innerWidth;
+    let columnCount = 3;
+    if (width <= 480) {
+        columnCount = 1;
+    } else if (width <= 1024) {
+        columnCount = 2;
+    }
+
+    // 检查是否已有列容器且列数相同
+    let columnsContainer = galleryGrid.querySelector('.masonry-columns');
+    const existingColumns = columnsContainer ? columnsContainer.querySelectorAll('.masonry-column') : [];
+
+    if (!columnsContainer || existingColumns.length !== columnCount) {
+        // 重新创建列容器
+        columnsContainer = document.createElement('div');
+        columnsContainer.className = 'masonry-columns';
+        galleryGrid.innerHTML = ''; // 清空现有内容
+        galleryGrid.appendChild(columnsContainer);
+
+        // 创建指定数量的列
+        for (let i = 0; i < columnCount; i++) {
+            const column = document.createElement('div');
+            column.className = 'masonry-column';
+            columnsContainer.appendChild(column);
+        }
+    }
+
+    return columnsContainer.querySelectorAll('.masonry-column');
+}
+
+// 图片加载完成后重新布局
+function relayoutMasonry() {
+    const columns = getOrCreateColumns();
+
+    // 找到最短列并移动最高的元素过去平衡
+    for (let round = 0; round < 10; round++) { // 最多调整10轮
+        let maxHeight = 0;
+        let minHeight = Infinity;
+        let maxColIndex = 0;
+        let minColIndex = 0;
+
+        columns.forEach((col, i) => {
+            if (col.offsetHeight > maxHeight) {
+                maxHeight = col.offsetHeight;
+                maxColIndex = i;
+            }
+            if (col.offsetHeight < minHeight) {
+                minHeight = col.offsetHeight;
+                minColIndex = i;
+            }
+        });
+
+        // 如果最高列比最短列高超过100px，进行平衡
+        if (maxHeight - minHeight > 100) {
+            const maxColumn = columns[maxColIndex];
+            const minColumn = columns[minColIndex];
+            const items = maxColumn.querySelectorAll('.photo-group-stacked, .gallery-item');
+
+            if (items.length > 0) {
+                // 移动第一个元素到最短列
+                minColumn.appendChild(items[0]);
+            }
+        } else {
+            break; // 已经足够平衡
+        }
+    }
+}
+
+// 图片加载检测
+function imagesLoaded(container, callback) {
+    const images = container.querySelectorAll('img');
+    let loadedCount = 0;
+
+    if (images.length === 0) {
+        callback();
+        return;
+    }
+
+    images.forEach(img => {
+        if (img.complete) {
+            loadedCount++;
+        } else {
+            img.addEventListener('load', () => {
+                loadedCount++;
+                if (loadedCount === images.length) {
+                    callback();
+                }
+            });
+            img.addEventListener('error', () => {
+                loadedCount++;
+                if (loadedCount === images.length) {
+                    callback();
+                }
+            });
+        }
+    });
+
+    // 超时保护
+    setTimeout(callback, 3000);
 }
 
 // 创建单独图片项

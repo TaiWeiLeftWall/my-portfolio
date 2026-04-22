@@ -336,6 +336,7 @@ a {
     cursor: pointer;
     background: var(--card-bg);
     border: 1px solid var(--border-color);
+    min-height: 150px; /* 防止图片加载前布局跳动 */
 }
 
 .gallery-item.horizontal {
@@ -351,6 +352,7 @@ a {
     height: auto;
     display: block;
     transition: transform 0.5s;
+    will-change: transform;
 }
 
 .gallery-item:hover img {
@@ -390,6 +392,8 @@ a {
     margin-bottom: 20px;
     position: relative;
     border: 1px solid var(--border-color);
+    min-height: 200px; /* 防止图片加载前布局跳动 */
+    background: var(--card-bg);
 }
 
 .stacked-cover {
@@ -404,6 +408,7 @@ a {
     height: auto;
     display: block;
     transition: transform 0.5s;
+    will-change: transform;
 }
 
 .stacked-cover:hover img {

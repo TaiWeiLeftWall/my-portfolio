@@ -107,6 +107,7 @@ function loadGallery(category = 'all') {
             const randomIndex = Math.floor(Math.random() * group.images.length);
             const randomImg = group.images[randomIndex];
             const item = createGalleryItem(randomImg);
+            item.dataset.src = randomImg.src;
             allImages.push({
                 src: randomImg.src,
                 title: randomImg.title,
@@ -120,6 +121,7 @@ function loadGallery(category = 'all') {
             const randomIndex = Math.floor(Math.random() * group.images.length);
             const randomImg = group.images[randomIndex];
             const item = createGalleryItem(randomImg);
+            item.dataset.src = randomImg.src;
             insertIntoShortestColumn(item);
         });
     } else {
@@ -143,12 +145,19 @@ function loadGallery(category = 'all') {
         });
     }
 
-    // 等待图片加载完成后重新平衡列高度
-    requestAnimationFrame(() => {
-        imagesLoaded(galleryGrid, () => {
-            relayoutMasonry();
+    // 隐藏 masonry 容器，等图片加载完成后再显示
+    const columnsContainer = galleryGrid.querySelector('.masonry-columns');
+    if (columnsContainer) {
+        columnsContainer.style.opacity = '0';
+        columnsContainer.style.transition = 'opacity 0.3s ease';
+
+        // 等待图片加载完成后再显示（不调整布局，防止跳动）
+        imagesLoaded(columnsContainer, () => {
+            requestAnimationFrame(() => {
+                columnsContainer.style.opacity = '1';
+            });
         });
-    });
+    }
 }
 
 // 瀑布流：将元素插入到最短列
@@ -204,44 +213,6 @@ function getOrCreateColumns() {
     return columnsContainer.querySelectorAll('.masonry-column');
 }
 
-// 图片加载完成后重新布局
-function relayoutMasonry() {
-    const columns = getOrCreateColumns();
-
-    // 找到最短列并移动最高的元素过去平衡
-    for (let round = 0; round < 10; round++) { // 最多调整10轮
-        let maxHeight = 0;
-        let minHeight = Infinity;
-        let maxColIndex = 0;
-        let minColIndex = 0;
-
-        columns.forEach((col, i) => {
-            if (col.offsetHeight > maxHeight) {
-                maxHeight = col.offsetHeight;
-                maxColIndex = i;
-            }
-            if (col.offsetHeight < minHeight) {
-                minHeight = col.offsetHeight;
-                minColIndex = i;
-            }
-        });
-
-        // 如果最高列比最短列高超过100px，进行平衡
-        if (maxHeight - minHeight > 100) {
-            const maxColumn = columns[maxColIndex];
-            const minColumn = columns[minColIndex];
-            const items = maxColumn.querySelectorAll('.photo-group-stacked, .gallery-item');
-
-            if (items.length > 0) {
-                // 移动第一个元素到最短列
-                minColumn.appendChild(items[0]);
-            }
-        } else {
-            break; // 已经足够平衡
-        }
-    }
-}
-
 // 图片加载检测
 function imagesLoaded(container, callback) {
     const images = container.querySelectorAll('img');
@@ -252,27 +223,30 @@ function imagesLoaded(container, callback) {
         return;
     }
 
+    function checkComplete() {
+        if (loadedCount >= images.length) {
+            callback();
+        }
+    }
+
     images.forEach(img => {
         if (img.complete) {
             loadedCount++;
+            checkComplete();
         } else {
             img.addEventListener('load', () => {
                 loadedCount++;
-                if (loadedCount === images.length) {
-                    callback();
-                }
+                checkComplete();
             });
             img.addEventListener('error', () => {
                 loadedCount++;
-                if (loadedCount === images.length) {
-                    callback();
-                }
+                checkComplete();
             });
         }
     });
 
-    // 超时保护
-    setTimeout(callback, 3000);
+    // 超时保护（5秒后强制执行）
+    setTimeout(callback, 5000);
 }
 
 // 创建单独图片项

@@ -16,55 +16,70 @@
     <!-- 导航栏 -->
     <nav class="navbar"></nav>
 
-    <!-- 分类筛选 -->
+    <!-- 筛选栏 - 左侧边栏 -->
     <section class="filter-bar">
         <div class="filter-bar-inner">
-            <!-- 左侧：分类标签 -->
-            <div class="filter-group filter-categories">
-                <button class="category-btn active" data-category="all">全部</button>
-                <span class="filter-divider"></span>
-                <button class="category-btn" data-category="landscape">风光</button>
-                <button class="category-btn" data-category="portrait">人像</button>
-                <button class="category-btn" data-category="street">街头</button>
-            </div>
-
-            <!-- 右侧：视图模式 + 时间筛选 -->
-            <div class="filter-group filter-right">
-                <!-- 显示模式切换 -->
-                <div class="display-mode-toggle">
-                    <button class="mode-btn active" data-mode="stacked">时间线</button>
-                    <button class="mode-btn" data-mode="random">随机</button>
+            <!-- 左侧边栏 -->
+            <aside class="filter-sidebar">
+                <!-- 显示模式 -->
+                <div class="filter-group">
+                    <div class="filter-group-title">显示</div>
+                    <div class="display-mode-group">
+                        <div class="display-mode-toggle">
+                            <button class="mode-btn active" data-mode="stacked">时间线</button>
+                            <button class="mode-btn" data-mode="random">随机</button>
+                        </div>
+                    </div>
                 </div>
+
+                <div class="filter-divider"></div>
+
+                <!-- 分类筛选 -->
+                <div class="filter-group">
+                    <div class="filter-group-title">分类</div>
+                    <div class="category-list">
+                        <button class="category-btn active" data-category="all">全部</button>
+                        <button class="category-btn" data-category="landscape">风光</button>
+                        <button class="category-btn" data-category="portrait">人像</button>
+                        <button class="category-btn" data-category="street">街头</button>
+                    </div>
+                </div>
+
+                <div class="filter-divider"></div>
 
                 <!-- 时间筛选 -->
-                <div class="date-filter-group">
-                    <select id="year-filter" class="date-filter">
-                        <option value="all">全部年份</option>
-                    </select>
-                    <select id="month-filter" class="date-filter">
-                        <option value="all">全部月份</option>
-                    </select>
+                <div class="filter-group">
+                    <div class="filter-group-title">时间</div>
+                    <div class="date-filter-group">
+                        <select id="year-filter" class="date-filter">
+                            <option value="all">全部年份</option>
+                        </select>
+                        <select id="month-filter" class="date-filter">
+                            <option value="all">全部月份</option>
+                        </select>
+                    </div>
                 </div>
+            </aside>
+
+            <!-- 右侧主内容 -->
+            <div class="filter-main">
+                <!-- 作品画廊 -->
+                <main class="gallery">
+                    <div class="gallery-grid" id="gallery-grid">
+                        <!-- 照片将通过 JavaScript 动态插入 -->
+                    </div>
+                </main>
             </div>
         </div>
     </section>
-
-    <!-- 作品画廊 -->
-    <main class="gallery">
-        <div class="container">
-            <div class="gallery-grid" id="gallery-grid">
-                <!-- 照片将通过 JavaScript 动态插入 -->
-            </div>
-        </div>
-    </main>
 
     <!-- 灯箱 -->
     <div class="lightbox" id="lightbox">
         <span class="lightbox-close">&times;</span>
         <div class="lightbox-img-wrapper">
             <img class="lightbox-img" id="lightbox-img" src="" alt="">
-            <img class="watermark-overlay" src="https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/icons/LOGO_white.png" alt="watermark">
         </div>
+        <div class="lightbox-preview-strip" id="lightbox-preview-strip"></div>
         <p class="lightbox-caption" id="lightbox-caption"></p>
     </div>
 

@@ -719,11 +719,19 @@
                 throw err;
             }
 
+            // 验证目录中是否有 data.js
+            const dirStatus = await verifyDataJsDir(dirHandle);
+            if (!dirStatus.valid) {
+                status.className = 'status error';
+                status.innerHTML = dirStatus.message;
+                return;
+            }
+
             // 目录选择成功后再执行上传
-            await doSaveAndUpload(dirHandle, tags);
+            await doSaveAndUpload(dirHandle, tags, dirStatus.dataJsHandle);
         }
 
-        async function doSaveAndUpload(dirHandle, tags) {
+        async function doSaveAndUpload(dirHandle, tags, dataJsHandle) {
             const status = document.getElementById('status');
 
             try {
@@ -765,7 +773,7 @@
 
                 // 更新本地 data.js
                 status.innerHTML = '更新 data.js...';
-                await updateDataJsWithHandle(dirHandle, savedByGroup, tags);
+                await updateDataJs(dataJsHandle, savedByGroup, tags);
 
                 status.className = 'status success';
                 status.innerHTML = `
@@ -792,20 +800,44 @@
             }
         }
 
-        // 更新本地 data.js（接收已选择的目录句柄）
-        async function updateDataJsWithHandle(dirHandle, savedByGroup, tags) {
+        // 验证目录是否包含 data.js，并返回 data.js 句柄
+        async function verifyDataJsDir(dirHandle) {
             try {
-                let dataJsHandle;
-                let dataJsContent = '';
-
+                const handle = await dirHandle.getFileHandle('data.js');
+                return { valid: true, dataJsHandle: handle };
+            } catch {
+                // data.js 不在当前目录，尝试上级目录
                 try {
-                    dataJsHandle = await dirHandle.getFileHandle('data.js');
-                    const file = await dataJsHandle.getFile();
-                    dataJsContent = await file.text();
+                    const parent = await dirHandle.getParent();
+                    // 确保不是同一个目录（根目录会返回自己）
+                    const currentName = dirHandle.name;
+                    const parentName = parent.name;
+                    if (currentName === parentName && currentName === '/') {
+                        return {
+                            valid: false,
+                            message: '无法找到 data.js，请选择包含 data.js 的项目根目录'
+                        };
+                    }
+                    const parentHandle = await parent.getFileHandle('data.js');
+                    return {
+                        valid: true,
+                        dataJsHandle: parentHandle,
+                        message: `已在上级目录 "${parentName}" 中找到 data.js`
+                    };
                 } catch {
-                    alert('无法读取 data.js，请确保在项目根目录运行');
-                    return;
+                    return {
+                        valid: false,
+                        message: '无法找到 data.js，请选择包含 data.js 的项目根目录'
+                    };
                 }
+            }
+        }
+
+        // 更新本地 data.js（接收已验证的 data.js 句柄）
+        async function updateDataJs(dataJsHandle, savedByGroup, tags) {
+            try {
+                const file = await dataJsHandle.getFile();
+                let dataJsContent = await file.text();
 
                 // 按日期排序
                 const sortedDates = Object.keys(savedByGroup).sort().reverse();

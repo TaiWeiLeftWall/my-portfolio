@@ -354,6 +354,7 @@
             <div style="margin-top: 20px;">
                 <button class="btn" id="save-btn" onclick="handleSaveBtnClick()" disabled>保存并同步到主页</button>
                 <button class="btn btn-secondary" onclick="clearAll()">清空</button>
+                <p class="helper-text" style="margin-top: 8px; font-size: 11px; color: #7a7a7a;">请选择项目根目录（包含 data.js）</p>
             </div>
 
             <div id="status"></div>
@@ -361,7 +362,8 @@
 
         <p class="helper-text" style="margin-top: 20px; text-align: center;">
             使用说明：上传图片后会自动识别EXIF日期，同一天的照片自动编为一组<br>
-            点击「保存并同步到主页」将图片保存并更新到网站
+            点击「保存并同步到主页」后将弹出目录选择，请选择 <strong>项目根目录</strong>（包含 data.js 的文件夹）<br>
+            若上传到子文件夹，工具会自动向上查找 data.js
         </p>
     </div>
 

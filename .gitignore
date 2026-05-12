@@ -4,6 +4,9 @@ node_modules/
 # Compressed images (use rclone to sync)
 images-compressed/
 
+# Upload tool (standalone, not in repo)
+upload-tool/
+
 # OS files
 .DS_Store
 Thumbs.db

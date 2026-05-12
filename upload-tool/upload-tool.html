@@ -371,6 +371,15 @@
 
         // ========== R2 上传配置 ==========
         const R2_UPLOAD_URL = 'https://r2-upload.linweigh58.workers.dev/upload';
+
+        // 格式化时间戳为 HHmmss
+        function formatTime(date) {
+            const h = String(date.getHours()).padStart(2, '0');
+            const m = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${h}${m}${s}`;
+        }
+
         const R2_BASE_URL = 'https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev';
         const MAX_DIMENSION = 2500;
         const TARGET_SIZE_KB = 1500;
@@ -735,7 +744,9 @@
 
                     // 生成文件名
                     const ext = item.name.split('.').pop() || 'jpg';
-                    const filename = `${dateStr.replace(/-/g, '')}-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+                    const now = new Date();
+                    const seq = String(uploaded + 1).padStart(3, '0');
+                    const filename = `${dateStr.replace(/-/g, '')}-${formatTime(now)}-${seq}.${ext}`;
 
                     // 上传
                     status.innerHTML = `上传中 ${uploaded + 1}/${selectedFiles.length}...`;

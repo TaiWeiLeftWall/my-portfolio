@@ -354,7 +354,7 @@
             <div style="margin-top: 20px;">
                 <button class="btn" id="save-btn" onclick="handleSaveBtnClick()" disabled>保存并同步到主页</button>
                 <button class="btn btn-secondary" onclick="clearAll()">清空</button>
-                <p class="helper-text" style="margin-top: 8px; font-size: 11px; color: #7a7a7a;">请选择项目根目录（包含 data.js）</p>
+                <p class="helper-text" style="margin-top: 8px; font-size: 11px; color: #7a7a7a;">首次需要选择项目根目录，后续会自动定位</p>
             </div>
 
             <div id="status"></div>
@@ -362,14 +362,96 @@
 
         <p class="helper-text" style="margin-top: 20px; text-align: center;">
             使用说明：上传图片后会自动识别EXIF日期，同一天的照片自动编为一组<br>
-            点击「保存并同步到主页」后将弹出目录选择，请选择 <strong>项目根目录</strong>（包含 data.js 的文件夹）<br>
-            若上传到子文件夹，工具会自动向上查找 data.js
+            首次使用需选择项目根目录（包含 data.js），之后会自动记忆并定位<br>
+            若目录变更，可手动重新选择
         </p>
     </div>
 
     <script>
         let selectedFiles = [];
         const isSupported = 'showDirectoryPicker' in window;
+
+        // ========== IndexedDB 句柄存储 ==========
+        const handleStore = {
+            DB_NAME: 'upload-tool-db',
+            STORE_NAME: 'handles',
+            KEY: 'project-root',
+
+            async open() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.DB_NAME, 1);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+                            db.createObjectStore(this.STORE_NAME);
+                        }
+                    };
+                });
+            },
+
+            async save(handle) {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this.STORE_NAME, 'readwrite');
+                    tx.objectStore(this.STORE_NAME).put(handle, this.KEY);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            },
+
+            async load() {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this.STORE_NAME, 'readonly');
+                    const request = tx.objectStore(this.STORE_NAME).get(this.KEY);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            },
+
+            async clear() {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this.STORE_NAME, 'readwrite');
+                    tx.objectStore(this.STORE_NAME).delete(this.KEY);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+            }
+        };
+
+        // 检查句柄是否仍有效
+        async function verifyStoredHandle(dirHandle) {
+            try {
+                await dirHandle.getFileHandle('data.js');
+                return { valid: true, dataJsHandle: dirHandle };
+            } catch {
+                // 尝试上级目录
+                try {
+                    const parent = await dirHandle.getParent();
+                    if (parent.name === dirHandle.name && dirHandle.name === '/') {
+                        return { valid: false };
+                    }
+                    const parentHandle = await parent.getFileHandle('data.js');
+                    return { valid: true, dataJsHandle: parentHandle, isParent: true };
+                } catch {
+                    return { valid: false };
+                }
+            }
+        }
+
+        // 请求权限（如果需要）
+        async function requestPermission(dirHandle) {
+            const p = await dirHandle.queryPermission({ mode: 'readwrite' });
+            if (p === 'granted') return true;
+            if (p === 'prompt') {
+                const r = await dirHandle.requestPermission({ mode: 'readwrite' });
+                return r === 'granted';
+            }
+            return false;
+        }
 
         // ========== R2 上传配置 ==========
         const R2_UPLOAD_URL = 'https://r2-upload.linweigh58.workers.dev/upload';
@@ -431,8 +513,8 @@
             });
         }
 
-        // 上传到 R2
-        async function uploadToR2(blob, filename, category, dateStr) {
+        // 上传到 R2（带重试和超时）
+        async function uploadToR2(blob, filename, category, dateStr, retries = 3) {
             if (!R2_UPLOAD_URL) {
                 throw new Error('请先配置 R2_UPLOAD_URL');
             }
@@ -442,16 +524,40 @@
             formData.append('category', category);
             formData.append('date', dateStr);
 
-            const response = await fetch(R2_UPLOAD_URL, {
-                method: 'POST',
-                body: formData
-            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s 超时
 
-            if (!response.ok) {
-                throw new Error(`上传失败: ${response.statusText}`);
+            for (let attempt = 1; attempt <= retries; attempt++) {
+                try {
+                    const response = await fetch(R2_UPLOAD_URL, {
+                        method: 'POST',
+                        body: formData,
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        throw new Error(`上传失败: ${response.statusText}`);
+                    }
+
+                    return await response.json();
+                } catch (err) {
+                    clearTimeout(timeoutId);
+
+                    // 最后一次尝试失败
+                    if (attempt === retries) {
+                        if (err.name === 'AbortError') {
+                            throw new Error('上传超时，请检查网络连接后重试');
+                        }
+                        throw new Error(`上传失败: ${err.message}`);
+                    }
+
+                    // 重试前等待（指数退避）
+                    const delay = Math.pow(2, attempt - 1) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
             }
-
-            return await response.json();
         }
 
         if (!isSupported) {
@@ -514,10 +620,20 @@
                     const valueOffset = view.getUint32(entryOffset + 8, littleEndian);
                     const dateOffset = tiffOffset + valueOffset;
 
-                    // 格式: "YYYY:MM:DD HH:MM:SS"
-                    const year = view.getUint8(dateOffset, littleEndian) * 1000 + view.getUint8(dateOffset + 1, littleEndian);
-                    const month = view.getUint8(dateOffset + 3, littleEndian) * 10 + view.getUint8(dateOffset + 4, littleEndian);
-                    const day = view.getUint8(dateOffset + 6, littleEndian) * 10 + view.getUint8(dateOffset + 7, littleEndian);
+                    // 格式: "YYYY:MM:DD HH:MM:SS" (ASCII characters)
+                    const y0 = view.getUint8(dateOffset) - 48;
+                    const y1 = view.getUint8(dateOffset + 1) - 48;
+                    const y2 = view.getUint8(dateOffset + 2) - 48;
+                    const y3 = view.getUint8(dateOffset + 3) - 48;
+                    const year = y0 * 1000 + y1 * 100 + y2 * 10 + y3;
+
+                    const m0 = view.getUint8(dateOffset + 5) - 48;
+                    const m1 = view.getUint8(dateOffset + 6) - 48;
+                    const month = m0 * 10 + m1;
+
+                    const d0 = view.getUint8(dateOffset + 8) - 48;
+                    const d1 = view.getUint8(dateOffset + 9) - 48;
+                    const day = d0 * 10 + d1;
 
                     if (year > 2000 && year < 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
                         return `${year}-${String(month).padStart(2, '0')}`;
@@ -709,24 +825,67 @@
                 return;
             }
 
-            // 先选择目录（必须在用户直接点击中调用）
-            let dirHandle;
-            try {
-                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    status.innerHTML = '已取消';
-                    return;
+            // 尝试恢复已存储的目录句柄
+            let dirHandle = null;
+            let dirStatus = null;
+
+            if (isSupported) {
+                try {
+                    const storedHandle = await handleStore.load();
+                    if (storedHandle) {
+                        const verified = await verifyStoredHandle(storedHandle);
+                        if (verified.valid) {
+                            const permitted = await requestPermission(storedHandle);
+                            if (permitted) {
+                                dirHandle = storedHandle;
+                                dirStatus = {
+                                    valid: true,
+                                    dataJsHandle: verified.dataJsHandle,
+                                    isParent: verified.isParent
+                                };
+                            }
+                        } else {
+                            // 句柄已失效，清除
+                            await handleStore.clear();
+                        }
+                    }
+                } catch (e) {
+                    console.warn('恢复目录句柄失败:', e);
                 }
-                throw err;
             }
 
-            // 验证目录中是否有 data.js
-            const dirStatus = await verifyDataJsDir(dirHandle);
-            if (!dirStatus.valid) {
-                status.className = 'status error';
-                status.innerHTML = dirStatus.message;
-                return;
+            // 如果没有缓存句柄，让用户选择
+            if (!dirHandle) {
+                try {
+                    dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        status.innerHTML = '已取消';
+                        return;
+                    }
+                    throw err;
+                }
+
+                // 验证目录中是否有 data.js
+                dirStatus = await verifyDataJsDir(dirHandle);
+                if (!dirStatus.valid) {
+                    status.className = 'status error';
+                    status.innerHTML = dirStatus.message;
+                    return;
+                }
+
+                // 保存句柄以便下次使用
+                try {
+                    await handleStore.save(dirHandle);
+                } catch (e) {
+                    console.warn('保存目录句柄失败:', e);
+                }
+            }
+
+            // 显示来源提示
+            if (dirStatus && dirStatus.isParent) {
+                status.className = 'status info';
+                status.innerHTML = `已自动定位到上级目录中的 data.js`;
             }
 
             // 目录选择成功后再执行上传

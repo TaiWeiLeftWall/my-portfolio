@@ -256,9 +256,16 @@ function createGalleryItem(photo) {
     const item = document.createElement('div');
     item.className = `gallery-item ${photo.orientation}`;
     item.innerHTML = `
-        <img src="${photo.src}" alt="" loading="lazy" draggable="false">
+        <div class="img-wrapper">
+            <img src="${photo.src}" alt="" loading="lazy" draggable="false">
+        </div>
         <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
     `;
+
+    // 图片加载完成后显示
+    const img = item.querySelector('.img-wrapper img');
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    img.addEventListener('error', () => img.classList.add('loaded'));
 
     // 点击打开灯箱
     item.addEventListener('click', () => {
@@ -280,11 +287,18 @@ function createPhotoGroup(group) {
 
     groupElement.innerHTML = `
         <div class="stacked-cover">
-            <img src="${coverImg.src}" alt="" loading="lazy" draggable="false">
+            <div class="img-wrapper">
+                <img src="${coverImg.src}" alt="" loading="lazy" draggable="false">
+            </div>
             <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
             ${otherCount > 0 ? `<div class="stacked-count">+${otherCount}</div>` : ''}
         </div>
     `;
+
+    // 图片加载完成后显示
+    const img = groupElement.querySelector('.img-wrapper img');
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    img.addEventListener('error', () => img.classList.add('loaded'));
 
     // 点击打开组内随机一张图片，同时传递整组图片用于预览
     groupElement.querySelector('.stacked-cover').addEventListener('click', () => {
@@ -526,25 +540,128 @@ function openLightbox(src, title, description, groupImages = []) {
     // 如果有组图片，显示预览条
     currentGroupImages = groupImages;
     if (currentGroupImages.length > 1) {
-        previewStrip.innerHTML = '';
         previewStrip.style.display = 'flex';
-
-        currentGroupImages.forEach((img, index) => {
-            const item = document.createElement('div');
-            item.className = 'lightbox-preview-item' + (img.src === src ? ' active' : '');
-            item.innerHTML = `<img src="${img.src}" alt="">`;
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openLightbox(img.src, '', '', currentGroupImages);
-            });
-            previewStrip.appendChild(item);
-        });
+        setupPreviewStrip(src, groupImages);
     } else {
         previewStrip.style.display = 'none';
+        previewStrip.innerHTML = '';
     }
 
     lightbox.classList.add('active');
     document.body.style.overflow = 'hidden';
+}
+
+// 设置预览条：懒加载 + 预热相邻1张
+let previewObserver = null;
+
+function setupPreviewStrip(activeSrc, groupImages) {
+    const previewStrip = document.getElementById('lightbox-preview-strip');
+    previewStrip.innerHTML = '';
+
+    // 找到当前激活索引
+    const activeIndex = groupImages.findIndex(img => img.src === activeSrc);
+    const len = groupImages.length;
+
+    groupImages.forEach((img, index) => {
+        const item = document.createElement('div');
+        item.className = 'lightbox-preview-item' + (img.src === activeSrc ? ' active' : '');
+        item.dataset.index = index;
+
+        const imgEl = document.createElement('img');
+        imgEl.alt = '';
+
+        // 计算与当前激活项的距离
+        const dist = Math.abs(index - activeIndex);
+
+        if (dist === 0) {
+            // 当前项：立即加载
+            imgEl.src = img.src;
+        } else if (dist === 1) {
+            // 相邻项：预加载
+            imgEl.src = img.src;
+        } else {
+            // 其余项：懒加载
+            imgEl.dataset.lazySrc = img.src;
+            imgEl.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3C/svg%3E';
+        }
+
+        item.appendChild(imgEl);
+
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (img.src !== activeSrc) {
+                navigateToImage(img.src, groupImages);
+            }
+        });
+
+        previewStrip.appendChild(item);
+    });
+
+    // 设置 IntersectionObserver 懒加载其余预览项
+    if (previewObserver) previewObserver.disconnect();
+    previewObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                const lazySrc = img.dataset.lazySrc;
+                if (lazySrc) {
+                    img.src = lazySrc;
+                    delete img.dataset.lazySrc;
+                }
+            }
+        });
+    }, { root: previewStrip, threshold: 0.1 });
+
+    previewStrip.querySelectorAll('img[data-lazy-src]').forEach(img => {
+        previewObserver.observe(img);
+    });
+}
+
+// 导航到指定图片（在组内）
+function navigateToImage(src, groupImages) {
+    const lightboxImg = document.getElementById('lightbox-img');
+    const previewStrip = document.getElementById('lightbox-preview-strip');
+
+    // 更新主图
+    lightboxImg.src = src;
+
+    // 更新预览条激活状态
+    const items = previewStrip.querySelectorAll('.lightbox-preview-item');
+    items.forEach(item => {
+        const index = parseInt(item.dataset.index);
+        const img = groupImages[index];
+        if (img.src === src) {
+            item.classList.add('active');
+            const imgEl = item.querySelector('img');
+            // 如果是懒加载项，现在加载
+            if (imgEl.dataset.lazySrc) {
+                imgEl.src = img.src;
+                delete imgEl.dataset.lazySrc;
+            }
+            // 预热相邻
+            preloadAdjacent(index, groupImages);
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+// 预加载相邻图片
+function preloadAdjacent(currentIndex, groupImages) {
+    const len = groupImages.length;
+    const previewStrip = document.getElementById('lightbox-preview-strip');
+    const items = previewStrip.querySelectorAll('.lightbox-preview-item');
+
+    [currentIndex - 1, currentIndex + 1].forEach(offset => {
+        if (offset < 0 || offset >= len) return;
+        const item = items[offset];
+        if (!item) return;
+        const imgEl = item.querySelector('img');
+        if (imgEl.dataset.lazySrc) {
+            imgEl.src = groupImages[offset].src;
+            delete imgEl.dataset.lazySrc;
+        }
+    });
 }
 
 function closeLightbox() {
@@ -552,6 +669,9 @@ function closeLightbox() {
     lightbox.classList.remove('active');
     document.body.style.overflow = '';
     currentGroupImages = [];
+    if (previewObserver) {
+        previewObserver.disconnect();
+    }
 }
 
 function navigateLightbox(direction) {
@@ -569,5 +689,16 @@ function navigateLightbox(direction) {
 
     const img = allImages[currentImageIndex];
     const groupImages = img.groupImages || [];
-    openLightbox(img.src, img.title, img.description, groupImages);
+
+    // 检测是否跨组：比较 src 列表是否相同
+    const isSameGroup = groupImages.length > 1 &&
+        currentGroupImages.length === groupImages.length &&
+        currentGroupImages.every((g, i) => g.src === groupImages[i].src);
+
+    if (isSameGroup) {
+        // 同组内导航：只更新主图和预览条激活状态
+        navigateToImage(img.src, groupImages);
+    } else {
+        openLightbox(img.src, img.title, img.description, groupImages);
+    }
 }

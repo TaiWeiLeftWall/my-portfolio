@@ -1,76 +1,72 @@
-// 瀛樺偍鎵€鏈夊彲鏌ョ湅鐨勫浘鐗囷紙鍗曠嫭鍥剧墖 + 鎴愮粍鍥剧墖锛?
+// 存储所有可查看的图片（单独图片 + 成组图片）
 let allImages = [];
 
-// 褰撳墠绛涢€夋潯浠?
+// 当前筛选条件
 let currentCategory = 'all';
 let currentYear = 'all';
 let currentMonth = 'all';
 let currentDisplayMode = 'stacked';
 
-// 椤甸潰鍔犺浇瀹屾垚鍚庡垵濮嬪寲
-// init — wait for both DOM and data
-let _domReady = false, _dataReady = false;
-function _init() {
-    if (!_domReady || !_dataReady) return;
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 根据当前页面加载内容
     const galleryGrid = document.getElementById('gallery-grid');
     const videoGrid = document.getElementById('video-grid');
+
     if (galleryGrid) {
         loadGallery();
         setupCategoryFilter();
         setupDateFilters();
         setupDisplayModeToggle();
     }
-    if (videoGrid) loadVideos();
-    setupLightbox();
-}
-document.addEventListener('DOMContentLoaded', function() { _domReady = true; _init(); });
-document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
-setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000););
 
-// 绐楀彛澶у皬鍙樺寲鏃堕噸鏂板竷灞€
+    if (videoGrid) {
+        loadVideos();
+    }
+
+    setupLightbox();
+});
+
+// 窗口大小变化时重新布局
 let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
         const galleryGrid = document.getElementById('gallery-grid');
         if (galleryGrid && galleryGrid.querySelector('.masonry-columns')) {
-            loadGallery(); // 閲嶆柊鍔犺浇浠ラ€傚簲鏂板垪鏁?
+            loadGallery(); // 重新加载以适应新列数
         }
     }, 250);
 });
 
-// 姘村嵃鍥剧墖URL
+// 水印图片URL
 const watermarkUrl = 'icons/LOGO_black.png';
-const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
-
-
-
-// 鍔犺浇鐢诲粖鐓х墖
+// 加载画廊照片
 function loadGallery(category = 'all') {
     const galleryGrid = document.getElementById('gallery-grid');
     galleryGrid.innerHTML = '';
 
-    // 鏋勫缓鎵€鏈夊浘鐗囧垪琛ㄧ敤浜庣伅绠卞鑸?
+    // 构建所有图片列表用于灯箱导航
     allImages = [];
 
-    // 绛涢€夊崟鐙浘鐗?
+    // 筛选单独图片
     let filteredPhotos = category === 'all'
         ? photos
         : photos.filter(photo => photo.category === category);
 
-    // 绛涢€夋垚缁勫浘鐗?
+    // 筛选成组图片
     let filteredGroups = category === 'all'
         ? photoGroups
         : photoGroups.filter(group => group.category === category);
 
-    // 鎸夊勾浠界瓫閫?
+    // 按年份筛选
     if (currentYear !== 'all') {
         filteredPhotos = filteredPhotos.filter(photo => photo.date && photo.date.startsWith(currentYear));
         filteredGroups = filteredGroups.filter(group => group.date && group.date.startsWith(currentYear));
     }
 
-    // 鎸夋湀浠界瓫閫夛紙缁撳悎骞翠唤锛?
+    // 按月份筛选（结合年份）
     if (currentMonth !== 'all') {
         const monthStr = '-' + currentMonth;
         filteredPhotos = filteredPhotos.filter(photo => {
@@ -89,12 +85,12 @@ function loadGallery(category = 'all') {
         });
     }
 
-    // 娣诲姞鍗曠嫭鍥剧墖鍒扮敾寤?
+    // 添加单独图片到画廊
     filteredPhotos.forEach(photo => {
         const item = createGalleryItem(photo);
         galleryGrid.appendChild(item);
 
-        // 娣诲姞鍒扮伅绠卞浘鐗囧垪琛?
+        // 添加到灯箱图片列表
         allImages.push({
             src: photo.src,
             title: photo.title,
@@ -103,16 +99,15 @@ function loadGallery(category = 'all') {
         });
     });
 
-    // 娣诲姞鎴愮粍鍥剧墖鍒扮敾寤?
+    // 添加成组图片到画廊
     if (currentDisplayMode === 'random') {
-        // 闅忔満妯″紡锛氭瘡缁勫彧灞曠ず1寮犻殢鏈哄浘鐗?
+        // 随机模式：每组只展示1张随机图片
         filteredGroups.forEach(group => {
             if (group.images.length === 0) return;
             const randomIndex = Math.floor(Math.random() * group.images.length);
             const randomImg = group.images[randomIndex];
             const item = createGalleryItem(randomImg);
             item.dataset.src = randomImg.src;
-            insertIntoShortestColumn(item);
             allImages.push({
                 src: randomImg.src,
                 title: randomImg.title,
@@ -120,8 +115,8 @@ function loadGallery(category = 'all') {
                 type: 'single'
             });
         });
-        // Removed duplicate forEach
-        /*
+        // 瀑布流布局：插入到最短列
+        filteredGroups.forEach(group => {
             if (group.images.length === 0) return;
             const randomIndex = Math.floor(Math.random() * group.images.length);
             const randomImg = group.images[randomIndex];
@@ -129,13 +124,12 @@ function loadGallery(category = 'all') {
             item.dataset.src = randomImg.src;
             insertIntoShortestColumn(item);
         });
-        */
     } else {
-        // 鏃堕棿绾挎ā寮忥細鐎戝竷娴佸竷灞€
+        // 时间线模式：瀑布流布局
         filteredGroups.forEach(group => {
             const groupElement = createPhotoGroup(group);
 
-            // 娣诲姞缁勫唴鍥剧墖鍒扮伅绠卞垪琛紝鍚屾椂璁板綍鍚岀粍鍥剧墖
+            // 添加组内图片到灯箱列表，同时记录同组图片
             group.images.forEach((img, imgIndex) => {
                 allImages.push({
                     src: img.src,
@@ -148,18 +142,18 @@ function loadGallery(category = 'all') {
                 });
             });
 
-            // 鐎戝竷娴佸竷灞€锛氭彃鍏ュ埌鏈€鐭垪
+            // 瀑布流布局：插入到最短列
             insertIntoShortestColumn(groupElement);
         });
     }
 
-    // 闅愯棌 masonry 瀹瑰櫒锛岀瓑鍥剧墖鍔犺浇瀹屾垚鍚庡啀鏄剧ず
+    // 隐藏 masonry 容器，等图片加载完成后再显示
     const columnsContainer = galleryGrid.querySelector('.masonry-columns');
     if (columnsContainer) {
         columnsContainer.style.opacity = '0';
         columnsContainer.style.transition = 'opacity 0.3s ease';
 
-        // 绛夊緟鍥剧墖鍔犺浇瀹屾垚鍚庡啀鏄剧ず锛堜笉璋冩暣甯冨眬锛岄槻姝㈣烦鍔級
+        // 等待图片加载完成后再显示（不调整布局，防止跳动）
         imagesLoaded(columnsContainer, () => {
             requestAnimationFrame(() => {
                 columnsContainer.style.opacity = '1';
@@ -168,7 +162,7 @@ function loadGallery(category = 'all') {
     }
 }
 
-// 鐎戝竷娴侊細灏嗗厓绱犳彃鍏ュ埌鏈€鐭垪
+// 瀑布流：将元素插入到最短列
 function insertIntoShortestColumn(element) {
     const galleryGrid = document.getElementById('gallery-grid');
     const columns = getOrCreateColumns();
@@ -186,11 +180,11 @@ function insertIntoShortestColumn(element) {
     shortestColumn.appendChild(element);
 }
 
-// 鑾峰彇鎴栧垱寤哄垪瀹瑰櫒
+// 获取或创建列容器
 function getOrCreateColumns() {
     const galleryGrid = document.getElementById('gallery-grid');
 
-    // 鏍规嵁灞忓箷瀹藉害鍐冲畾鍒楁暟
+    // 根据屏幕宽度决定列数
     const width = window.innerWidth;
     let columnCount = 3;
     if (width <= 480) {
@@ -199,18 +193,18 @@ function getOrCreateColumns() {
         columnCount = 2;
     }
 
-    // 妫€鏌ユ槸鍚﹀凡鏈夊垪瀹瑰櫒涓斿垪鏁扮浉鍚?
+    // 检查是否已有列容器且列数相同
     let columnsContainer = galleryGrid.querySelector('.masonry-columns');
     const existingColumns = columnsContainer ? columnsContainer.querySelectorAll('.masonry-column') : [];
 
     if (!columnsContainer || existingColumns.length !== columnCount) {
-        // 閲嶆柊鍒涘缓鍒楀鍣?
+        // 重新创建列容器
         columnsContainer = document.createElement('div');
         columnsContainer.className = 'masonry-columns';
-        galleryGrid.innerHTML = ''; // 娓呯┖鐜版湁鍐呭
+        galleryGrid.innerHTML = ''; // 清空现有内容
         galleryGrid.appendChild(columnsContainer);
 
-        // 鍒涘缓鎸囧畾鏁伴噺鐨勫垪
+        // 创建指定数量的列
         for (let i = 0; i < columnCount; i++) {
             const column = document.createElement('div');
             column.className = 'masonry-column';
@@ -221,7 +215,7 @@ function getOrCreateColumns() {
     return columnsContainer.querySelectorAll('.masonry-column');
 }
 
-// 鍥剧墖鍔犺浇妫€娴?
+// 图片加载检测
 function imagesLoaded(container, callback) {
     const images = container.querySelectorAll('img');
     let loadedCount = 0;
@@ -253,28 +247,20 @@ function imagesLoaded(container, callback) {
         }
     });
 
-    // 瓒呮椂淇濇姢锛?绉掑悗寮哄埗鎵ц锛?
+    // 超时保护（5秒后强制执行）
     setTimeout(callback, 5000);
 }
 
-// 鍒涘缓鍗曠嫭鍥剧墖椤?
+// 创建单独图片项
 function createGalleryItem(photo) {
     const item = document.createElement('div');
-    item.className = 'gallery-item';
+    item.className = `gallery-item`;
     item.innerHTML = `
-        <div class="img-wrapper">
-            <img src="${transparentPixel}" data-src="${photo.src}" alt="" loading="lazy" decoding="async" draggable="false">
-        </div>
+        <img src="${photo.src}" alt="" loading="lazy" draggable="false">
         <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
     `;
 
-    // 鍥剧墖鍔犺浇瀹屾垚鍚庢樉绀?
-    const img = item.querySelector('.img-wrapper img');
-    img.addEventListener('load', () => img.classList.add('loaded'));
-    img.addEventListener('error', () => img.classList.add('loaded'));
-    observeLazyImage(img);
-
-    // 鐐瑰嚮鎵撳紑鐏
+    // 点击打开灯箱
     item.addEventListener('click', () => {
         openLightbox(photo.src, '', '', []);
     });
@@ -282,33 +268,25 @@ function createGalleryItem(photo) {
     return item;
 }
 
-// 鍒涘缓鎴愮粍鍥剧墖 - 鍙犳斁鏍峰紡
+// 创建成组图片 - 叠放样式
 function createPhotoGroup(group) {
     const groupElement = document.createElement('div');
     groupElement.className = 'photo-group-stacked';
 
-    // 闅忔満閫夋嫨涓€寮犲浘鐗囦綔涓哄皝闈?
+    // 随机选择一张图片作为封面
     const randomIndex = Math.floor(Math.random() * group.images.length);
     const coverImg = group.images[randomIndex];
     const otherCount = group.images.length - 1;
 
     groupElement.innerHTML = `
         <div class="stacked-cover">
-            <div class="img-wrapper">
-                <img src="${transparentPixel}" data-src="${coverImg.src}" alt="" loading="lazy" decoding="async" draggable="false">
-            </div>
+            <img src="${coverImg.src}" alt="" loading="lazy" draggable="false">
             <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
             ${otherCount > 0 ? `<div class="stacked-count">+${otherCount}</div>` : ''}
         </div>
     `;
 
-    // 鍥剧墖鍔犺浇瀹屾垚鍚庢樉绀?
-    const img = groupElement.querySelector('.img-wrapper img');
-    img.addEventListener('load', () => img.classList.add('loaded'));
-    img.addEventListener('error', () => img.classList.add('loaded'));
-    observeLazyImage(img);
-
-    // 鐐瑰嚮鎵撳紑缁勫唴闅忔満涓€寮犲浘鐗囷紝鍚屾椂浼犻€掓暣缁勫浘鐗囩敤浜庨瑙?
+    // 点击打开组内随机一张图片，同时传递整组图片用于预览
     groupElement.querySelector('.stacked-cover').addEventListener('click', () => {
         openLightbox(coverImg.src, '', '', group.images);
     });
@@ -316,33 +294,33 @@ function createPhotoGroup(group) {
     return groupElement;
 }
 
-// 璁剧疆鍒嗙被绛涢€?
+// 设置分类筛选
 function setupCategoryFilter() {
     const categoryBtns = document.querySelectorAll('.category-btn');
 
     categoryBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            // 鏇存柊婵€娲荤姸鎬?
+            // 更新激活状态
             categoryBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
 
-            // 鏇存柊褰撳墠鍒嗙被
+            // 更新当前分类
             currentCategory = btn.dataset.category;
 
-            // 鍔犺浇瀵瑰簲鍒嗙被鐨勭収鐗?
+            // 加载对应分类的照片
             loadGallery(currentCategory);
         });
     });
 }
 
-// 璁剧疆鏃ユ湡绛涢€?
+// 设置日期筛选
 function setupDateFilters() {
     const yearFilter = document.getElementById('year-filter');
     const monthFilter = document.getElementById('month-filter');
 
     if (!yearFilter || !monthFilter) return;
 
-    // 鏀堕泦鎵€鏈夊勾浠?
+    // 收集所有年份
     const years = new Set();
     const months = new Set();
 
@@ -362,18 +340,18 @@ function setupDateFilters() {
         }
     });
 
-    // 濉厖骞翠唤涓嬫媺妗?
+    // 填充年份下拉框
     const sortedYears = Array.from(years).sort().reverse();
     sortedYears.forEach(year => {
         const option = document.createElement('option');
         option.value = year;
-        option.textContent = year + '骞?;
+        option.textContent = year + '年';
         yearFilter.appendChild(option);
     });
 
-    // 濉厖鏈堜唤涓嬫媺妗?
+    // 填充月份下拉框
     const sortedMonths = Array.from(months).sort();
-    const monthNames = ['01鏈?, '02鏈?, '03鏈?, '04鏈?, '05鏈?, '06鏈?, '07鏈?, '08鏈?, '09鏈?, '10鏈?, '11鏈?, '12鏈?];
+    const monthNames = ['01月', '02月', '03月', '04月', '05月', '06月', '07月', '08月', '09月', '10月', '11月', '12月'];
     sortedMonths.forEach(month => {
         const option = document.createElement('option');
         option.value = month;
@@ -381,23 +359,23 @@ function setupDateFilters() {
         monthFilter.appendChild(option);
     });
 
-    // 骞翠唤绛涢€変簨浠?
+    // 年份筛选事件
     yearFilter.addEventListener('change', () => {
         currentYear = yearFilter.value;
-        // 閲嶇疆鏈堜唤閫夋嫨
+        // 重置月份选择
         monthFilter.value = 'all';
         currentMonth = 'all';
         loadGallery(currentCategory);
     });
 
-    // 鏈堜唤绛涢€変簨浠?
+    // 月份筛选事件
     monthFilter.addEventListener('change', () => {
         currentMonth = monthFilter.value;
         loadGallery(currentCategory);
     });
 }
 
-// 璁剧疆鏄剧ず妯″紡鍒囨崲
+// 设置显示模式切换
 function setupDisplayModeToggle() {
     const modeBtns = document.querySelectorAll('.mode-btn');
 
@@ -411,7 +389,7 @@ function setupDisplayModeToggle() {
     });
 }
 
-// 鍔犺浇瑙嗛锛堝甫鎳掑姞杞斤級
+// 加载视频（带懒加载）
 function loadVideos() {
     const videoGrid = document.getElementById('video-grid');
     videoGrid.innerHTML = '';
@@ -421,19 +399,19 @@ function loadVideos() {
         item.className = 'video-item';
         item.innerHTML = `
             <div class="video-wrapper">
-                <div class="video-placeholder" data-src="${video.url}">鈻?/div>
+                <div class="video-placeholder" data-src="${video.url}">▶</div>
             </div>
         `;
         videoGrid.appendChild(item);
 
-        // 鐐瑰嚮鍗犱綅绗﹀姞杞?iframe
+        // 点击占位符加载 iframe
         const placeholder = item.querySelector('.video-placeholder');
         placeholder.addEventListener('click', () => {
             loadVideoIframe(placeholder, video);
         });
     });
 
-    // 浣跨敤 IntersectionObserver 棰勫姞杞斤紙婊氬姩鍒拌鍙ｆ椂鑷姩鍔犺浇锛?
+    // 使用 IntersectionObserver 预加载（滚动到视口时自动加载）
     if ('IntersectionObserver' in window) {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -451,7 +429,7 @@ function loadVideos() {
     }
 }
 
-// 鍔犺浇鍗曚釜瑙嗛 iframe
+// 加载单个视频 iframe
 function loadVideoIframe(placeholder, video) {
     if (!video || placeholder.dataset.loaded) return;
     placeholder.dataset.loaded = 'true';
@@ -459,15 +437,15 @@ function loadVideoIframe(placeholder, video) {
     const wrapper = placeholder.parentElement;
     const iframe = document.createElement('iframe');
     iframe.src = video.url + (video.url.includes('?') ? '&autoplay=0' : '?autoplay=0');
-    iframe.title = video.title || '瑙嗛';
+    iframe.title = video.title || '视频';
     iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
     iframe.allowFullscreen = true;
     wrapper.replaceChild(iframe, placeholder);
 }
 
-// 鐏鍔熻兘
+// 灯箱功能
 let currentImageIndex = 0;
-let currentGroupImages = []; // 褰撳墠缁勭殑鎵€鏈夊浘鐗?
+let currentGroupImages = []; // 当前组的所有图片
 
 function setupLightbox() {
     const lightbox = document.getElementById('lightbox');
@@ -475,17 +453,17 @@ function setupLightbox() {
 
     if (!lightbox) return;
 
-    // 鍏抽棴鐏
+    // 关闭灯箱
     closeBtn.addEventListener('click', closeLightbox);
 
-    // 鐐瑰嚮鑳屾櫙鍏抽棴
+    // 点击背景关闭
     lightbox.addEventListener('click', (e) => {
         if (e.target === lightbox) {
             closeLightbox();
         }
     });
 
-    // ESC 閿叧闂?& 宸﹀彸绠ご鍒囨崲
+    // ESC 键关闭 & 左右箭头切换
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeLightbox();
@@ -498,7 +476,7 @@ function setupLightbox() {
         }
     });
 
-    // 瑙︽懜鎵嬪娍鏀寔
+    // 触摸手势支持
     let touchStartX = 0;
     lightbox.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
@@ -512,7 +490,7 @@ function setupLightbox() {
         }
     }, { passive: true });
 
-    // 娣诲姞瀵艰埅鎸夐挳
+    // 添加导航按钮
     const prevBtn = document.createElement('div');
     prevBtn.className = 'lightbox-nav lightbox-prev';
     prevBtn.innerHTML = '&#10094;';
@@ -539,137 +517,34 @@ function openLightbox(src, title, description, groupImages = []) {
     const lightboxCaption = document.getElementById('lightbox-caption');
     const previewStrip = document.getElementById('lightbox-preview-strip');
 
-    // 鎵惧埌褰撳墠鍥剧墖绱㈠紩
+    // 找到当前图片索引
     currentImageIndex = allImages.findIndex(img => img.src === src);
 
     lightboxImg.src = src;
     lightboxCaption.textContent = '';
 
-    // 濡傛灉鏈夌粍鍥剧墖锛屾樉绀洪瑙堟潯
+    // 如果有组图片，显示预览条
     currentGroupImages = groupImages;
     if (currentGroupImages.length > 1) {
+        previewStrip.innerHTML = '';
         previewStrip.style.display = 'flex';
-        setupPreviewStrip(src, groupImages);
+
+        currentGroupImages.forEach((img, index) => {
+            const item = document.createElement('div');
+            item.className = 'lightbox-preview-item' + (img.src === src ? ' active' : '');
+            item.innerHTML = `<img src="${img.src}" alt="">`;
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openLightbox(img.src, '', '', currentGroupImages);
+            });
+            previewStrip.appendChild(item);
+        });
     } else {
         previewStrip.style.display = 'none';
-        previewStrip.innerHTML = '';
     }
 
     lightbox.classList.add('active');
     document.body.style.overflow = 'hidden';
-}
-
-// 璁剧疆棰勮鏉★細鎳掑姞杞?+ 棰勭儹鐩搁偦1寮?
-let previewObserver = null;
-
-function setupPreviewStrip(activeSrc, groupImages) {
-    const previewStrip = document.getElementById('lightbox-preview-strip');
-    previewStrip.innerHTML = '';
-
-    // 鎵惧埌褰撳墠婵€娲荤储寮?
-    const activeIndex = groupImages.findIndex(img => img.src === activeSrc);
-    const len = groupImages.length;
-
-    groupImages.forEach((img, index) => {
-        const item = document.createElement('div');
-        item.className = 'lightbox-preview-item' + (img.src === activeSrc ? ' active' : '');
-        item.dataset.index = index;
-
-        const imgEl = document.createElement('img');
-        imgEl.alt = '';
-
-        // 璁＄畻涓庡綋鍓嶆縺娲婚」鐨勮窛绂?
-        const dist = Math.abs(index - activeIndex);
-
-        if (dist === 0) {
-            // 褰撳墠椤癸細绔嬪嵆鍔犺浇
-            imgEl.src = img.src;
-        } else if (dist === 1) {
-            // 鐩搁偦椤癸細棰勫姞杞?
-            imgEl.src = img.src;
-        } else {
-            // 鍏朵綑椤癸細鎳掑姞杞?
-            imgEl.dataset.lazySrc = img.src;
-            imgEl.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3C/svg%3E';
-        }
-
-        item.appendChild(imgEl);
-
-        item.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (img.src !== activeSrc) {
-                navigateToImage(img.src, groupImages);
-            }
-        });
-
-        previewStrip.appendChild(item);
-    });
-
-    // 璁剧疆 IntersectionObserver 鎳掑姞杞藉叾浣欓瑙堥」
-    if (previewObserver) previewObserver.disconnect();
-    previewObserver = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const img = entry.target;
-                const lazySrc = img.dataset.lazySrc;
-                if (lazySrc) {
-                    img.src = lazySrc;
-                    delete img.dataset.lazySrc;
-                }
-            }
-        });
-    }, { root: previewStrip, threshold: 0.1 });
-
-    previewStrip.querySelectorAll('img[data-lazy-src]').forEach(img => {
-        previewObserver.observe(img);
-    });
-}
-
-// 瀵艰埅鍒版寚瀹氬浘鐗囷紙鍦ㄧ粍鍐咃級
-function navigateToImage(src, groupImages) {
-    const lightboxImg = document.getElementById('lightbox-img');
-    const previewStrip = document.getElementById('lightbox-preview-strip');
-
-    // 鏇存柊涓诲浘
-    lightboxImg.src = src;
-
-    // 鏇存柊棰勮鏉℃縺娲荤姸鎬?
-    const items = previewStrip.querySelectorAll('.lightbox-preview-item');
-    items.forEach(item => {
-        const index = parseInt(item.dataset.index);
-        const img = groupImages[index];
-        if (img.src === src) {
-            item.classList.add('active');
-            const imgEl = item.querySelector('img');
-            // 濡傛灉鏄噿鍔犺浇椤癸紝鐜板湪鍔犺浇
-            if (imgEl.dataset.lazySrc) {
-                imgEl.src = img.src;
-                delete imgEl.dataset.lazySrc;
-            }
-            // 棰勭儹鐩搁偦
-            preloadAdjacent(index, groupImages);
-        } else {
-            item.classList.remove('active');
-        }
-    });
-}
-
-// 棰勫姞杞界浉閭诲浘鐗?
-function preloadAdjacent(currentIndex, groupImages) {
-    const len = groupImages.length;
-    const previewStrip = document.getElementById('lightbox-preview-strip');
-    const items = previewStrip.querySelectorAll('.lightbox-preview-item');
-
-    [currentIndex - 1, currentIndex + 1].forEach(offset => {
-        if (offset < 0 || offset >= len) return;
-        const item = items[offset];
-        if (!item) return;
-        const imgEl = item.querySelector('img');
-        if (imgEl.dataset.lazySrc) {
-            imgEl.src = groupImages[offset].src;
-            delete imgEl.dataset.lazySrc;
-        }
-    });
 }
 
 function closeLightbox() {
@@ -677,9 +552,6 @@ function closeLightbox() {
     lightbox.classList.remove('active');
     document.body.style.overflow = '';
     currentGroupImages = [];
-    if (previewObserver) {
-        previewObserver.disconnect();
-    }
 }
 
 function navigateLightbox(direction) {
@@ -687,7 +559,7 @@ function navigateLightbox(direction) {
 
     currentImageIndex += direction;
 
-    // 寰幆瀵艰埅
+    // 循环导航
     if (currentImageIndex < 0) {
         currentImageIndex = allImages.length - 1;
     }
@@ -697,16 +569,5 @@ function navigateLightbox(direction) {
 
     const img = allImages[currentImageIndex];
     const groupImages = img.groupImages || [];
-
-    // 妫€娴嬫槸鍚﹁法缁勶細姣旇緝 src 鍒楄〃鏄惁鐩稿悓
-    const isSameGroup = groupImages.length > 1 &&
-        currentGroupImages.length === groupImages.length &&
-        currentGroupImages.every((g, i) => g.src === groupImages[i].src);
-
-    if (isSameGroup) {
-        // 鍚岀粍鍐呭鑸細鍙洿鏂颁富鍥惧拰棰勮鏉℃縺娲荤姸鎬?
-        navigateToImage(img.src, groupImages);
-    } else {
-        openLightbox(img.src, img.title, img.description, groupImages);
-    }
+    openLightbox(img.src, img.title, img.description, groupImages);
 }

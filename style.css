@@ -413,15 +413,6 @@ a:hover {
     width: 100%;
 }
 
-/* 图床底部分割线 */
-.gallery-grid::after {
-    content: '';
-    display: block;
-    margin-top: 60px;
-    height: 1px;
-    background: linear-gradient(to right, transparent, var(--divider-soft) 20%, var(--divider-soft) 80%, transparent);
-}
-
 /* Masonry Layout */
 .masonry-columns {
     display: flex;
@@ -445,33 +436,15 @@ a:hover {
     background: var(--canvas-parchment);
 }
 
-/* 图片加载占位 - 简洁背景 */
-.gallery-item .img-wrapper,
-.stacked-cover .img-wrapper {
-    position: relative;
-    overflow: hidden;
-    background-color: var(--canvas-parchment);
-}
-
-.gallery-item .img-wrapper img,
-.stacked-cover .img-wrapper img {
+.gallery-item img {
     width: 100%;
     height: auto;
     display: block;
-    transition: transform 0.4s ease, opacity 0.5s ease;
+    transition: transform 0.4s ease;
     will-change: transform;
-    opacity: 0;
 }
 
-/* 图片加载完成后淡入 */
-.gallery-item .img-wrapper img.loaded,
-.stacked-cover .img-wrapper img.loaded {
-    opacity: 1;
-}
-
-/* Hover 放大效果 */
-.gallery-item:hover .img-wrapper img,
-.stacked-cover:hover .img-wrapper img {
+.gallery-item:hover img {
     transform: scale(1.03);
 }
 
@@ -549,6 +522,10 @@ a:hover {
     display: block;
     transition: transform 0.4s ease;
     will-change: transform;
+}
+
+.stacked-cover:hover img {
+    transform: scale(1.03);
 }
 
 .stacked-count {
@@ -1222,8 +1199,8 @@ footer p {
 }
 
 /* Active state - Apple uses scale transform */
-.gallery-item:active .img-wrapper img,
-.stacked-cover:active .img-wrapper img {
+.gallery-item:active img,
+.stacked-cover:active img {
     transform: scale(0.97);
 }
 

@@ -1,4 +1,3 @@
-
 // === Lazy loading image helpers (shared) ===
 let lazyImageObserver = null;
 
@@ -41,12 +40,7 @@ function observeLazyImage(img) {
     const page = location.pathname.split('/').pop() || 'index.html';
 
     // 强制刷新 data.js，避免浏览器缓存旧数据
-    const dataScript = document.querySelector('script[src^="data.js"]');
-    if (dataScript) {
-        const fresh = document.createElement('script');
-        fresh.src = 'data.js?t=' + Date.now();
-        dataScript.parentNode.replaceChild(fresh, dataScript);
-    }
+    // cache-busting removed (causes const redeclaration errors)
 
     // 渲染导航栏 - Apple双层导航
     function renderNavbar() {
@@ -54,7 +48,6 @@ function observeLazyImage(img) {
         if (!nav) return;
 
         const activeIndex = page === 'index.html' ? 'active' : '';
-        const activeCommercial = page === 'commercial.html' ? 'active' : '';
         const activeVideos = page === 'videos.html' ? 'active' : '';
         const activeAbout = page === 'about.html' ? 'active' : '';
 
@@ -65,7 +58,6 @@ function observeLazyImage(img) {
             </a>
             <ul class="nav-links">
                 <li><a href="index.html" class="${activeIndex}">图片</a></li>
-                <li><a href="commercial.html" class="${activeCommercial}">商业</a></li>
                 <li><a href="videos.html" class="${activeVideos}">视频</a></li>
                 <li><a href="about.html" class="${activeAbout}">关于</a></li>
             </ul>
@@ -80,22 +72,11 @@ function observeLazyImage(img) {
         const nav = document.querySelector('nav.navbar');
         if (!nav) return;
 
-        // 根据页面设置标题
-        const subNavTitles = {
-            'index.html': '摄影作品集',
-            'commercial.html': '商业项目',
-            'commercial-detail.html': '商业项目',
-            'videos.html': '影像作品',
-            'about.html': '关于'
-        };
-
-        const subNavTitle = subNavTitles[page] || '沉礁摄影作品集';
-
         const subNav = document.createElement('div');
         subNav.className = 'sub-nav';
         subNav.innerHTML = `
         <div class="sub-nav-container">
-            <span class="sub-nav-title">${subNavTitle}</span>
+            <span class="sub-nav-title">沉礁摄影作品集</span>
         </div>`;
 
         nav.parentNode.insertBefore(subNav, nav.nextSibling);

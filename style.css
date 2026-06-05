@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+SC:wght@300;400;600;700&display=swap");
+
 /* ========================================
    沉礁摄影作品集 - Apple Design System
    Primary: Apple Human Interface Guidelines
@@ -79,7 +81,7 @@ html {
 }
 
 body {
-    font-family: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Noto Sans SC', 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background-color: var(--canvas);
     color: var(--ink);
     line-height: 1.47;
@@ -90,7 +92,7 @@ body {
 
 /* Typography Scale */
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', 'Noto Sans SC', 'SF Pro Display', system-ui, -apple-system, sans-serif;
     font-weight: 600;
     line-height: 1.1;
     letter-spacing: -0.28px;
@@ -164,9 +166,6 @@ a:hover {
     height: 28px;
     width: auto;
     object-fit: contain;
-    filter: brightness(0) invert(1);
-}
-}
     filter: brightness(0) invert(1);
 }
 
@@ -533,8 +532,6 @@ a:hover {
 
 /* Photo Group Stacked */
 .photo-group-stacked {
-    break-inside: avoid;
-    margin-bottom: 16px;
     position: relative;
     background: var(--canvas-parchment);
     overflow: hidden;

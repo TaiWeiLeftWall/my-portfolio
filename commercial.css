@@ -82,7 +82,7 @@
 
 .commercial-grid-inner {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 24px;
     opacity: 0;
     transition: opacity 0.3s ease;
@@ -96,17 +96,11 @@
     background: var(--canvas);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.project-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
 .project-card-cover {
     position: relative;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 3 / 2;
     overflow: hidden;
     background: var(--canvas-parchment);
 }
@@ -115,11 +109,12 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.4s ease;
+    opacity: 0;
+    transition: opacity 0.25s ease;
 }
 
-.project-card:hover .project-card-cover img {
-    transform: scale(1.05);
+.project-card-cover img.loaded {
+    opacity: 1;
 }
 
 .media-badge {
@@ -269,7 +264,7 @@
 .detail-media {
     padding: 48px;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
 }
 
@@ -285,7 +280,14 @@
     width: 100%;
     height: auto;
     display: block;
-    transition: transform 0.4s ease;
+    min-height: 180px;
+    object-fit: cover;
+    opacity: 0;
+    transition: transform 0.4s ease, opacity 0.25s ease;
+}
+
+.media-item img.loaded {
+    opacity: 1;
 }
 
 .media-item:hover img {
@@ -346,13 +348,23 @@
    响应式适配
    ======================================== */
 
+@media (max-width: 1400px) {
+    .commercial-grid-inner {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .detail-media {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 1024px) {
     .commercial-grid-inner {
         grid-template-columns: repeat(2, 1fr);
     }
 
     .detail-media {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 

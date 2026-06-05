@@ -1,3 +1,36 @@
+
+// === Lazy loading image helpers (shared) ===
+let lazyImageObserver = null;
+
+function getLazyImageObserver() {
+    if (!('IntersectionObserver' in window)) return null;
+    if (!lazyImageObserver) {
+        lazyImageObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                loadLazyImage(entry.target);
+                lazyImageObserver.unobserve(entry.target);
+            });
+        }, { rootMargin: '600px 0px', threshold: 0.01 });
+    }
+    return lazyImageObserver;
+}
+
+function loadLazyImage(img) {
+    if (!img || !img.dataset.src) return;
+    img.src = img.dataset.src;
+    delete img.dataset.src;
+}
+
+function observeLazyImage(img) {
+    const observer = getLazyImageObserver();
+    if (observer) {
+        observer.observe(img);
+    } else {
+        loadLazyImage(img);
+    }
+}
+
 // ==========================================
 // 公共组件 - 导航栏和页脚 (Apple Style)
 // ==========================================

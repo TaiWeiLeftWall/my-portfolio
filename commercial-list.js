@@ -1,25 +1,58 @@
 // ==========================================
-// 商业项目列表页逻辑
+// 鍟嗕笟椤圭洰鍒楄〃椤甸€昏緫
 // ==========================================
 
 let currentCategory = 'all';
 let currentYear = 'all';
 let allImages = [];
+const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
-document.addEventListener('DOMContentLoaded', function() {
+let _domReady = false, _dataReady = false;
+function _init() {
+    if (!_domReady || !_dataReady) return;
     setupFilters();
     loadProjects();
+    initLightbox();
+}
+document.addEventListener('DOMContentLoaded', function() { _domReady = true; _init(); });
+document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
+setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000););
 
-    // 设置灯箱
-    setupLightbox();
-});
+function initLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    const closeBtn = document.querySelector('.lightbox-close');
 
-// 设置筛选器
+    if (!lightbox || !closeBtn) return;
+
+    closeBtn.addEventListener('click', () => {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) {
+            lightbox.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && lightbox.classList.contains('active')) {
+            lightbox.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+}
+
+
+
+
+// 璁剧疆绛涢€夊櫒
 function setupFilters() {
     const categoryList = document.getElementById('category-filters');
     const yearSelect = document.getElementById('year-filter');
 
-    // 添加分类按钮
+    // 娣诲姞鍒嗙被鎸夐挳
     const categories = getCommercialCategories();
     categories.forEach(cat => {
         const btn = document.createElement('button');
@@ -30,23 +63,23 @@ function setupFilters() {
         categoryList.appendChild(btn);
     });
 
-    // 填充年份下拉框
+    // 濉厖骞翠唤涓嬫媺妗?
     const years = getCommercialYears();
     years.forEach(year => {
         const option = document.createElement('option');
         option.value = year;
-        option.textContent = year + '年';
+        option.textContent = year + '骞?;
         yearSelect.appendChild(option);
     });
 
-    // 年份筛选事件
+    // 骞翠唤绛涢€変簨浠?
     yearSelect.addEventListener('change', () => {
         currentYear = yearSelect.value;
         loadProjects();
     });
 }
 
-// 选择分类
+// 閫夋嫨鍒嗙被
 function selectCategory(category) {
     document.querySelectorAll('#category-filters .category-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.category === category);
@@ -55,7 +88,7 @@ function selectCategory(category) {
     loadProjects();
 }
 
-// 加载项目
+// 鍔犺浇椤圭洰
 function loadProjects() {
     const grid = document.getElementById('project-grid');
     grid.innerHTML = '';
@@ -63,30 +96,30 @@ function loadProjects() {
 
     let filtered = commercialProjects;
 
-    // 按分类筛选
+    // 鎸夊垎绫荤瓫閫?
     if (currentCategory !== 'all') {
         filtered = filtered.filter(p => p.category === currentCategory);
     }
 
-    // 按年份筛选
+    // 鎸夊勾浠界瓫閫?
     if (currentYear !== 'all') {
         filtered = filtered.filter(p => p.year === parseInt(currentYear));
     }
 
-    // 按年份倒序
+    // 鎸夊勾浠藉€掑簭
     filtered.sort((a, b) => b.year - a.year);
 
     if (filtered.length === 0) {
-        grid.innerHTML = '<p class="no-projects">暂无项目</p>';
+        grid.innerHTML = '<p class="no-projects">鏆傛棤椤圭洰</p>';
         return;
     }
 
-    // 生成项目卡片
+    // 鐢熸垚椤圭洰鍗＄墖
     filtered.forEach(project => {
         const card = createProjectCard(project);
         grid.appendChild(card);
 
-        // 收集灯箱图片
+        // 鏀堕泦鐏鍥剧墖
         project.items.filter(item => item.type === 'image').forEach(img => {
             allImages.push({
                 src: img.src,
@@ -96,13 +129,13 @@ function loadProjects() {
         });
     });
 
-    // 淡入动画
+    // 娣″叆鍔ㄧ敾
     setTimeout(() => {
         grid.style.opacity = '1';
     }, 50);
 }
 
-// 创建项目卡片
+// 鍒涘缓椤圭洰鍗＄墖
 function createProjectCard(project) {
     const card = document.createElement('a');
     card.className = 'project-card';
@@ -114,8 +147,8 @@ function createProjectCard(project) {
 
     card.innerHTML = `
         <div class="project-card-cover">
-            <img src="${project.cover}" alt="${project.client}" loading="lazy">
-            ${hasVideo ? '<div class="media-badge video-badge">视频</div>' : ''}
+            <img src="${transparentPixel}" data-src="${project.cover}" alt="${project.client}" loading="lazy" decoding="async">
+            ${hasVideo ? '<div class="media-badge video-badge">瑙嗛</div>' : ''}
         </div>
         <div class="project-card-info">
             <h3 class="project-client">${project.client}</h3>
@@ -124,12 +157,17 @@ function createProjectCard(project) {
                 <span class="project-year">${project.year}</span>
                 <span class="project-category">${project.category}</span>
                 <span class="project-counts">
-                    ${imageCount > 0 ? `<span class="count-item">${imageCount}图</span>` : ''}
-                    ${videoCount > 0 ? `<span class="count-item">${videoCount}视频</span>` : ''}
+                    ${imageCount > 0 ? `<span class="count-item">${imageCount}鍥?/span>` : ''}
+                    ${videoCount > 0 ? `<span class="count-item">${videoCount}瑙嗛</span>` : ''}
                 </span>
             </div>
         </div>
     `;
+
+    const img = card.querySelector('.project-card-cover img');
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    img.addEventListener('error', () => img.classList.add('loaded'));
+    observeLazyImage(img);
 
     return card;
 }

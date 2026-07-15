@@ -1,8 +1,8 @@
 // ==========================================
-// 摄影作品集数据文件 - 由 upload-tool/cms_server.py 导出
+// 摄影作品集数据文件
 // ==========================================
 
-const photographerName = "摄影师名称";
+const photographerName = 摄影师名称;
 
 const photos = [];
 
@@ -15,37 +15,7 @@ const photoGroups = [
         "cols": 3,
         "images": [
             {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642465638-iu9be7zpgoj.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642471671-carbkwro7iv.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642479428-hc8969plgbg.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642499016-c4ifbsl2htb.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642506756-g2d7ri3e55.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642517286-c4zip8udvl.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642526075-8nnxuwbr1yk.jpg",
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642546169-a5v9oeranmp.jpg",
                 "title": "",
                 "description": ""
             },
@@ -55,26 +25,37 @@ const photoGroups = [
                 "description": ""
             },
             {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642546169-a5v9oeranmp.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2025-05-10",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-05-10/1778576139064-zq0l9m2z5ae.jpg",
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642526075-8nnxuwbr1yk.jpg",
                 "title": "",
                 "description": ""
             },
             {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-05-10/1778576145093-gcvhn10wb3f.jpg",
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642517286-c4zip8udvl.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642506756-g2d7ri3e55.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642499016-c4ifbsl2htb.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642479428-hc8969plgbg.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642471671-carbkwro7iv.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-06-01/1778642465638-iu9be7zpgoj.jpg",
                 "title": "",
                 "description": ""
             }
@@ -268,63 +249,6 @@ const photoGroups = [
         "category": "portrait",
         "title": "",
         "description": "",
-        "date": "2025-03",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-03-01/1778573183037-9fjsrhgkp2.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2025-02",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-02-01/1778573157680-xg0nnhb11in.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2024-12",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-12-01/1778573129986-kdu16z5aul.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-12-01/1778573133571-e7yun3jfdwc.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-12-01/1778573162228-zq1ag9s02i.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-12-01/1778573201125-pra0tvfoexj.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
         "date": "2024-11",
         "cols": 3,
         "images": [
@@ -360,25 +284,6 @@ const photoGroups = [
             },
             {
                 "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573252186-c7v70dzzeis.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2024-10",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-10-01/1778573153454-09nczlz7ojes.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-10-01/1778573224325-r4ap7g04gbg.jpg",
                 "title": "",
                 "description": ""
             }
@@ -566,31 +471,106 @@ const videos = [
     {
         "title": "视频作品 1",
         "description": "",
-        "url": "https://player.bilibili.com/player.html?bvid=BV18R6oBVEqy"
+        "url": "https://player.bilibili.com/player.html?bvid=BV18R6oBVEqy",
+        "platform": "bilibili",
+        "source": "沉礁Sleepylagoon个人账号"
     },
     {
         "title": "视频作品 2",
         "description": "",
-        "url": "https://player.bilibili.com/player.html?bvid=BV1SprGBnEjn"
+        "url": "https://player.bilibili.com/player.html?bvid=BV1SprGBnEjn",
+        "platform": "bilibili",
+        "source": "沉礁Sleepylagoon个人账号"
     },
     {
         "title": "视频作品 3",
         "description": "",
-        "url": "https://player.bilibili.com/player.html?bvid=BV1PQYZzzEkh"
+        "url": "https://player.bilibili.com/player.html?bvid=BV1PQYZzzEkh",
+        "platform": "bilibili",
+        "source": "沉礁Sleepylagoon个人账号"
     },
     {
         "title": "视频作品 4",
         "description": "",
-        "url": "https://player.bilibili.com/player.html?bvid=BV1EZg1zqEmg"
+        "url": "https://player.bilibili.com/player.html?bvid=BV1EZg1zqEmg",
+        "platform": "bilibili",
+        "source": "沉礁Sleepylagoon个人账号"
     },
     {
         "title": "视频作品 5",
         "description": "",
-        "url": "https://player.bilibili.com/player.html?bvid=BV1M996YqE98"
+        "url": "https://player.bilibili.com/player.html?bvid=BV1M996YqE98",
+        "platform": "bilibili",
+        "source": "沉礁Sleepylagoon个人账号"
     },
     {
         "title": "视频作品 6",
         "description": "",
-        "url": "https://player.bilibili.com/player.html?bvid=BV14nrkBPEQj"
+        "url": "https://player.bilibili.com/player.html?bvid=BV14nrkBPEQj",
+        "platform": "bilibili",
+        "source": "沉礁Sleepylagoon个人账号"
+    },
+    {
+        "title": "杭电十佳歌手决赛的乐队伴奏是如何诞生的？",
+        "description": "",
+        "url": "https://www.xiaohongshu.com/discovery/item/6896071a000000002502317e",
+        "platform": "xiaohongshu",
+        "source": "杭电吉协"
+    },
+    {
+        "title": "还在放伴奏？我们已经把演唱会搬进杭电",
+        "description": "",
+        "url": "https://www.xiaohongshu.com/discovery/item/68286343000000002300e915",
+        "platform": "xiaohongshu",
+        "source": "杭电吉协"
+    },
+    {
+        "title": "埃玛-草东没有派对 Cover by 炁 2024杭电GR摇滚节",
+        "description": "",
+        "url": "https://v.douyin.com/LQe5WNCaMPI/",
+        "platform": "douyin",
+        "source": "杭电吉协"
+    },
+    {
+        "title": "万物金黄·寄梦藤廊",
+        "description": "",
+        "url": "https://v.douyin.com/t2YfKqnyGzY/",
+        "platform": "douyin",
+        "source": "杭电吉协"
+    },
+    {
+        "title": "HDU20 - The final",
+        "description": "",
+        "url": "https://v.douyin.com/t-a8ufNiDa4/",
+        "platform": "douyin",
+        "source": "杭州电子科技大学"
+    },
+    {
+        "title": "2024年杭州电子科技大学毕业典礼圆满落幕",
+        "description": "",
+        "url": "https://v.douyin.com/-zVQeSyyYBs/",
+        "platform": "douyin",
+        "source": "杭州电子科技大学"
+    },
+    {
+        "title": "杭州电子科技大学2024年百团大绽圆满结束",
+        "description": "",
+        "url": "https://v.douyin.com/T9TsgGNqi3I/",
+        "platform": "douyin",
+        "source": "杭州电子科技大学"
+    },
+    {
+        "title": "杭州电子科技大学2024级本科生军训动员大会圆满结束",
+        "description": "",
+        "url": "https://v.douyin.com/LbZSXuq5Vzs/",
+        "platform": "douyin",
+        "source": "杭州电子科技大学"
+    },
+    {
+        "title": "2024级本科生军训会操暨总结表彰大会圆满结束",
+        "description": "",
+        "url": "https://v.douyin.com/-bn5a4tG5Ls/",
+        "platform": "douyin",
+        "source": "杭州电子科技大学"
     }
 ];

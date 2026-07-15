@@ -1002,6 +1002,12 @@ footer p {
     }
 }
 
+
+
+/* Video section grouping */
+.video-section { margin-bottom: 48px; }
+.video-platform-header { font-size: 28px; font-weight: 600; color: var(--on-dark); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border); letter-spacing: -0.336px; }
+.video-source-label { font-size: 14px; font-weight: 500; color: var(--body-muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
 @media (max-width: 768px) {
     :root {
         --nav-height: 44px;
@@ -1145,6 +1151,10 @@ footer p {
         font-size: 24px;
     }
 }
+.video-external-link { text-decoration: none; display: block; }
+.video-external { cursor: pointer; }
+.video-external:hover { opacity: 0.8; }
+
 
 @media (max-width: 480px) {
     h1 { font-size: 32px; }

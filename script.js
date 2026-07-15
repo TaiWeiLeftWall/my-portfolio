@@ -390,46 +390,89 @@ function setupDisplayModeToggle() {
 }
 
 // 加载视频（带懒加载）
-function loadVideos() {
+﻿function loadVideos() {
     const videoGrid = document.getElementById('video-grid');
     videoGrid.innerHTML = '';
 
-    videos.forEach(video => {
-        const item = document.createElement('div');
-        item.className = 'video-item';
-        item.innerHTML = `
-            <div class="video-wrapper">
-                <div class="video-placeholder" data-src="${video.url}">▶</div>
-            </div>
-        `;
-        videoGrid.appendChild(item);
+    const platformLabels = {
+        bilibili: 'Bilibili',
+        xiaohongshu: '\u5c0f\u7ea2\u4e66',
+        douyin: '\u6296\u97f3'
+    };
 
-        // 点击占位符加载 iframe
-        const placeholder = item.querySelector('.video-placeholder');
-        placeholder.addEventListener('click', () => {
-            loadVideoIframe(placeholder, video);
-        });
+    const groups = {};
+    videos.forEach(v => {
+        const p = v.platform || '';
+        const s = v.source || '';
+        if (!groups[p]) groups[p] = {};
+        if (!groups[p][s]) groups[p][s] = [];
+        groups[p][s].push(v);
     });
 
-    // 使用 IntersectionObserver 预加载（滚动到视口时自动加载）
+    Object.keys(groups).forEach(platform => {
+        const sources = groups[platform];
+        const section = document.createElement('div');
+        section.className = 'video-section';
+
+        if (platform) {
+            const header = document.createElement('div');
+            header.className = 'video-platform-header';
+            header.textContent = platformLabels[platform] || platform;
+            section.appendChild(header);
+        }
+
+        Object.keys(sources).forEach(source => {
+            if (source) {
+                const label = document.createElement('div');
+                label.className = 'video-source-label';
+                label.textContent = source;
+                section.appendChild(label);
+            }
+
+            const grid = document.createElement('div');
+            grid.className = 'video-grid';
+
+            sources[source].forEach(video => {
+                const item = document.createElement('div');
+                item.className = 'video-item';
+                var isBilibili = video.url.indexOf('bilibili') >= 0;
+                if (isBilibili) {
+                    item.innerHTML = '<div class="video-wrapper"><div class="video-placeholder" data-src="' + video.url + '">\u25b6</div></div>';
+                } else {
+                    item.innerHTML = '<a href="' + video.url + '" target="_blank" rel="noopener" class="video-external-link"><div class="video-wrapper"><div class="video-placeholder video-external">\u2197</div></div></a>';
+                }
+                grid.appendChild(item);
+
+                const placeholder = item.querySelector('.video-placeholder');
+                placeholder.addEventListener('click', function() {
+                    loadVideoIframe(this, video);
+                });
+            });
+
+            section.appendChild(grid);
+        });
+
+        videoGrid.appendChild(section);
+    });
+
     if ('IntersectionObserver' in window) {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
                 if (entry.isIntersecting) {
-                    const placeholder = entry.target;
-                    loadVideoIframe(placeholder, videos.find(v => v.url === placeholder.dataset.src));
-                    observer.unobserve(placeholder);
+                    const el = entry.target;
+                    const found = videos.find(function(v) { return v.url === el.dataset.src; });
+                    if (found) loadVideoIframe(el, found);
+                    observer.unobserve(el);
                 }
             });
         }, { rootMargin: '200px' });
 
-        document.querySelectorAll('.video-placeholder').forEach(el => {
+        document.querySelectorAll('.video-placeholder').forEach(function(el) {
             observer.observe(el);
         });
     }
 }
 
-// 加载单个视频 iframe
 function loadVideoIframe(placeholder, video) {
     if (!video || placeholder.dataset.loaded) return;
     placeholder.dataset.loaded = 'true';

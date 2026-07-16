@@ -265,7 +265,11 @@ async function testBulkRetriesReuseOperationKeys() {
   h.cms.setBulkFiles([
     { file: {}, name: "retry.jpg", date: "2026-07-16", status: "pending", error: "", previewUrl: "blob:retry" },
   ]);
-  h.cms.setCompressImage(async () => new Blob(["ok"], { type: "image/jpeg" }));
+  let compressionCalls = 0;
+  h.cms.setCompressImage(async () => {
+    compressionCalls++;
+    return new Blob([`encoded-${compressionCalls}`], { type: "image/jpeg" });
+  });
   h.cms.setLoadData(async () => {});
   h.cms.setToast(() => {});
   const groupKeys = [];
@@ -278,8 +282,10 @@ async function testBulkRetriesReuseOperationKeys() {
     return { ok: true, id: 41 };
   });
   const uploadKeys = [];
+  const uploadBlobs = [];
   let uploadAttempts = 0;
-  h.cms.setUploadPhotoBlob(async (_blob, _name, _group, _date, operationKey) => {
+  h.cms.setUploadPhotoBlob(async (blob, _name, _group, _date, operationKey) => {
+    uploadBlobs.push(blob);
     uploadKeys.push(operationKey);
     uploadAttempts++;
     if (uploadAttempts === 1) throw new Error("lost upload response");
@@ -296,6 +302,8 @@ async function testBulkRetriesReuseOperationKeys() {
   assert.equal(uploadKeys.length, 2);
   assert.equal(uploadKeys[0], uploadKeys[1], "image response-loss retry must reuse its operation key");
   assert.notEqual(uploadKeys[0], groupKeys[0], "group and image operations need distinct keys");
+  assert.equal(compressionCalls, 1, "image retries must reuse one encoded payload for digest stability");
+  assert.equal(uploadBlobs[0], uploadBlobs[1], "image retries must send the same Blob object");
 }
 
 async function testBulkInputGuardAndSnapshotRetention() {

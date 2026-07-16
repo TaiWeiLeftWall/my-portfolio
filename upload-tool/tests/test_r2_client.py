@@ -1,4 +1,5 @@
 import io
+import hashlib
 import json
 import socket
 import sys
@@ -451,6 +452,10 @@ class R2ClientTests(unittest.TestCase):
         self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
         self.assertEqual(request.get_header("Content-type"), "image/jpeg")
         self.assertEqual(request.get_header("Idempotency-key"), OPERATION_KEY)
+        self.assertEqual(
+            request.get_header("X-content-sha256"),
+            hashlib.sha256(b"image-bytes").hexdigest(),
+        )
         self.assertEqual(request.data, b"image-bytes")
         self.assertEqual(timeout, 7.5)
 

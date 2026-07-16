@@ -353,6 +353,14 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/photo-groups":
             operation_key = self._idempotency_key()
+            if operation_key is not None:
+                replay = self.database.get_idempotency_response(
+                    operation_key, PHOTO_GROUP_CREATE_OPERATION
+                )
+                if replay is not None:
+                    status, payload = replay
+                    self.send_json(payload, status)
+                    return
             data = self.read_json()
             if operation_key is None:
                 record = self.database.create_photo_group(data)

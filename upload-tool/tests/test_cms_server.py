@@ -447,6 +447,55 @@ class HttpApiTests(unittest.TestCase):
         )
         self.assertEqual(self.db.state()["photoGroups"][0]["images"], [])
 
+    def test_keyed_idempotency_record_failure_compensates_and_remains_retryable(self):
+        key = "d" * 32
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+        fields = {
+            "group_id": group["id"],
+            "category": "portrait",
+            "date": "2026-07-16",
+        }
+        files = [("image", "portrait.jpg", "image/jpeg", b"fake-jpeg-bytes")]
+
+        with mock.patch.object(
+            self.db,
+            "_store_idempotency_response_on",
+            side_effect=RuntimeError("injected idempotency write failure"),
+        ):
+            status, payload = self.multipart_request(
+                "/api/photo-items/upload",
+                fields,
+                files,
+                headers={"Idempotency-Key": key},
+            )
+
+        self.assertEqual(status, 500)
+        self.assertEqual(payload["code"], "database_write_failed")
+        self.assertIs(payload["r2_rollback_succeeded"], True)
+        self.assertEqual(
+            self.r2.deletes, ["images/portrait/2026-07-16/uploaded.jpg"]
+        )
+        self.assertEqual(self.db.state()["photoGroups"][0]["images"], [])
+        self.assertIsNone(
+            self.db.get_idempotency_response(key, cms_server.PHOTO_UPLOAD_OPERATION)
+        )
+
+        retry_status, retry_payload = self.multipart_request(
+            "/api/photo-items/upload",
+            fields,
+            files,
+            headers={"Idempotency-Key": key},
+        )
+
+        self.assertEqual(retry_status, 200)
+        self.assertEqual(retry_payload["ok"], True)
+        self.assertEqual(len(self.db.state()["photoGroups"][0]["images"]), 1)
+        self.assertIsNotNone(
+            self.db.get_idempotency_response(key, cms_server.PHOTO_UPLOAD_OPERATION)
+        )
+
     def test_photo_delete_r2_failure_preserves_database_row(self):
         group = self.db.create_photo_group({"category": "portrait"})
         item = self.db.create_photo_item(
@@ -1129,6 +1178,39 @@ class HttpApiTests(unittest.TestCase):
         )
 
         self.assertEqual(replay, first)
+        self.assertEqual(len(self.db.state()["photoGroups"]), 1)
+
+    def test_group_replay_returns_before_reading_malformed_or_oversized_body(self):
+        key = "p" * 32
+        first = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "portrait", "title": "original"},
+            headers={"Idempotency-Key": key},
+        )
+
+        malformed = self.request(
+            "POST",
+            "/api/photo-groups",
+            body=b"{",
+            headers={
+                "Content-Type": "application/json",
+                "Idempotency-Key": key,
+            },
+        )
+        oversized = self.request(
+            "POST",
+            "/api/photo-groups",
+            body=b"x",
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": str(cms_server.MAX_JSON_BODY_SIZE + 1),
+                "Idempotency-Key": key,
+            },
+        )
+
+        self.assertEqual(malformed, first)
+        self.assertEqual(oversized, first)
         self.assertEqual(len(self.db.state()["photoGroups"]), 1)
 
     def test_lost_upload_response_retries_without_second_r2_or_photo_row(self):

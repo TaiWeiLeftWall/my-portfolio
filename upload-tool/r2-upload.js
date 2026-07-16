@@ -13,6 +13,7 @@ const ALLOWED_CATEGORIES = new Set([
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const encoder = new TextEncoder();
 const OPERATION_KEY_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+const CONTENT_DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 
 function operationFor(pathname) {
   if (pathname === "/health") return "health";
@@ -96,7 +97,18 @@ function metadataMatches(object, expected) {
     actual &&
     actual.category === expected.category &&
     actual.date === expected.date &&
-    actual.contentType === expected.contentType
+    actual.contentType === expected.contentType &&
+    actual.contentSha256 === expected.contentSha256
+  );
+}
+
+function successfulUpload(context, baseUrl, key) {
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  return respond(
+    context,
+    200,
+    { ok: true, key, url: `${baseUrl}/${encodedKey}` },
+    key,
   );
 }
 
@@ -116,6 +128,15 @@ async function upload(request, env, url, context) {
       400,
       "invalid_idempotency_key",
       "Idempotency-Key must be 32 to 128 URL-safe ASCII characters",
+    );
+  }
+  const contentSha256 = request.headers.get("X-Content-SHA256") || "";
+  if (!CONTENT_DIGEST_PATTERN.test(contentSha256)) {
+    return reject(
+      context,
+      400,
+      "invalid_content_digest",
+      "X-Content-SHA256 must be 64 lowercase hexadecimal characters",
     );
   }
 
@@ -151,7 +172,7 @@ async function upload(request, env, url, context) {
   }
 
   const key = await objectKeyFor(operationKey);
-  const metadata = { category, date, contentType };
+  const metadata = { category, date, contentType, contentSha256 };
   try {
     const existing = await env.MY_BUCKET.head(key);
     if (existing) {
@@ -164,28 +185,31 @@ async function upload(request, env, url, context) {
           key,
         );
       }
-      const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-      return respond(
-        context,
-        200,
-        { ok: true, key, url: `${baseUrl}/${encodedKey}` },
-        key,
-      );
+      return successfulUpload(context, baseUrl, key);
     }
-    await env.MY_BUCKET.put(key, request.body, {
+    const created = await env.MY_BUCKET.put(key, request.body, {
       httpMetadata: { contentType },
       customMetadata: metadata,
+      onlyIf: new Headers({ "If-None-Match": "*" }),
+      sha256: contentSha256,
     });
+    if (created === null) {
+      const winner = await env.MY_BUCKET.head(key);
+      if (!winner || !metadataMatches(winner, metadata)) {
+        return reject(
+          context,
+          409,
+          "idempotency_conflict",
+          "Idempotency-Key was already used with different upload metadata or content",
+          key,
+        );
+      }
+      return successfulUpload(context, baseUrl, key);
+    }
   } catch {
     return reject(context, 500, "internal_error", "Internal server error", key);
   }
-  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
-  return respond(
-    context,
-    200,
-    { ok: true, key, url: `${baseUrl}/${encodedKey}` },
-    key,
-  );
+  return successfulUpload(context, baseUrl, key);
 }
 
 async function remove(request, env, context) {

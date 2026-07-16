@@ -793,7 +793,8 @@ async function doBulkUpload() {
     $('bulk-fill').style.width = Math.round((i / queue.length) * 100) + '%';
     renderBulkPreviews();
     try {
-      var compressed = await compressImage(item.file);
+      if (!item.compressedBlob) item.compressedBlob = await compressImage(item.file);
+      var compressed = item.compressedBlob;
       await uploadPhotoBlob(compressed, Date.now() + '-' + String(i).padStart(3, '0') + '.jpg', group, item.date, item.operationKey);
       item.status = 'succeeded';
       succeeded++;

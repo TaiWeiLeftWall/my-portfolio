@@ -117,6 +117,62 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 0)
         self.assertEqual(self.db.health()["orphan_photo_items"], 1)
 
+    def test_real_v1_schema_migrates_to_v2_and_preserves_existing_rows(self):
+        legacy_path = self.root / "legacy-v1.sqlite"
+        conn = sqlite3.connect(legacy_path)
+        try:
+            for statement in cms_db.SCHEMA_STATEMENTS[:-1]:
+                conn.execute(statement)
+            conn.execute(
+                """insert into photo_groups
+                (category,title,description,date,cols,sort_order)
+                values(?,?,?,?,?,?)""",
+                ("portrait", "legacy row", "", "2026-07", 3, 9),
+            )
+            conn.execute("pragma user_version = 1")
+            conn.commit()
+            tables = {
+                row[0]
+                for row in conn.execute(
+                    "select name from sqlite_master where type='table'"
+                )
+            }
+            self.assertNotIn("idempotency_records", tables)
+        finally:
+            conn.close()
+
+        legacy = Database(legacy_path, self.root, self.root / "legacy-media")
+        legacy.initialize(seed=False)
+
+        backup_path = legacy_path.with_name("legacy-v1.sqlite.bak-v1")
+        self.assertTrue(backup_path.exists())
+        backup = sqlite3.connect(backup_path)
+        try:
+            self.assertEqual(backup.execute("pragma user_version").fetchone()[0], 1)
+            backup_tables = {
+                row[0]
+                for row in backup.execute(
+                    "select name from sqlite_master where type='table'"
+                )
+            }
+            self.assertNotIn("idempotency_records", backup_tables)
+        finally:
+            backup.close()
+        migrated = legacy.connect()
+        try:
+            self.assertEqual(migrated.execute("pragma user_version").fetchone()[0], 2)
+            self.assertIsNotNone(
+                migrated.execute(
+                    "select 1 from sqlite_master where type='table' and name='idempotency_records'"
+                ).fetchone()
+            )
+            row = migrated.execute(
+                "select title,sort_order from photo_groups"
+            ).fetchone()
+            self.assertEqual(dict(row), {"title": "legacy row", "sort_order": 9})
+        finally:
+            migrated.close()
+
     def test_mid_migration_failure_rolls_back_schema_and_version(self):
         failed_path = self.root / "failed-migration.sqlite"
         database = Database(failed_path, self.root, self.root / "failed-media")

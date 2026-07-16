@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Mapping, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
+import hashlib
 import ipaddress
 import json
 import math
@@ -254,6 +255,7 @@ class R2Client:
         operation_key: str,
     ) -> R2Object:
         _validate_operation_key(operation_key)
+        content_sha256 = hashlib.sha256(content).hexdigest()
         query = urlencode(
             {
                 "category": category,
@@ -267,6 +269,7 @@ class R2Client:
             body=content,
             content_type=content_type,
             operation_key=operation_key,
+            content_sha256=content_sha256,
         )
         payload = self._open_json(request)
         key = payload.get("key")
@@ -303,6 +306,7 @@ class R2Client:
         body: Optional[bytes] = None,
         content_type: Optional[str] = None,
         operation_key: Optional[str] = None,
+        content_sha256: Optional[str] = None,
     ) -> Request:
         headers = {
             "Authorization": "Bearer {}".format(self.config.r2_upload_token),
@@ -312,6 +316,8 @@ class R2Client:
             headers["Content-Type"] = content_type
         if operation_key:
             headers["Idempotency-Key"] = operation_key
+        if content_sha256:
+            headers["X-Content-SHA256"] = content_sha256
         return Request(
             "{}{}".format(self.config.r2_worker_url, path),
             data=body,

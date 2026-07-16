@@ -39,16 +39,24 @@ class FakeBucket {
   }
 
   async put(key, body, options) {
-    const call = { key, body, options, bytes: null };
+    const call = { key, body, options, bytes: null, created: false };
     this.puts.push(call);
     if (this.putError) throw this.putError;
-    call.bytes = new Uint8Array(await new Response(body).arrayBuffer());
-    this.objects.set(key, {
+    const conditionalCreate =
+      options?.onlyIf instanceof Headers &&
+      options.onlyIf.get("If-None-Match") === "*";
+    if (conditionalCreate && this.objects.has(key)) return null;
+    call.created = true;
+    const object = {
       key,
-      bytes: call.bytes,
+      bytes: null,
       httpMetadata: options?.httpMetadata || {},
       customMetadata: options?.customMetadata || {},
-    });
+    };
+    this.objects.set(key, object);
+    call.bytes = new Uint8Array(await new Response(body).arrayBuffer());
+    object.bytes = call.bytes;
+    return object;
   }
 
   async head(key) {
@@ -77,6 +85,7 @@ async function invoke({
   token = "test-secret",
   headers = {},
   operationKey,
+  contentSha256,
   body,
   env = makeEnv(),
 }) {
@@ -86,6 +95,23 @@ async function invoke({
   }
   if (operationKey !== null && operationKey !== undefined) {
     requestHeaders.set("Idempotency-Key", operationKey);
+  }
+  if (path.startsWith("/upload") && contentSha256 === undefined) {
+    const bytes =
+      typeof body === "string"
+        ? new TextEncoder().encode(body)
+        : body instanceof ArrayBuffer
+          ? new Uint8Array(body)
+          : ArrayBuffer.isView(body)
+            ? new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+            : new Uint8Array();
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+    contentSha256 = [...digest]
+      .map((value) => value.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  if (contentSha256 !== null && contentSha256 !== undefined) {
+    requestHeaders.set("X-Content-SHA256", contentSha256);
   }
   if (token !== null) {
     requestHeaders.set("Authorization", `Bearer ${token}`);
@@ -110,7 +136,7 @@ async function invoke({
     } catch {
       // Assertions below report the missing structured response during RED.
     }
-    return { response, payload, rawPayload, env, logs, requestBody };
+    return { response, payload, rawPayload, env, logs, request, requestBody };
   } finally {
     console.log = originalLog;
     console.error = originalError;
@@ -165,6 +191,21 @@ test("rejects missing invalid and oversized upload operation keys", async () => 
     });
     assert.equal(response.status, 400);
     assert.equal(payload.error, "invalid_idempotency_key");
+    assert.equal(env.MY_BUCKET.puts.length, 0);
+  }
+});
+
+test("rejects missing and malformed content digests before R2", async () => {
+  for (const contentSha256 of [null, "short", "A".repeat(64), "g".repeat(64), "a".repeat(65)]) {
+    const { response, payload, env } = await invoke({
+      path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+      method: "POST",
+      contentSha256,
+      headers: { "Content-Type": "image/jpeg" },
+      body: new Uint8Array([1]),
+    });
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, "invalid_content_digest");
     assert.equal(env.MY_BUCKET.puts.length, 0);
   }
 });
@@ -308,7 +349,7 @@ test("canonicalizes the configured HTTPS base URL", async () => {
 
 test("streams an accepted image into R2 and returns its public URL", async () => {
   const bytes = new Uint8Array([10, 20, 30, 40]);
-  const { response, payload, env, requestBody } = await invoke({
+  const { response, payload, env, request, requestBody } = await invoke({
     path: "/upload?category=performance&date=2026-07-16&filename=ignored-name.jpg",
     method: "POST",
     headers: { "Content-Type": "image/jpeg" },
@@ -334,8 +375,12 @@ test("streams an accepted image into R2 and returns its public URL", async () =>
       category: "performance",
       date: "2026-07-16",
       contentType: "image/jpeg",
+      contentSha256: request.headers.get("X-Content-SHA256"),
     },
+    onlyIf: new Headers({ "If-None-Match": "*" }),
+    sha256: request.headers.get("X-Content-SHA256"),
   });
+  assert.equal(put.created, true);
 });
 
 test("replays a lost upload response without creating or putting a second object", async () => {
@@ -388,34 +433,57 @@ test("rejects metadata changes for an existing upload operation key", async () =
   assert.equal(env.MY_BUCKET.objects.size, 1);
 });
 
-test("concurrent retries always target one deterministic object key", async () => {
-  let releasePuts;
-  const putsReleased = new Promise((resolve) => { releasePuts = resolve; });
-  class RacingBucket extends FakeBucket {
-    async put(key, body, options) {
-      const call = {
-        key,
-        body,
-        options,
-        bytes: new Uint8Array(await new Response(body).arrayBuffer()),
-      };
-      this.puts.push(call);
-      if (this.puts.length === 0) {
-        await putsReleased;
-      } else if (this.puts.length === 1) {
-        await putsReleased;
-      } else {
-        releasePuts();
-      }
-      this.objects.set(key, {
-        key,
-        bytes: call.bytes,
-        httpMetadata: options?.httpMetadata || {},
-        customMetadata: options?.customMetadata || {},
-      });
-    }
+test("rejects different content digest with otherwise identical metadata", async () => {
+  const env = makeEnv();
+  const operationKey = "content-conflict-operation-000001";
+  const first = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+  const conflict = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([2]),
+    env,
+  });
+
+  assert.equal(first.response.status, 200);
+  assert.equal(conflict.response.status, 409);
+  assert.equal(conflict.payload.error, "idempotency_conflict");
+  assert.equal(env.MY_BUCKET.puts.length, 1);
+  assert.deepEqual(env.MY_BUCKET.objects.get(first.payload.key).bytes, new Uint8Array([1]));
+});
+
+class ConcurrentHeadMissBucket extends FakeBucket {
+  constructor() {
+    super();
+    this.initialHeads = 0;
+    this.releaseInitialHeads = null;
+    this.initialHeadsReady = new Promise((resolve) => {
+      this.releaseInitialHeads = resolve;
+    });
   }
-  const env = makeEnv({ MY_BUCKET: new RacingBucket() });
+
+  async head(key) {
+    this.heads.push(key);
+    if (this.initialHeads < 2) {
+      this.initialHeads++;
+      if (this.initialHeads === 2) this.releaseInitialHeads();
+      await this.initialHeadsReady;
+      return null;
+    }
+    return this.objects.get(key) || null;
+  }
+}
+
+test("concurrent matching retries atomically create one object and both replay 200", async () => {
+  const env = makeEnv({ MY_BUCKET: new ConcurrentHeadMissBucket() });
   const operationKey = "concurrent-worker-operation-00001";
   const makeRequest = () => invoke({
     path: "/upload?category=official&date=2026-07-16&filename=photo.webp",
@@ -432,7 +500,37 @@ test("concurrent retries always target one deterministic object key", async () =
   assert.equal(right.response.status, 200);
   assert.equal(left.payload.key, right.payload.key);
   assert.equal(new Set(env.MY_BUCKET.puts.map((call) => call.key)).size, 1);
+  assert.equal(env.MY_BUCKET.puts.filter((call) => call.created).length, 1);
   assert.equal(env.MY_BUCKET.objects.size, 1);
+});
+
+test("concurrent head-miss with different metadata cannot overwrite the winner", async () => {
+  const env = makeEnv({ MY_BUCKET: new ConcurrentHeadMissBucket() });
+  const operationKey = "concurrent-metadata-conflict-0001";
+  const portrait = invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+  const street = invoke({
+    path: "/upload?category=street&date=2026-07-17&filename=photo.png",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/png" },
+    body: new Uint8Array([2]),
+    env,
+  });
+
+  const results = await Promise.all([portrait, street]);
+
+  assert.deepEqual(results.map((result) => result.response.status).sort(), [200, 409]);
+  assert.equal(env.MY_BUCKET.puts.filter((call) => call.created).length, 1);
+  assert.equal(env.MY_BUCKET.objects.size, 1);
+  const winner = env.MY_BUCKET.puts.find((call) => call.created);
+  assert.deepEqual(env.MY_BUCKET.objects.get(winner.key).bytes, winner.bytes);
 });
 
 test("rejects deletion keys outside the images prefix", async () => {

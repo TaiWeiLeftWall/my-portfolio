@@ -56,6 +56,11 @@ def _canonical_public_base_url(value: Any) -> str:
         or parsed.fragment
     ):
         raise ValueError(message)
+    if any(
+        unquote(segment) in (".", "..")
+        for segment in parsed.path.split("/")
+    ):
+        raise ValueError(message)
     canonical_host = hostname.lower()
     if ":" in canonical_host:
         canonical_host = "[{}]".format(canonical_host)

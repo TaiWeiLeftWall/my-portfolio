@@ -200,6 +200,10 @@ class CmsConfigTests(unittest.TestCase):
             "https://cdn.example.test:bad-port",
             "//cdn.example.test/base",
             "https://cdn.example.test/\u202ehidden",
+            "https://cdn.example.test/base/./child",
+            "https://cdn.example.test/base/../child",
+            "https://cdn.example.test/base/%2e/child",
+            "https://cdn.example.test/base/%2E%2E/child",
         )
         with tempfile.TemporaryDirectory() as tempdir:
             path = Path(tempdir) / "missing.json"

@@ -417,7 +417,7 @@ class Handler(SimpleHTTPRequestHandler):
                 400, "truncated_body", "request body is shorter than Content-Length"
             )
 
-        closing_delimiter = b"--" + boundary.encode("ascii") + b"--"
+        closing_delimiter = b"\r\n--" + boundary.encode("ascii") + b"--"
         if not (
             raw.endswith(closing_delimiter)
             or raw.endswith(closing_delimiter + b"\r\n")

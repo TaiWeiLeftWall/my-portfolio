@@ -738,6 +738,31 @@ class HttpApiTests(unittest.TestCase):
         self.assert_error(status, payload, 400, "invalid_multipart")
         self.assertEqual(self.r2.uploads, [])
 
+    def test_image_bytes_ending_in_bare_close_token_are_not_a_terminal_delimiter(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        boundary = "cms-test-boundary"
+        fake_close_in_image = b"image-bytes--" + boundary.encode("ascii") + b"--"
+        body, content_type = multipart_body(
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "a.jpg", "image/jpeg", fake_close_in_image)],
+            boundary=boundary,
+            close=False,
+        )
+
+        status, payload = self.request(
+            "POST",
+            "/api/photo-items/upload",
+            body=body,
+            headers={"Content-Type": content_type},
+        )
+
+        self.assert_error(status, payload, 400, "invalid_multipart")
+        self.assertEqual(self.r2.uploads, [])
+
     def test_photo_upload_rejects_truncated_multipart_body(self):
         group = self.db.create_photo_group({"category": "portrait"})
         body, content_type = multipart_body(

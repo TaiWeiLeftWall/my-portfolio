@@ -351,6 +351,63 @@ class R2ClientTests(unittest.TestCase):
             True,
         )
 
+    def test_http_401_message_with_del_uses_generic_auth_error(self):
+        opener = FakeOpener(http_error(401, {"message": "hidden\u007ftext"}))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "auth_failed",
+            "R2 worker authentication failed",
+            False,
+        )
+
+    def test_http_503_message_with_c1_control_uses_generic_unavailable_error(self):
+        opener = FakeOpener(http_error(503, {"message": "hidden\u0085text"}))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "service_unavailable",
+            "R2 worker is temporarily unavailable",
+            True,
+        )
+
+    def test_http_401_message_with_bidi_control_uses_generic_auth_error(self):
+        opener = FakeOpener(http_error(401, {"message": "hidden\u202etext"}))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "auth_failed",
+            "R2 worker authentication failed",
+            False,
+        )
+
+    def test_http_503_preserves_ordinary_unicode_worker_message(self):
+        message = "R2 \u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528"
+        opener = FakeOpener(http_error(503, {"message": message}))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "service_unavailable",
+            message,
+            True,
+        )
+
     def test_deeply_nested_http_401_body_uses_generic_auth_error(self):
         opener = FakeOpener(http_error_bytes(401, deeply_nested_json()))
         client = R2Client(self.config(), opener=opener)

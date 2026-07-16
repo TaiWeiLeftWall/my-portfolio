@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 import json
 import math
 import socket
+import unicodedata
 
 
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
@@ -309,7 +310,10 @@ class R2Client:
         message = message.strip()
         if not message or len(message) > MAX_WORKER_MESSAGE_CHARACTERS:
             return fallback
-        if any(ord(character) < 32 for character in message):
+        if any(
+            unicodedata.category(character) in ("Cc", "Cf")
+            for character in message
+        ):
             return fallback
         token = self.config.r2_upload_token
         if token and token in message:

@@ -246,6 +246,62 @@ class CmsConfigTests(unittest.TestCase):
                     self.assertEqual(config.r2_public_base_url, expected)
                     self.assertTrue(config.configured)
 
+    def test_public_base_rejects_percent_escapes_anywhere_in_hostname(self):
+        invalid_values = (
+            "https://%63dn.example.test/gallery",
+            "https://cd%6e.example.test/gallery",
+            "https://cdn.example%2etest/gallery",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+            for value in invalid_values:
+                with self.subTest(value=value):
+                    with self.assertRaises(ValueError) as context:
+                        CmsConfig.load(path, {"R2_PUBLIC_BASE_URL": value})
+                    self.assertEqual(
+                        str(context.exception),
+                        "r2_public_base_url must be a valid HTTPS URL",
+                    )
+
+    def test_public_base_rejects_noncanonical_numeric_ipv4_hosts(self):
+        invalid_values = (
+            "https://127.1/gallery",
+            "https://0x7f000001/gallery",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+            for value in invalid_values:
+                with self.subTest(value=value):
+                    with self.assertRaises(ValueError) as context:
+                        CmsConfig.load(path, {"R2_PUBLIC_BASE_URL": value})
+                    self.assertEqual(
+                        str(context.exception),
+                        "r2_public_base_url must be a valid HTTPS URL",
+                    )
+
+    def test_public_base_preserves_standard_ipv4_and_dns_labels_with_digits(self):
+        cases = (
+            ("https://127.0.0.1/gallery/", "https://127.0.0.1/gallery"),
+            (
+                "https://cdn2.example.test:443/gallery/",
+                "https://cdn2.example.test/gallery",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+            for value, expected in cases:
+                with self.subTest(value=value):
+                    config = CmsConfig.load(
+                        path,
+                        {
+                            "R2_WORKER_URL": "https://worker.example.test",
+                            "R2_PUBLIC_BASE_URL": value,
+                            "R2_UPLOAD_TOKEN": "test-token",
+                        },
+                    )
+                    self.assertEqual(config.r2_public_base_url, expected)
+                    self.assertTrue(config.configured)
+
     def test_non_finite_timeout_values_are_rejected(self):
         with tempfile.TemporaryDirectory() as tempdir:
             path = Path(tempdir) / "missing.json"

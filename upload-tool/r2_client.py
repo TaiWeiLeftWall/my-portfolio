@@ -31,6 +31,24 @@ def _validate_upload_token(token: str) -> None:
         raise ValueError(UNSAFE_TOKEN_MESSAGE)
 
 
+def _looks_like_numeric_ipv4_hostname(hostname: str) -> bool:
+    candidate = hostname[:-1] if hostname.endswith(".") else hostname
+    if not candidate:
+        return False
+
+    def is_ipv4_number(segment: str) -> bool:
+        if not segment or not segment.isascii():
+            return False
+        lowered = segment.lower()
+        if lowered.startswith("0x"):
+            return len(segment) > 2 and all(
+                character in "0123456789abcdef" for character in lowered[2:]
+            )
+        return segment.isdigit()
+
+    return all(is_ipv4_number(segment) for segment in candidate.split("."))
+
+
 def _canonical_public_base_url(value: Any) -> str:
     raw = str(value or "").strip()
     if not raw:
@@ -62,10 +80,14 @@ def _canonical_public_base_url(value: Any) -> str:
         for segment in parsed.path.split("/")
     ):
         raise ValueError(message)
+    if "%" in hostname:
+        raise ValueError(message)
     is_ipv6 = False
     try:
         ip_address = ipaddress.ip_address(hostname)
     except ValueError:
+        if _looks_like_numeric_ipv4_hostname(hostname):
+            raise ValueError(message)
         try:
             canonical_host = hostname.encode("idna").decode("ascii").lower()
         except UnicodeError as exc:

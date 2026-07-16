@@ -61,6 +61,20 @@ def http_error(status, payload=None):
     )
 
 
+def http_error_bytes(status, payload):
+    return HTTPError(
+        "https://worker.example.test/upload",
+        status,
+        "worker error",
+        hdrs=None,
+        fp=io.BytesIO(payload),
+    )
+
+
+def deeply_nested_json(depth=1200):
+    return b'{"value":' + (b"[" * depth) + b"0" + (b"]" * depth) + b"}"
+
+
 class CmsConfigTests(unittest.TestCase):
     def test_loads_json_then_applies_non_empty_environment_overrides(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -135,6 +149,51 @@ class CmsConfigTests(unittest.TestCase):
         self.assertEqual(config.request_timeout_seconds, 30.0)
         self.assertEqual(config.max_upload_bytes, 15 * 1024 * 1024)
 
+    def test_load_rejects_unsafe_token_without_echoing_it(self):
+        unsafe_token = "secret\r\nX-Leaked-Header: yes"
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+
+            with self.assertRaises(ValueError) as context:
+                CmsConfig.load(path, {"R2_UPLOAD_TOKEN": unsafe_token})
+
+        self.assertEqual(
+            str(context.exception),
+            "R2 upload token must contain only visible ASCII characters",
+        )
+        self.assertNotIn(unsafe_token, str(context.exception))
+
+    def test_non_finite_timeout_values_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+            for value in ("NaN", "Infinity", "-Infinity"):
+                with self.subTest(value=value):
+                    with self.assertRaises(ValueError) as context:
+                        CmsConfig.load(
+                            path,
+                            {"R2_REQUEST_TIMEOUT_SECONDS": value},
+                        )
+                    self.assertEqual(
+                        str(context.exception),
+                        "request_timeout_seconds must be a positive number",
+                    )
+
+    def test_non_finite_max_upload_values_are_rejected_as_value_errors(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "cms_config.json"
+            for value in (float("nan"), float("inf"), float("-inf")):
+                with self.subTest(value=value):
+                    path.write_text(
+                        json.dumps({"max_upload_bytes": value}),
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(ValueError) as context:
+                        CmsConfig.load(path, {})
+                    self.assertEqual(
+                        str(context.exception),
+                        "max_upload_bytes must be a positive integer",
+                    )
+
 
 class R2ClientTests(unittest.TestCase):
     def config(self, **overrides):
@@ -169,6 +228,28 @@ class R2ClientTests(unittest.TestCase):
         self.assertIsNone(request.data)
         self.assertEqual(timeout, 7.5)
         self.assertEqual(response.read_sizes, [64 * 1024 + 1])
+
+    def test_client_rejects_unsafe_tokens_before_constructing_a_request(self):
+        unsafe_tokens = (
+            "line\r\nbreak",
+            "control\x01byte",
+            "unicode-\u5bc6\u94a5",
+            "contains space",
+        )
+        for unsafe_token in unsafe_tokens:
+            with self.subTest(token=repr(unsafe_token)):
+                config = self.config(r2_upload_token=unsafe_token)
+                opener = FakeOpener()
+
+                with self.assertRaises(ValueError) as context:
+                    R2Client(config, opener=opener)
+
+                self.assertEqual(
+                    str(context.exception),
+                    "R2 upload token must contain only visible ASCII characters",
+                )
+                self.assertNotIn(unsafe_token, str(context.exception))
+                self.assertEqual(opener.calls, [])
 
     def test_upload_sends_raw_bytes_and_returns_decoded_object(self):
         opener = FakeOpener(
@@ -270,6 +351,34 @@ class R2ClientTests(unittest.TestCase):
             True,
         )
 
+    def test_deeply_nested_http_401_body_uses_generic_auth_error(self):
+        opener = FakeOpener(http_error_bytes(401, deeply_nested_json()))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "auth_failed",
+            "R2 worker authentication failed",
+            False,
+        )
+
+    def test_deeply_nested_http_503_body_uses_generic_unavailable_error(self):
+        opener = FakeOpener(http_error_bytes(503, deeply_nested_json()))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "service_unavailable",
+            "R2 worker is temporarily unavailable",
+            True,
+        )
+
     def test_timeout_maps_to_retryable_request_timeout(self):
         opener = FakeOpener(socket.timeout("secret low-level detail"))
         client = R2Client(self.config(), opener=opener)
@@ -312,6 +421,20 @@ class R2ClientTests(unittest.TestCase):
             False,
         )
 
+    def test_deeply_nested_success_body_maps_to_invalid_response(self):
+        opener = FakeOpener(FakeResponse(deeply_nested_json()))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.health()
+
+        self.assert_r2_error(
+            context,
+            "invalid_response",
+            "R2 worker returned invalid JSON",
+            False,
+        )
+
     def test_upload_response_missing_key_maps_to_invalid_response(self):
         opener = FakeOpener(json_response({"ok": True, "url": "https://cdn.test/a"}))
         client = R2Client(self.config(), opener=opener)
@@ -328,6 +451,38 @@ class R2ClientTests(unittest.TestCase):
 
     def test_upload_response_missing_url_maps_to_invalid_response(self):
         opener = FakeOpener(json_response({"ok": True, "key": "images/a.jpg"}))
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg")
+
+        self.assert_r2_error(
+            context,
+            "invalid_response",
+            "R2 worker upload response is missing key or url",
+            False,
+        )
+
+    def test_upload_response_whitespace_only_key_maps_to_invalid_response(self):
+        opener = FakeOpener(
+            json_response({"ok": True, "key": "   ", "url": "https://cdn.test/a"})
+        )
+        client = R2Client(self.config(), opener=opener)
+
+        with self.assertRaises(R2Error) as context:
+            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg")
+
+        self.assert_r2_error(
+            context,
+            "invalid_response",
+            "R2 worker upload response is missing key or url",
+            False,
+        )
+
+    def test_upload_response_whitespace_only_url_maps_to_invalid_response(self):
+        opener = FakeOpener(
+            json_response({"ok": True, "key": "images/a.jpg", "url": "\t"})
+        )
         client = R2Client(self.config(), opener=opener)
 
         with self.assertRaises(R2Error) as context:

@@ -7,6 +7,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 import json
+import math
 import socket
 
 
@@ -14,10 +15,18 @@ DEFAULT_REQUEST_TIMEOUT_SECONDS = 30.0
 DEFAULT_MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_RESPONSE_BYTES = 64 * 1024
 MAX_WORKER_MESSAGE_CHARACTERS = 1024
+UNSAFE_TOKEN_MESSAGE = "R2 upload token must contain only visible ASCII characters"
 
 
 def _non_empty(value: Any) -> bool:
     return value is not None and str(value).strip() != ""
+
+
+def _validate_upload_token(token: str) -> None:
+    if not isinstance(token, str) or any(
+        ord(character) < 33 or ord(character) > 126 for character in token
+    ):
+        raise ValueError(UNSAFE_TOKEN_MESSAGE)
 
 
 def _positive_float(value: Any, name: str) -> float:
@@ -27,7 +36,7 @@ def _positive_float(value: Any, name: str) -> float:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError("{} must be a positive number".format(name)) from exc
-    if parsed <= 0:
+    if not math.isfinite(parsed) or parsed <= 0:
         raise ValueError("{} must be a positive number".format(name))
     return parsed
 
@@ -36,8 +45,11 @@ def _positive_int(value: Any, name: str) -> int:
     if isinstance(value, bool):
         raise ValueError("{} must be a positive integer".format(name))
     try:
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            raise ValueError
         parsed = int(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError("{} must be a positive integer".format(name)) from exc
     if parsed <= 0 or str(parsed) != str(value).strip():
         raise ValueError("{} must be a positive integer".format(name))
@@ -82,10 +94,17 @@ class CmsConfig:
         for key, environment_name in environment_names.items():
             environment_value = environ.get(environment_name)
             if _non_empty(environment_value):
-                values[key] = str(environment_value).strip()
+                if key == "r2_upload_token":
+                    values[key] = str(environment_value)
+                else:
+                    values[key] = str(environment_value).strip()
 
         worker_url = str(values["r2_worker_url"] or "").strip().rstrip("/")
-        upload_token = str(values["r2_upload_token"] or "").strip()
+        upload_token = str(values["r2_upload_token"] or "")
+        if upload_token.strip() == "":
+            upload_token = ""
+        else:
+            _validate_upload_token(upload_token)
         timeout = _positive_float(
             values["request_timeout_seconds"], "request_timeout_seconds"
         )
@@ -120,6 +139,7 @@ class R2Client:
         config: CmsConfig,
         opener: Optional[Callable[..., Any]] = None,
     ):
+        _validate_upload_token(config.r2_upload_token)
         self.config = config
         self._opener = opener or urlopen
 
@@ -151,7 +171,12 @@ class R2Client:
         payload = self._open_json(request)
         key = payload.get("key")
         url = payload.get("url")
-        if not isinstance(key, str) or not key or not isinstance(url, str) or not url:
+        if (
+            not isinstance(key, str)
+            or not key.strip()
+            or not isinstance(url, str)
+            or not url.strip()
+        ):
             raise R2Error(
                 "invalid_response",
                 "R2 worker upload response is missing key or url",
@@ -227,7 +252,7 @@ class R2Client:
             )
         try:
             payload = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
             raise R2Error(
                 "invalid_response",
                 "R2 worker returned invalid JSON",
@@ -274,7 +299,7 @@ class R2Client:
             return fallback
         try:
             payload = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (UnicodeDecodeError, json.JSONDecodeError, RecursionError):
             return fallback
         if not isinstance(payload, dict):
             return fallback

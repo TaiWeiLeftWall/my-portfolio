@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>内容后台</title>
+<style>
+﻿:root {
+  --bg: #09090b;
+  --bg-surface: #131316;
+  --bg-card: #18181b;
+  --bg-hover: #1f1f23;
+  --border: #27272a;
+  --border-light: #3f3f46;
+  --text: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
+  --accent: #6366f1;
+  --accent-dim: rgba(99,102,241,.15);
+  --accent-text: #a5b4fc;
+  --danger: #f87171;
+  --danger-dim: rgba(248,113,113,.15);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --sidebar-w: 220px;
+  --panel-w: 360px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100vh;
+}
+#app{display:flex;height:100vh}
+#sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg-surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 16px;gap:8px}
+#sidebar .logo{font-size:15px;font-weight:600;color:var(--text);padding:0 8px 20px}
+#sidebar nav{display:flex;flex-direction:column;gap:2px;flex:1}
+#sidebar nav button{background:none;border:none;color:var(--text-muted);text-align:left;padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s;display:flex;align-items:center;gap:8px}
+#sidebar nav button:hover{background:var(--bg-hover);color:var(--text)}
+#sidebar nav button.active{background:var(--accent-dim);color:var(--accent-text)}
+#sidebar .sidebar-actions{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#toolbar{height:52px;min-height:52px;display:flex;align-items:center;padding:0 20px;gap:12px;border-bottom:1px solid var(--border);background:var(--bg-surface)}
+#toolbar .stats{color:var(--text-muted);font-size:12px;flex:1}
+#toolbar input[type=search]{background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;width:200px;outline:none}
+#toolbar input[type=search]:focus{border-color:var(--border-light)}
+button{border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;transition:all .15s}
+.btn{height:30px;padding:0 14px;border-radius:var(--radius-sm);display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:#18181b;color:#fff;border:1px solid var(--border-light);border-radius:8px}
+.btn-primary:hover{background:#27272a}
+.btn-secondary{background:var(--bg-card);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg-hover)}
+.btn-danger{background:var(--danger-dim);color:var(--danger)}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-ghost{background:none;color:var(--text-muted);padding:4px 8px;height:auto;font-size:11px}
+.btn-ghost:hover{color:var(--text);background:var(--bg-hover);border-radius:4px}
+.btn-icon{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border)}
+.btn-icon:hover{background:var(--bg-hover);color:var(--text)}
+.btn-sm{height:26px;padding:0 10px;font-size:11px}
+#content{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;display:flex;gap:0}
+#content-inner{flex:1;min-width:0}
+.groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.group-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.group-card:hover{border-color:var(--border-light)}
+.group-card .preview-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;height:100px}
+.group-card .preview-strip.single{grid-template-columns:1fr}
+.group-card .preview-strip.double{grid-template-columns:repeat(2,1fr)}
+.group-card .preview-strip img{width:100%;height:100px;object-fit:cover;background:var(--bg)}
+.group-card .card-info{padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.group-card .card-info .date{font-size:11px;color:var(--accent-text);font-weight:500}
+.group-card .card-info .cat{font-size:11px;color:var(--text-dim)}
+.group-card .card-info .count{font-size:11px;color:var(--text-muted)}
+.group-card .card-actions{display:flex;gap:4px;padding:0 14px 12px;flex-wrap:wrap}
+.group-detail .back-row{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.group-detail .back-row h2{font-size:16px;font-weight:600;flex:1}
+.image-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.image-grid .image-card{position:relative;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;cursor:pointer;transition:border-color .15s}
+.image-grid .image-card:hover{border-color:var(--border-light)}
+.image-grid .image-card.selected{border-color:var(--accent)}
+.image-grid .image-card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.image-grid .image-card .img-title{padding:6px 8px;font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.image-grid .image-card .sel-check{position:absolute;top:6px;left:6px;width:18px;height:18px;border-radius:4px;background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.3);display:none;align-items:center;justify-content:center;font-size:10px;color:#fff}
+.image-grid.select-mode .image-card .sel-check{display:flex}
+.image-grid .image-card.selected .sel-check{background:var(--accent);border-color:var(--accent)}
+#edit-panel{width:var(--panel-w);min-width:var(--panel-w);background:var(--bg-surface);border-left:1px solid var(--border);overflow-y:auto;opacity:1;transition:opacity .2s}
+#edit-panel.hidden{opacity:0;pointer-events:none}
+#edit-panel .panel-inner{padding:20px;display:flex;flex-direction:column;gap:14px}
+#edit-panel .panel-preview img{width:100%;border-radius:var(--radius-sm);background:var(--bg)}
+#edit-panel label{display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+#edit-panel input,#edit-panel select,#edit-panel textarea{width:100%;background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;outline:none}
+#edit-panel input:focus,#edit-panel select:focus,#edit-panel textarea:focus{border-color:var(--accent)}
+#edit-panel textarea{min-height:60px;resize:vertical}
+#edit-panel .panel-actions{display:flex;gap:8px;margin-top:8px}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;cursor:pointer;transition:all .15s;margin:16px 0}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:var(--accent-dim)}
+.upload-zone input{display:none}
+.upload-zone .uz-icon{font-size:32px;color:var(--text-dim);margin-bottom:8px}
+.upload-zone .uz-text{font-size:13px;color:var(--text-muted)}
+.upload-zone .uz-hint{font-size:11px;color:var(--text-dim);margin-top:4px}
+#toast{position:fixed;right:20px;bottom:20px;background:#18181b;border:1px solid #e4e4e7;color:#fff;padding:10px 16px;border-radius:6px;font-size:12px;opacity:0;transform:translateY(8px);transition:.2s;z-index:100;pointer-events:none}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.error{border-color:#f87171;color:#f87171}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-dim)}
+.empty-state .empty-icon{font-size:40px;margin-bottom:12px}
+.empty-state p{font-size:13px}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-light)}
+.drag-ghost{opacity:.4}
+.drop-target{border-color:var(--accent)!important}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-panel{background:#fff;border:1px solid #d4d4d8;border-radius:8px;width:720px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;color:#18181b}
+.modal-header{padding:16px 20px;border-bottom:1px solid #e4e4e7;display:flex;align-items:center;gap:12px;background:#fff}
+.modal-header h3{font-size:15px;font-weight:600;flex:1;color:#18181b}
+.modal-body{flex:1;overflow-y:auto;padding:20px;background:#fafafa}
+.modal-footer{padding:12px 20px;border-top:1px solid #e4e4e7;display:flex;gap:8px;justify-content:flex-end;background:#fff}
+.modal-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.modal-tag{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid #d4d4d8;border-radius:9999px;cursor:pointer;font-size:12px;color:#71717a;transition:all .15s;user-select:none;background:#fff}
+.modal-tag:hover{border-color:#6366f1;color:#6366f1}
+.modal-tag.selected{background:#eef2ff;color:#4f46e5;border-color:#6366f1}
+.modal-drop{border:2px dashed #d4d4d8;border-radius:8px;padding:50px;text-align:center;cursor:pointer;transition:all .15s;background:#fff}
+.modal-drop:hover,.modal-drop.drag{border-color:#6366f1;background:#eef2ff}
+.modal-drop input{display:none}
+.modal-previews{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:16px;background:none}
+.modal-preview{background:#fff;border:1px solid #e4e4e7;border-radius:6px;overflow:hidden}
+.modal-preview img{width:100%;aspect-ratio:1;object-fit:cover}
+.modal-preview .fn{font-size:10px;color:#52525b;padding:4px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-preview .db{font-size:10px;color:#4f46e5;padding:2px 6px 4px}
+.modal-groups{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.modal-grp{background:#eef2ff;color:#4f46e5;padding:4px 12px;border-radius:9999px;font-size:11px}
+.upload-progress{margin-top:12px}
+.upload-progress .bar{height:4px;background:#e4e4e7;border-radius:2px;overflow:hidden}
+.upload-progress .fill{height:100%;background:#6366f1;transition:width .3s;border-radius:2px}
+.upload-progress .label{font-size:11px;color:#71717a;margin-top:4px}
+.drop-target{border-color:var(--accent)!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="logo">内容后台</div>
+    <nav>
+      <button class="active" data-tab="groups">▦ 图片组</button>
+      <button data-tab="videos">▶ 视频</button>
+      <button data-tab="commercial">◆ 商业项目</button>
+    </nav>
+    <div class="sidebar-actions">
+      <button class="btn btn-secondary btn-sm" onclick="exportData()" style="width:100%">导出到 JS 文件</button>
+    </div>
+  </aside>
+  <div id="main">
+    <div id="toolbar">
+      <span class="stats" id="stats">加载中...</span>
+      <input type="search" id="search" placeholder="搜索..." oninput="applyFilter()">
+      <button class="btn btn-primary btn-sm" id="btn-add" onclick="handleAdd()">+ 新建</button>
+      <button class="btn btn-primary btn-sm" onclick="openBulkUpload()">⇧ 批量上传</button>
+      <button class="btn-icon" id="btn-select" onclick="toggleSelectMode()" title="批量选择">☐</button>
+      <button class="btn-icon" id="btn-delete-selected" onclick="deleteSelected()" style="display:none" title="删除选中">🗑</button>
+      <button class="btn btn-secondary btn-sm" onclick="loadData()">⟳ 刷新</button>
+    </div>
+    <div id="content">
+      <div id="content-inner"></div>
+      <div id="edit-panel" class="hidden"><div class="panel-inner"></div></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<div class="modal-overlay" id="bulk-modal">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <h3>批量上传图片到 R2</h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeBulkUpload()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-drop" id="bulk-drop">
+        <div style="font-size:32px;color:var(--text-dim);margin-bottom:8px">+</div>
+        <div class="uz-text">点击或拖拽选择图片</div>
+        <div class="uz-hint">支持 JPG / PNG / WebP，自动读取 EXIF 日期</div>
+        <input type="file" id="bulk-file-input" accept="image/*" multiple>
+      </div>
+      <div style="margin-top:16px">
+        <label>图片分类</label>
+        <div class="modal-tags" id="bulk-tags">
+          <span class="modal-tag selected" data-val="portrait">人像</span>
+          <span class="modal-tag" data-val="landscape">风光</span>
+          <span class="modal-tag" data-val="street">街头</span>
+          <span class="modal-tag" data-val="performance">演出</span>
+        </div>
+      </div>
+      <div class="modal-previews" id="bulk-previews"></div>
+      <div class="modal-groups" id="bulk-groups"></div>
+      <div class="upload-progress" id="bulk-progress" style="display:none">
+        <div class="bar"><div class="fill" id="bulk-fill" style="width:0%"></div></div>
+        <div class="label" id="bulk-label"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span id="bulk-stats" style="flex:1;font-size:11px;color:var(--text-dim)"></span>
+      <button class="btn btn-secondary btn-sm" onclick="closeBulkUpload()">取消</button>
+      <button class="btn btn-primary btn-sm" id="bulk-upload-btn" onclick="doBulkUpload()" disabled>上传到 R2 并导入</button>
+    </div>
+  </div>
+</div>
+<script>
+﻿const MAX_DIMENSION = 2500;
+const TARGET_SIZE_KB = 1500;
+let S = null;
+let currentTab = 'groups';
+let currentGroupId = null;
+let selectedItems = new Set();
+let selectMode = false;
+let editingItem = null;
+
+async function api(url, opts) {
+  opts = opts || {};
+  var method = opts.method || 'GET';
+  var init = { method: method, headers: {} };
+  if (opts.body) {
+    init.headers['Content-Type'] = 'application/json; charset=utf-8';
+    init.body = opts.body;
+  }
+  var res = await fetch(url, init);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, isError) {
+  var el = $('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(function() { el.className = ''; }, 2000);
+}
+
+async function loadData() {
+  $('stats').textContent = '加载中...';
+  try {
+    S = await api('/api/state');
+    updateStats();
+    render();
+  } catch(e) {
+    $('stats').textContent = '连接失败';
+    toast('无法连接服务器', true);
+  }
+}
+
+function updateStats() {
+  if (!S) return;
+  $('stats').textContent = S.photoGroups.length + ' 组 | ' + S.videos.length + ' 视频 | ' + S.commercialProjects.length + ' 项目';
+}
+
+async function exportData() {
+  try {
+    await api('/api/export', { method: 'POST' });
+    toast('已导出到 data.js / commercial.js');
+    loadData();
+  } catch(e) { toast('导出失败', true); }
+}
+
+document.querySelectorAll('#sidebar nav button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#sidebar nav button').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    currentGroupId = null;
+    closePanel();
+    render();
+  });
+});
+
+function render() {
+  var container = $('content-inner');
+  if (!S) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">⟳</div><p>加载中...</p></div>'; return; }
+  if (currentTab === 'groups') renderGroups(container);
+  else if (currentTab === 'videos') renderVideosTab(container);
+  else if (currentTab === 'commercial') renderCommercialTab(container);
+}
+
+function renderGroups(container) {
+  if (currentGroupId !== null) { renderGroupDetail(container); return; }
+  var search = ($('search').value || '').toLowerCase();
+  var groups = S.photoGroups || [];
+  if (search) groups = groups.filter(function(g) { return (g.title||'').toLowerCase().indexOf(search)>=0 || (g.category||'').toLowerCase().indexOf(search)>=0 || (g.date||'').indexOf(search)>=0; });
+  if (!groups.length) { container.innerHTML = '<div class="empty-state"><div class="empty-icon">▦</div><p>暂无图片组</p></div>'; return; }
+  var html = '<div class="groups-grid">';
+  groups.forEach(function(g) {
+    var imgs = g.images || [];
+    var count = imgs.length;
+    var previewClass = count <= 1 ? 'single' : count === 2 ? 'double' : '';
+    var previews = imgs.slice(0, 3).map(function(i) {
+      var src = (i.src||'').startsWith('http') ? i.src : '/' + (i.src||'');
+      return '<img src="' + esc(src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
+    }).join('');
+    html += '<div class="group-card" onclick="openGroup(' + g.id + ')">';
+    if (previews) html += '<div class="preview-strip ' + previewClass + '">' + previews + '</div>';
+    else html += '<div class="preview-strip" style="background:var(--bg)"></div>';
+    html += '<div class="card-info">';
+    if (g.date) html += '<span class="date">' + esc(g.date) + '</span>';
+    html += '<span class="cat">' + esc(g.category) + (g.title ? ' · ' + esc(g.title) : '') + '</span>';
+    html += '<span class="count">' + count + ' 张图片</span>';
+    html += '</div><div class="card-actions" onclick="event.stopPropagation()">';
+    html += '<button class="btn-ghost" onclick="editGroup(' + g.id + ')">✎ 编辑</button>';
+    html += '<button class="btn-ghost" style="color:var(--danger)" onclick="deleteGroup(' + g.id + ')">删除</button>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function openGroup(id) { currentGroupId = id; closePanel(); render(); }
+
+function renderGroupDetail(container) {
+  var group = S.photoGroups.find(function(g) { return g.id === currentGroupId; });
+  if (!group) { currentGroupId = null; render(); return; }
+  var imgs = group.images || [];
+  var search = ($('search').value || '').toLowerCase();
+  var filtered = imgs;
+  if (search) filtered = imgs.filter(function(i) { return (i.title||'').toLowerCase().indexOf(search)>=0 || (i.src||'').toLowerCase().indexOf(search)>=0; });
+  var html = '<div class="group-detail"><div class="back-row">';
+  html += '<button class="btn-ghost" onclick="currentGroupId=null;closePanel();render()">← 返回</button>';
+  html += '<h2>' + esc(group.date||'') + ' ' + esc(group.title||'') + '</h2>';
+  html += '<span style="font-size:11px;color:var(--text-dim)">' + esc(group.category) + ' · ' + imgs.length + ' 张</span>';
+  html += '<button class="btn btn-secondary btn-sm" onclick="editGroup(' + group.id + ')">✎ 编辑组信息</button></div>';
+  if (selectMode && selectedItems.size > 0) {
+    html += '<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">';
+    html += '<span style="font-size:12px;color:var(--text-muted)">已选 ' + selectedItems.size + ' 项</span>';
+    html += '<button class="btn btn-danger btn-sm" onclick="deleteSelected()">删除选中</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="toggleSelectMode()">取消</button></div>';
+  }
+  html += '<div class="upload-zone" id="upload-zone" onclick="this.querySelector(\'input\').click()">';
+  html += '<input type="file" accept="image/*" multiple onchange="handleFileUpload(event)">';
+  html += '<div class="uz-icon">+</div><div class="uz-text">点击或拖拽上传图片</div>';
+  html += '<div class="uz-hint">支持 JPG / PNG / WebP，自动压缩</div></div>';
+  html += '<div class="image-grid' + (selectMode?' select-mode':'') + '" id="image-grid">';
+  if (!filtered.length) {
+    html += '<div class="empty-state" style="grid-column:1/-1"><p>暂无图片</p></div>';
+  } else {
+    filtered.forEach(function(img) {
+      var src = (img.src||'').startsWith('http') ? img.src : '/' + (img.src||'');
+      var sel = selectedItems.has(img.id) ? ' selected' : '';
+      html += '<div class="image-card' + sel + '" data-id="' + img.id + '" draggable="true" onclick="handleImageClick(event, ' + img.id + ')">';
+      html += '<div class="sel-check">✓</div>';
+      html += '<img src="' + esc(src) + '" loading="lazy" onerror="this.style.display=\'none\'">';
+      html += '<div class="img-title">' + esc(img.title||img.src||'未命名') + '</div></div>';
+    });
+  }
+  html += '</div></div>';
+  container.innerHTML = html;
+  var uz = $('upload-zone');
+  if (uz) {
+    uz.addEventListener('dragover', function(e) { e.preventDefault(); uz.classList.add('drag'); });
+    uz.addEventListener('dragleave', function() { uz.classList.remove('drag'); });
+    uz.addEventListener('drop', function(e) { e.preventDefault(); uz.classList.remove('drag'); handleFileUpload({target:{files:e.dataTransfer.files}}); });
+  }
+  setupDragSort();
+}
+﻿function renderVideosTab(container) {
+  var videos = S.videos || [];
+  var search = ($('search').value || '').toLowerCase();
+  var filtered = videos;
+  if (search) filtered = videos.filter(function(v) { return (v.title||'').toLowerCase().indexOf(search)>=0 || (v.url||'').toLowerCase().indexOf(search)>=0 || (v.platform||'').toLowerCase().indexOf(search)>=0 || (v.source||'').toLowerCase().indexOf(search)>=0; });
+  var html = '<div style="margin-bottom:16px;display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="addVideo()">+ 添加视频</button></div>';
+  if (!filtered.length) { html += '<div class="empty-state"><div class="empty-icon">▶</div><p>暂无视频</p></div>'; }
+  else {
+    filtered.forEach(function(v) {
+      html += '<div class="group-card" style="display:flex;gap:14px;padding:14px;cursor:default;border-radius:var(--radius);margin-bottom:8px;max-width:600px">';
+      html += '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;margin-bottom:4px">' + esc(v.title||'未命名') + '</div>';
+      html += '<div style="font-size:11px;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(v.url) + '</div>';
+      if (v.description) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">' + esc(v.description) + '</div>';
+      html += '</div><div style="display:flex;gap:4px;align-items:flex-start;flex-shrink:0">';
+      html += '<button class="btn-ghost" onclick="editVideo(' + v.id + ')">✎</button>';
+      html += '<button class="btn-ghost" style="color:var(--danger)" onclick="deleteVideo(' + v.id + ')">🗑</button></div></div>';
+    });
+  }
+  container.innerHTML = html;
+}
+
+function renderCommercialTab(container) {
+  var projects = S.commercialProjects || [];
+  var search = ($('search').value || '').toLowerCase();
+  var filtered = projects;
+  if (search) filtered = projects.filter(function(p) { return (p.client||'').toLowerCase().indexOf(search)>=0 || (p.title||'').toLowerCase().indexOf(search)>=0 || (p.category||'').toLowerCase().indexOf(search)>=0; });
+  var html = '<div style="margin-bottom:16px;display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="addProject()">+ 新建项目</button></div>';
+  if (!filtered.length) { html += '<div class="empty-state"><div class="empty-icon">◆</div><p>暂无商业项目</p></div>'; }
+  else {
+    html += '<div class="groups-grid">';
+    filtered.forEach(function(p) {
+      var cover = (p.cover||'').startsWith('http') ? p.cover : '/' + (p.cover||'');
+      var items = p.items || [];
+      html += '<div class="group-card" onclick="editProject(\'' + esc(p.id) + '\')">';
+      html += '<div class="preview-strip single">';
+      if (p.cover) html += '<img src="' + esc(cover) + '" onerror="this.style.display=\'none\'">';
+      else html += '<div style="background:var(--bg);height:100px"></div>';
+      html += '</div><div class="card-info"><span class="date">' + esc(p.client) + ' · ' + p.year + '</span>';
+      html += '<span class="cat">' + esc(p.category) + (p.title ? ' · ' + esc(p.title) : '') + '</span>';
+      html += '<span class="count">' + items.length + ' 项内容</span></div>';
+      html += '<div class="card-actions" onclick="event.stopPropagation()">';
+      html += '<button class="btn-ghost" onclick="editProject(\'' + esc(p.id) + '\')">✎ 编辑</button>';
+      html += '<button class="btn-ghost" style="color:var(--danger)" onclick="deleteProject(\'' + esc(p.id) + '\')">删除</button></div></div>';
+    });
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function openPanel(type, data) {
+  editingItem = { type: type, data: data };
+  var panel = $('edit-panel');
+  var inner = panel.querySelector('.panel-inner');
+  var html = '';
+  if (type === 'group') {
+    html = '<h3 style="font-size:14px;font-weight:600;margin-bottom:4px">编辑图片组</h3>';
+    html += '<div class="panel-field"><label>日期</label><input id="ef-date" value="' + esc(data.date||'') + '" placeholder="YYYY-MM-DD"></div>';
+    html += '<div class="panel-field"><label>分类</label><select id="ef-category">';
+    ['portrait','landscape','street','performance','official'].forEach(function(c) { html += '<option value="' + c + '"' + (data.category===c?' selected':'') + '>' + c + '</option>'; });
+    html += '</select></div>';
+    html += '<div class="panel-field"><label>标题</label><input id="ef-title" value="' + esc(data.title||'') + '"></div>';
+    html += '<div class="panel-field"><label>描述</label><textarea id="ef-desc">' + esc(data.description||'') + '</textarea></div>';
+    html += '<div class="panel-field"><label>列数</label><select id="ef-cols">';
+    [1,2,3,4].forEach(function(n) { html += '<option value="' + n + '"' + ((data.cols||3)===n?' selected':'') + '>' + n + ' 列</option>'; });
+    html += '</select></div>';
+    html += '<div class="panel-actions"><button class="btn btn-primary btn-sm" onclick="savePanel()">保存</button><button class="btn btn-secondary btn-sm" onclick="closePanel()">取消</button></div>';
+  } else if (type === 'photo') {
+    var src = (data.src||'').startsWith('http') ? data.src : '/' + (data.src||'');
+    html = '<div class="panel-preview"><img src="' + esc(src) + '" onerror="this.style.display=\'none\'"></div>';
+    html += '<h3 style="font-size:14px;font-weight:600">编辑图片</h3>';
+    html += '<div class="panel-field"><label>标题</label><input id="ef-title" value="' + esc(data.title||'') + '"></div>';
+    html += '<div class="panel-field"><label>描述</label><textarea id="ef-desc">' + esc(data.description||'') + '</textarea></div>';
+    html += '<div class="panel-field"><label>路径</label><input id="ef-src" value="' + esc(data.src||'') + '" style="font-size:11px;color:var(--text-dim)"></div>';
+    html += '<div class="panel-actions"><button class="btn btn-primary btn-sm" onclick="savePanel()">保存</button><button class="btn btn-danger btn-sm" onclick="deletePhotoItem(' + data.id + ');closePanel()">删除</button><button class="btn btn-secondary btn-sm" onclick="closePanel()">取消</button></div>';
+  } else if (type === 'video') {
+    html = '<h3 style="font-size:14px;font-weight:600;margin-bottom:4px">编辑视频</h3>';
+    html += '<div class="panel-field"><label>标题</label><input id="ef-title" value="' + esc(data.title||'') + '"></div>';
+    html += '<div class="panel-field"><label>描述</label><textarea id="ef-desc">' + esc(data.description||'') + '</textarea></div>';
+    html += '<div class="panel-field"><label>URL</label><input id="ef-url" value="' + esc(data.url||'') + '"></div>';
+    html += '<div class="panel-field"><label>平台</label><select id="ef-platform"><option value="">-- 选择平台 --</option><option value="bilibili"' + (data.platform=='bilibili'?' selected':'') + '>Bilibili</option><option value="xiaohongshu"' + (data.platform=='xiaohongshu'?' selected':'') + '>小红书</option><option value="douyin"' + (data.platform=='douyin'?' selected':'') + '>抖音</option></select></div>';
+    html += '<div class="panel-field"><label>来源账号</label><input id="ef-source" value="' + esc(data.source||'') + '" placeholder="如: 沉礁Sleepylagoon个人账号"></div>';
+    html += '<div class="panel-actions"><button class="btn btn-primary btn-sm" onclick="savePanel()">保存</button><button class="btn btn-danger btn-sm" onclick="deleteVideo(' + data.id + ');closePanel()">删除</button><button class="btn btn-secondary btn-sm" onclick="closePanel()">取消</button></div>';
+  } else if (type === 'project') {
+    html = '<h3 style="font-size:14px;font-weight:600;margin-bottom:4px">编辑项目</h3>';
+    html += '<div class="panel-field"><label>客户/事件</label><input id="ef-client" value="' + esc(data.client||'') + '"></div>';
+    html += '<div class="panel-field"><label>标题</label><input id="ef-title" value="' + esc(data.title||'') + '"></div>';
+    html += '<div class="panel-field"><label>描述</label><textarea id="ef-desc">' + esc(data.description||'') + '</textarea></div>';
+    html += '<div class="panel-field"><label>年份</label><input id="ef-year" type="number" value="' + (data.year||2026) + '"></div>';
+    html += '<div class="panel-field"><label>分类</label><select id="ef-category">';
+    ['公务摄影','演出摄影','体育摄影','空间摄影','广告','视频','电商'].forEach(function(c) { html += '<option value="' + c + '"' + (data.category===c?' selected':'') + '>' + c + '</option>'; });
+    html += '</select></div>';
+    html += '<div class="panel-field"><label>封面图 URL</label><input id="ef-cover" value="' + esc(data.cover||'') + '"></div>';
+    html += '<div class="panel-actions"><button class="btn btn-primary btn-sm" onclick="savePanel()">保存</button><button class="btn btn-danger btn-sm" onclick="deleteProject(\'' + esc(data.id) + '\');closePanel()">删除项目</button><button class="btn btn-secondary btn-sm" onclick="closePanel()">取消</button></div>';
+  }
+  inner.innerHTML = html;
+  panel.classList.remove('hidden');
+}
+
+function closePanel() { editingItem = null; $('edit-panel').classList.add('hidden'); }
+
+async function savePanel() {
+  if (!editingItem) return;
+  var type = editingItem.type;
+  var data = editingItem.data;
+  var body = {};
+  var url = '';
+  try {
+    if (type === 'group') {
+      body = { date: $('ef-date').value, category: $('ef-category').value, title: $('ef-title').value, description: $('ef-desc').value, cols: parseInt($('ef-cols').value) };
+      url = '/api/photo-groups/' + data.id;
+    } else if (type === 'photo') {
+      body = { src: $('ef-src').value, title: $('ef-title').value, description: $('ef-desc').value };
+      url = '/api/photo-items/' + data.id;
+    } else if (type === 'video') {
+      body = { title: $('ef-title').value, description: $('ef-desc').value, url: $('ef-url').value, platform: $('ef-platform').value, source: $('ef-source').value };
+      url = '/api/videos/' + data.id;
+    } else if (type === 'project') {
+      body = { client: $('ef-client').value, title: $('ef-title').value, description: $('ef-desc').value, year: parseInt($('ef-year').value), category: $('ef-category').value, cover: $('ef-cover').value };
+      url = '/api/commercial-projects/' + data.id;
+    }
+    await api(url, { method: 'PUT', body: JSON.stringify(body) });
+    toast('已保存');
+    closePanel();
+    loadData();
+  } catch(e) { toast('保存失败: ' + e.message, true); }
+}
+﻿function editGroup(id) { var g = S.photoGroups.find(function(x) { return x.id === id; }); if (g) openPanel('group', g); }
+
+async function deleteGroup(id) {
+  if (!confirm('确定删除此组及其所有图片？包括 R2 上的文件？')) return;
+  // Delete all images from R2
+  var grp = S.photoGroups.find(function(g) { return g.id === id; });
+  if (grp && grp.images) {
+    grp.images.forEach(function(img) {
+      if (img.src) deleteFromR2(img.src);
+    });
+  }
+  try { await api('/api/photo-groups/' + id, { method: 'DELETE' }); toast('已删除'); if (currentGroupId === id) currentGroupId = null; loadData(); }
+  catch(e) { toast('删除失败', true); }
+}
+
+function handleImageClick(e, imgId) {
+  if (selectMode) {
+    e.stopPropagation();
+    if (selectedItems.has(imgId)) selectedItems.delete(imgId); else selectedItems.add(imgId);
+    updateSelectUI();
+    return;
+  }
+  var img = findImageById(imgId);
+  if (img) openPanel('photo', img);
+}
+
+function findImageById(id) {
+  for (var i = 0; i < S.photoGroups.length; i++) {
+    var g = S.photoGroups[i];
+    if (g.images) {
+      var found = g.images.find(function(im) { return im.id === id; });
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function r2KeyFromUrl(url) {
+  if (!url || !url.includes('r2.dev/')) return null;
+  var m = url.match(/r2\.dev\/(.+)$/);
+  return m ? m[1] : null;
+}
+
+function deleteFromR2(url) {
+  var key = r2KeyFromUrl(url);
+  if (!key) return;
+  return fetch(R2_UPLOAD_URL.replace('/upload', '/delete'), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ key: key })
+  }).catch(function(){});
+}
+
+async function deletePhotoItem(id, skipR2) {
+  // Delete from R2 first (fire and forget)
+  if (!skipR2) {
+    var img = findImageById(id);
+    if (img && img.src) deleteFromR2(img.src);
+  }
+  try { await api('/api/photo-items/' + id, { method: 'DELETE' }); toast('已删除'); selectedItems.delete(id); loadData(); }
+  catch(e) { toast('删除失败', true); }
+}
+
+function addVideo() {
+  openPanel('video', { id: 0, title: '', description: '', url: '' });
+  editItemIsNew(function() {
+    return { title: $('ef-title').value, description: $('ef-desc').value, url: $('ef-url').value };
+  }, '/api/videos');
+}
+
+function editVideo(id) { var v = S.videos.find(function(x) { return x.id === id; }); if (v) openPanel('video', v); }
+
+async function deleteVideo(id) {
+  if (!confirm('确定删除此视频？')) return;
+  try { await api('/api/videos/' + id, { method: 'DELETE' }); toast('已删除'); loadData(); }
+  catch(e) { toast('删除失败', true); }
+}
+
+function addProject() {
+  openPanel('project', { id: '', client: '', title: '', description: '', year: 2026, category: '', cover: '' });
+  editItemIsNew(function() {
+    return { id: 'commercial-' + Date.now(), client: $('ef-client').value, title: $('ef-title').value, description: $('ef-desc').value, year: parseInt($('ef-year').value), category: $('ef-category').value, cover: $('ef-cover').value };
+  }, '/api/commercial-projects');
+}
+
+function editProject(id) { var p = S.commercialProjects.find(function(x) { return x.id === id; }); if (p) openPanel('project', p); }
+
+async function deleteProject(id) {
+  if (!confirm('确定删除此项目及其所有内容？')) return;
+  try { await api('/api/commercial-projects/' + id, { method: 'DELETE' }); toast('已删除'); loadData(); }
+  catch(e) { toast('删除失败', true); }
+}
+
+function editItemIsNew(getBodyFn, url) {
+  var origSave = savePanel;
+  savePanel = async function() {
+    var body = getBodyFn();
+    try { await api(url, { method: 'POST', body: JSON.stringify(body) }); toast('已添加'); closePanel(); loadData(); }
+    catch(e) { toast('添加失败: ' + e.message, true); }
+    savePanel = origSave;
+  };
+}
+
+function handleAdd() {
+  if (currentTab === 'groups') {
+    openPanel('group', { id: 0, date: '', category: 'portrait', title: '', description: '', cols: 3 });
+    editItemIsNew(function() {
+      return { category: $('ef-category').value, title: $('ef-title').value, description: $('ef-desc').value, date: $('ef-date').value, cols: parseInt($('ef-cols').value) };
+    }, '/api/photo-groups');
+  } else if (currentTab === 'videos') { addVideo(); }
+  else if (currentTab === 'commercial') { addProject(); }
+}
+
+function toggleSelectMode() { selectMode = !selectMode; if (!selectMode) selectedItems.clear(); updateSelectUI(); render(); }
+
+function updateSelectUI() {
+  $('btn-delete-selected').style.display = (selectMode && selectedItems.size > 0) ? '' : 'none';
+  $('btn-select').textContent = selectMode ? '✕' : '☐';
+}
+
+async function deleteSelected() {
+  if (!selectedItems.size) return;
+  if (!confirm('确定删除选中的 ' + selectedItems.size + ' 张图片？包括 R2 上的文件？')) return;
+  // Delete from R2
+  selectedItems.forEach(function(id) {
+    var img = findImageById(id);
+    if (img && img.src) deleteFromR2(img.src);
+  });
+  try {
+    await api('/api/batch-delete', { method: 'POST', body: JSON.stringify({ table: 'photo_items', ids: Array.from(selectedItems) }) });
+    toast('已删除 ' + selectedItems.size + ' 项');
+    selectedItems.clear(); selectMode = false; updateSelectUI(); loadData();
+  } catch(e) { toast('批量删除失败', true); }
+}
+
+function applyFilter() { render(); }
+
+function compressImage(file) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var canvas = document.createElement('canvas');
+      var width = img.width, height = img.height;
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        var ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.floor(width * ratio);
+        height = Math.floor(height * ratio);
+      }
+      canvas.width = width; canvas.height = height;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      var quality = 0.9, blob;
+      (function tryCompress() {
+        canvas.toBlob(function(b) {
+          if (b && b.size <= TARGET_SIZE_KB * 1024) { blob = b; resolve(blob); }
+          else if (quality > 0.3) { quality -= 0.1; tryCompress(); }
+          else { resolve(blob || b); }
+        }, 'image/jpeg', quality);
+      })();
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function handleFileUpload(event) {
+  var files = event.target.files;
+  if (!files || !files.length) return;
+  if (!currentGroupId) { toast('请先选择一个图片组', true); return; }
+  var group = S.photoGroups.find(function(g) { return g.id === currentGroupId; });
+  if (!group) return;
+  var category = (group.category || 'portrait').replace('official', 'portrait');
+  var dateStr = group.date || new Date().toISOString().slice(0, 10);
+  for (var i = 0; i < files.length; i++) {
+    var file = files[i];
+    if (!file.type.startsWith('image/')) continue;
+    try {
+      var st = document.getElementById('stats');
+      if (st) st.textContent = '上传中 ' + (i+1) + '/' + files.length + '...';
+      var compressed = await compressImage(file);
+      var ext = file.name.split('.').pop() || 'jpg';
+      var ts = Date.now();
+      var fname = ts + '-' + i + '.' + ext;
+      var fd = new FormData();
+      fd.append('image', compressed, fname);
+      fd.append('category', category);
+      fd.append('date', dateStr);
+      var url = R2_BASE_URL + '/images/' + category + '/' + dateStr + '/' + fname;
+      try {
+        var r2Res = await fetch(R2_UPLOAD_URL, { method: 'POST', body: fd });
+        if (r2Res.ok) {
+          try { var d = await r2Res.json(); if (d && d.url) url = d.url; } catch(ign) {}
+        }
+      } catch(ign) {}
+      var dbRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ group_id: currentGroupId, src: url, title: '', description: '' })
+      });
+      if (!dbRes.ok) throw new Error('写入数据库失败');
+    } catch(e) { toast('上传 ' + file.name + ' 失败: ' + e.message, true); }
+  }
+  toast('上传完成');
+  loadData();
+}
+
+// ==================== Bulk Upload (R2) ====================
+const R2_UPLOAD_URL = 'https://r2-upload.linweigh58.workers.dev/upload';
+const R2_BASE_URL = 'https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev';
+let bulkFiles = [];
+let bulkSelectedCat = 'portrait';
+
+function openBulkUpload() {
+  $('bulk-modal').classList.add('active');
+  bulkFiles = [];
+  renderBulkPreviews();
+  $('bulk-upload-btn').disabled = true;
+  $('bulk-progress').style.display = 'none';
+  $('bulk-stats').textContent = '';
+  // Setup tag clicks
+  document.querySelectorAll('#bulk-tags .modal-tag').forEach(function(t) {
+    t.onclick = function() {
+      document.querySelectorAll('#bulk-tags .modal-tag').forEach(function(tt) { tt.classList.remove('selected'); });
+      t.classList.add('selected');
+      bulkSelectedCat = t.dataset.val;
+    };
+  });
+  // Setup drop zone
+  var dz = $('bulk-drop');
+  dz.onclick = function() { $('bulk-file-input').click(); };
+  dz.ondragover = function(e) { e.preventDefault(); dz.classList.add('drag'); };
+  dz.ondragleave = function() { dz.classList.remove('drag'); };
+  dz.ondrop = function(e) { e.preventDefault(); dz.classList.remove('drag'); handleBulkFiles(e.dataTransfer.files); };
+  $('bulk-file-input').onchange = function() { handleBulkFiles($('bulk-file-input').files); };
+}
+
+function closeBulkUpload() {
+  $('bulk-modal').classList.remove('active');
+  bulkFiles = [];
+}
+
+function getExifDate(file) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var view = new DataView(e.target.result);
+      if (view.getUint16(0, false) !== 0xFFD8) { resolve(null); return; }
+      var length = view.byteLength, offset = 2;
+      while (offset < length) {
+        if (view.getUint16(offset, false) === 0xFFE1) {
+          var exd = '';
+          for (var k = offset + 4; k < offset + 10; k++) exd += String.fromCharCode(view.getUint8(k));
+          if (exd === 'Exif\u0000\u0000') {
+            resolve(findExifDateInner(e.target.result, offset + 10));
+            return;
+          }
+        }
+        offset += 2 + view.getUint16(offset + 2, false);
+      }
+      resolve(null);
+    };
+    reader.readAsArrayBuffer(file.slice(0, 65536));
+  });
+}
+
+function findExifDateInner(buffer, tiffOffset) {
+  var view = new DataView(buffer);
+  var le = view.getUint16(tiffOffset, false) === 0x4949;
+  var ifdOff = view.getUint32(tiffOffset + 4, le);
+  var ifdStart = tiffOffset + ifdOff;
+  var entries = view.getUint16(ifdStart, le);
+  for (var i = 0; i < entries; i++) {
+    var eo = ifdStart + 2 + i * 12;
+    if (view.getUint16(eo, le) === 0x9003) {
+      var vo = view.getUint32(eo + 8, le);
+      var dof = tiffOffset + vo;
+      var y = (view.getUint8(dof)-48)*1000+(view.getUint8(dof+1)-48)*100+(view.getUint8(dof+2)-48)*10+(view.getUint8(dof+3)-48);
+      var m = (view.getUint8(dof+5)-48)*10+(view.getUint8(dof+6)-48);
+      var d = (view.getUint8(dof+8)-48)*10+(view.getUint8(dof+9)-48);
+      if (y>2000 && y<2100 && m>=1 && m<=12 && d>=1 && d<=31) return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    }
+  }
+  return null;
+}
+
+function extractDateFromFilename(name) {
+  var m = name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})/);
+  return m ? m[1]+'-'+m[2]+'-'+m[3] : null;
+}
+
+async function handleBulkFiles(files) {
+  if (!files || !files.length) return;
+  $('bulk-stats').textContent = '读取中...';
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    if (!f.type.startsWith('image/')) continue;
+    var exif = await getExifDate(f);
+    var fnDate = extractDateFromFilename(f.name);
+    var date = fnDate || exif || new Date(f.lastModified).toISOString().slice(0, 10);
+    bulkFiles.push({ file: f, name: f.name, date: date });
+  }
+  renderBulkPreviews();
+}
+
+function renderBulkPreviews() {
+  var grid = $('bulk-previews');
+  var groups = $('bulk-groups');
+  if (!bulkFiles.length) { grid.innerHTML = ''; groups.innerHTML = ''; $('bulk-upload-btn').disabled = true; $('bulk-stats').textContent = ''; return; }
+  $('bulk-upload-btn').disabled = false;
+  $('bulk-stats').textContent = bulkFiles.length + ' 张图片';
+  grid.innerHTML = '';
+  var gb = {};
+  bulkFiles.forEach(function(item, idx) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var div = document.createElement('div');
+      div.className = 'modal-preview';
+      div.innerHTML = '<img src="'+e.target.result+'"><div class="fn">'+item.name+'</div><div class="db">'+item.date.slice(0,7)+'</div>';
+      grid.appendChild(div);
+    };
+    reader.readAsDataURL(item.file);
+    var dk = item.date.slice(0, 7);
+    if (!gb[dk]) gb[dk] = 0;
+    gb[dk]++;
+  });
+  groups.innerHTML = Object.keys(gb).sort().reverse().map(function(d) { return '<span class="modal-grp">'+d+' ('+gb[d]+'张)</span>'; }).join('');
+}
+
+async function doBulkUpload() {
+  if (!bulkFiles.length) return;
+  if (!R2_UPLOAD_URL) { toast('请先配置 R2_UPLOAD_URL', true); return; }
+  var btn = $('bulk-upload-btn');
+  btn.disabled = true;
+  $('bulk-progress').style.display = 'block';
+  $('bulk-fill').style.width = '0%';
+
+  // Compress and upload each image to R2
+  var uploaded = {};
+  var total = bulkFiles.length;
+  for (var i = 0; i < total; i++) {
+    var item = bulkFiles[i];
+    $('bulk-label').textContent = '压缩并上传 '+(i+1)+'/'+total+': '+item.name;
+    $('bulk-fill').style.width = Math.round((i/total)*100)+'%';
+    try {
+      var compressed = await compressImage(item.file);
+      var ext = item.name.split('.').pop() || 'jpg';
+      var ts = Date.now();
+      var fname = ts+'-'+String(i).padStart(3,'0')+'.'+ext;
+      var formData = new FormData();
+      formData.append('image', compressed, fname);
+      formData.append('category', bulkSelectedCat);
+      formData.append('date', item.date.slice(0, 10));
+      var url = R2_BASE_URL + '/images/' + bulkSelectedCat + '/' + item.date.slice(0,10) + '/' + fname;
+      try { var res = await fetch(R2_UPLOAD_URL, { method: 'POST', body: formData });
+        if (res.ok) { try { var d = await res.json(); if (d && d.url) url = d.url; } catch(ign){} }
+      } catch(ign) {}
+      var dateKey = item.date.slice(0, 7);
+      if (!uploaded[dateKey]) uploaded[dateKey] = [];
+      uploaded[dateKey].push({ src: url, title: '', description: '' });
+    } catch(e) {
+      toast('上传 '+item.name+' 失败: '+e.message, true);
+    }
+  }
+  $('bulk-fill').style.width = '100%';
+  $('bulk-label').textContent = '正在导入到数据库...';
+
+  // Send to CMS server
+  var groups = Object.keys(uploaded).sort().map(function(dk) {
+    return { date: dk, category: bulkSelectedCat, title: '', description: '', cols: 3, images: uploaded[dk] };
+  });
+  if (!groups.length) { toast('没有成功上传的图片', true); btn.disabled = false; return; }
+
+  try {
+    $('bulk-label').textContent = '正在提交，即将刷新...';
+    var json = JSON.stringify({ groups: groups });
+    window.location = '/api/bulk-import-form?d=' + encodeURIComponent(json);
+    return;
+  } catch(e) {
+    $('bulk-label').textContent = '导入失败: ' + e.message;
+    $('bulk-label').style.color = '#f87171';
+    btn.disabled = false;
+  }
+}
+
+function setupDragSort() {
+  var grid = $('image-grid');
+  if (!grid) return;
+  var cards = grid.querySelectorAll('.image-card[draggable]');
+  var dragSrc = null;
+  cards.forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      dragSrc = card;
+      card.classList.add('drag-ghost');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', function() {
+      card.classList.remove('drag-ghost');
+      grid.querySelectorAll('.image-card.drop-target').forEach(function(c) { c.classList.remove('drop-target'); });
+      dragSrc = null;
+    });
+    card.addEventListener('dragover', function(e) {
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      if (card !== dragSrc) card.classList.add('drop-target');
+    });
+    card.addEventListener('dragleave', function() { card.classList.remove('drop-target'); });
+    card.addEventListener('drop', async function(e) {
+      e.preventDefault(); card.classList.remove('drop-target');
+      if (!dragSrc || card === dragSrc) return;
+      var srcId = parseInt(dragSrc.dataset.id);
+      var dstId = parseInt(card.dataset.id);
+      var group = S.photoGroups.find(function(g) { return g.id === currentGroupId; });
+      if (!group || !group.images) return;
+      var imgs = group.images.slice();
+      var srcIdx = imgs.findIndex(function(i) { return i.id === srcId; });
+      var dstIdx = imgs.findIndex(function(i) { return i.id === dstId; });
+      if (srcIdx < 0 || dstIdx < 0) return;
+      imgs.splice(dstIdx, 0, imgs.splice(srcIdx, 1)[0]);
+      var order = imgs.map(function(i) { return i.id; });
+      try {
+        await api('/api/reorder', { method: 'POST', body: JSON.stringify({ table: 'photo_items', parent_col: 'group_id', parent_id: currentGroupId, order: order }) });
+        toast('已排序');
+        loadData();
+      } catch(e) { toast('排序失败', true); }
+    });
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>

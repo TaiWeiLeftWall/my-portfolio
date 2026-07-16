@@ -7,8 +7,18 @@ node_modules/
 # Compressed images (use rclone to sync)
 images-compressed/
 
-# Upload tool (standalone, not in repo)
-upload-tool/
+# Upload tool runtime state is local; sanitized source is versioned.
+upload-tool/*
+!upload-tool/cms.html
+!upload-tool/cms.js
+!upload-tool/cms_server.py
+!upload-tool/cms_db.py
+!upload-tool/r2_client.py
+!upload-tool/r2-upload.js
+!upload-tool/cms_config.example.json
+!upload-tool/wrangler.example.jsonc
+!upload-tool/tests/
+!upload-tool/tests/**
 
 # OS files
 .DS_Store

@@ -39,8 +39,8 @@ function respond(context, status, payload, key = null, errorCode = null) {
   });
 }
 
-function reject(context, status, error, message) {
-  return respond(context, status, { ok: false, error, message }, null, error);
+function reject(context, status, error, message, key = null) {
+  return respond(context, status, { ok: false, error, message }, key, error);
 }
 
 async function tokenMatches(request, expectedToken) {
@@ -61,11 +61,13 @@ function isRealDate(value) {
 }
 
 function publicBaseUrl(value) {
-  if (typeof value !== "string" || value.length === 0) return null;
+  if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
+    return null;
+  }
   try {
     const parsed = new URL(value);
     if (
-      (parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
+      parsed.protocol !== "https:" ||
       parsed.username ||
       parsed.password ||
       parsed.search ||
@@ -73,7 +75,7 @@ function publicBaseUrl(value) {
     ) {
       return null;
     }
-    return value.replace(/\/+$/, "");
+    return parsed.href.replace(/\/+$/, "");
   } catch {
     return null;
   }
@@ -102,7 +104,11 @@ async function upload(request, env, url, context) {
     if (!/^\d+$/.test(contentLength)) {
       return reject(context, 400, "invalid_content_length", "Content-Length is invalid");
     }
-    if (Number(contentLength) > MAX_UPLOAD_BYTES) {
+    const declaredBytes = Number(contentLength);
+    if (declaredBytes === 0) {
+      return reject(context, 400, "missing_body", "Image body is required");
+    }
+    if (declaredBytes > MAX_UPLOAD_BYTES) {
       return reject(context, 413, "payload_too_large", "Image exceeds the 15 MiB limit");
     }
   }
@@ -117,9 +123,13 @@ async function upload(request, env, url, context) {
   }
 
   const key = `images/${category}/${date}/${crypto.randomUUID()}.${extension}`;
-  await env.MY_BUCKET.put(key, request.body, {
-    httpMetadata: { contentType },
-  });
+  try {
+    await env.MY_BUCKET.put(key, request.body, {
+      httpMetadata: { contentType },
+    });
+  } catch {
+    return reject(context, 500, "internal_error", "Internal server error", key);
+  }
   const encodedKey = key.split("/").map(encodeURIComponent).join("/");
   return respond(
     context,
@@ -145,7 +155,11 @@ async function remove(request, env, context) {
     return reject(context, 400, "invalid_key", "Delete key must use the images/ prefix");
   }
 
-  await env.MY_BUCKET.delete(key);
+  try {
+    await env.MY_BUCKET.delete(key);
+  } catch {
+    return reject(context, 500, "internal_error", "Internal server error", key);
+  }
   return respond(context, 200, { ok: true, key }, key);
 }
 

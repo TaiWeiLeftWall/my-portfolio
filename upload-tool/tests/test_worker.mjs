@@ -29,19 +29,23 @@ const workerModuleUrl = `data:text/javascript;base64,${Buffer.from(workerSource)
 const { default: worker } = await import(workerModuleUrl);
 
 class FakeBucket {
-  constructor() {
+  constructor({ putError = null, deleteError = null } = {}) {
     this.puts = [];
     this.deletes = [];
+    this.putError = putError;
+    this.deleteError = deleteError;
   }
 
   async put(key, body, options) {
     const call = { key, body, options, bytes: null };
     this.puts.push(call);
+    if (this.putError) throw this.putError;
     call.bytes = new Uint8Array(await new Response(body).arrayBuffer());
   }
 
   async delete(key) {
     this.deletes.push(key);
+    if (this.deleteError) throw this.deleteError;
   }
 }
 
@@ -197,6 +201,76 @@ test("rejects declared uploads larger than 15 MiB", async () => {
   assert.equal(env.MY_BUCKET.puts.length, 0);
 });
 
+test("rejects a declared zero-length upload before calling R2", async () => {
+  const { response, payload, env } = await invoke({
+    path: "/upload?category=official&date=2026-07-16&filename=empty.webp",
+    method: "POST",
+    headers: {
+      "Content-Type": "image/webp",
+      "Content-Length": "0",
+    },
+    body: new Uint8Array(),
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(payload, {
+    ok: false,
+    error: "missing_body",
+    message: "Image body is required",
+  });
+  assert.equal(env.MY_BUCKET.puts.length, 0);
+});
+
+test("rejects public base URLs with surrounding whitespace before calling R2", async () => {
+  const env = makeEnv({
+    PUBLIC_BASE_URL: " https://cdn.example.test/base/ ",
+  });
+  const { response, payload } = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+
+  assert.equal(response.status, 503);
+  assert.equal(payload.error, "service_not_configured");
+  assert.equal(env.MY_BUCKET.puts.length, 0);
+});
+
+test("rejects non-HTTPS public base URLs before calling R2", async () => {
+  const env = makeEnv({ PUBLIC_BASE_URL: "http://cdn.example.test/base/" });
+  const { response, payload } = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+
+  assert.equal(response.status, 503);
+  assert.equal(payload.error, "service_not_configured");
+  assert.equal(env.MY_BUCKET.puts.length, 0);
+});
+
+test("canonicalizes the configured HTTPS base URL", async () => {
+  const env = makeEnv({
+    PUBLIC_BASE_URL: "https://CDN.EXAMPLE.TEST:443/base///",
+  });
+  const { response, payload } = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.url, `https://cdn.example.test/base/${payload.key}`);
+  assert.doesNotThrow(() => new URL(payload.url));
+  assert.equal(env.MY_BUCKET.puts.length, 1);
+});
+
 test("streams an accepted image into R2 and returns its public URL", async () => {
   const bytes = new Uint8Array([10, 20, 30, 40]);
   const { response, payload, env, requestBody } = await invoke({
@@ -253,6 +327,69 @@ test("deletes an images object idempotently", async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(payload, { ok: true, key });
   assert.deepEqual(env.MY_BUCKET.deletes, [key]);
+});
+
+test("logs the attempted upload key when R2 put fails", async () => {
+  const secret = "test-secret";
+  const failureDetail = `put exploded with ${secret}`;
+  const env = makeEnv({
+    MY_BUCKET: new FakeBucket({ putError: new Error(failureDetail) }),
+  });
+  const { response, payload, logs } = await invoke({
+    path: "/upload?category=street&date=2026-07-16&filename=photo.png",
+    method: "POST",
+    headers: { "Content-Type": "image/png" },
+    body: new Uint8Array([1]),
+    env,
+  });
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(payload, {
+    ok: false,
+    error: "internal_error",
+    message: "Internal server error",
+  });
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].level, "error");
+  const entry = JSON.parse(logs[0].entry);
+  assert.equal(entry.key, env.MY_BUCKET.puts[0].key);
+  assert.equal(entry.operation, "upload");
+  assert.equal(entry.status, 500);
+  assert.equal(entry.errorCode, "internal_error");
+  assert.doesNotMatch(logs[0].entry, /test-secret|put exploded|authorization|bearer/i);
+  assert.doesNotMatch(JSON.stringify(payload), /test-secret|put exploded/i);
+});
+
+test("logs the attempted deletion key when R2 delete fails", async () => {
+  const secret = "test-secret";
+  const failureDetail = `delete exploded with ${secret}`;
+  const env = makeEnv({
+    MY_BUCKET: new FakeBucket({ deleteError: new Error(failureDetail) }),
+  });
+  const key = "images/portrait/2026-07-16/photo.jpg";
+  const { response, payload, logs } = await invoke({
+    path: "/delete",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key }),
+    env,
+  });
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(payload, {
+    ok: false,
+    error: "internal_error",
+    message: "Internal server error",
+  });
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].level, "error");
+  const entry = JSON.parse(logs[0].entry);
+  assert.equal(entry.key, key);
+  assert.equal(entry.operation, "delete");
+  assert.equal(entry.status, 500);
+  assert.equal(entry.errorCode, "internal_error");
+  assert.doesNotMatch(logs[0].entry, /test-secret|delete exploded|authorization|bearer/i);
+  assert.doesNotMatch(JSON.stringify(payload), /test-secret|delete exploded/i);
 });
 
 test("emits structured request logs without credentials", async () => {

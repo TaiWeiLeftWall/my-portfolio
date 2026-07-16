@@ -7,82 +7,54 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const tool = path.resolve(here, "..");
 const html = fs.readFileSync(path.join(tool, "cms.html"), "utf8");
-for (const [index, match] of [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].entries()) {
-  new vm.Script(match[1], { filename: `cms-inline-${index}.js` });
-}
-const external = path.join(tool, "cms.js");
-if (fs.existsSync(external)) {
-  new vm.Script(fs.readFileSync(external, "utf8"), { filename: "cms.js" });
-}
+const cmsPath = path.join(tool, "cms.js");
 
-function functionSource(start, end) {
-  const startIndex = html.indexOf(start);
-  const endIndex = html.indexOf(end, startIndex);
-  assert.notEqual(startIndex, -1, `missing ${start}`);
-  assert.notEqual(endIndex, -1, `missing ${end}`);
-  return html.slice(startIndex, endIndex);
-}
+const scriptTags = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
+const openingTag = (match) => match[0].slice(0, match[0].indexOf(">") + 1);
+const externalScripts = scriptTags.filter((match) => /\bsrc\s*=/.test(openingTag(match)));
+const inlineScripts = scriptTags.filter((match) => !/\bsrc\s*=/.test(openingTag(match)));
 
-const singleUploadSource = functionSource(
-  "async function handleFileUpload(event)",
-  "// ==================== Bulk Upload (R2) ====================",
+assert.equal(externalScripts.length, 1, "cms.html must load exactly one external script");
+assert.equal(inlineScripts.length, 0, "cms.html must not contain inline JavaScript");
+assert.match(
+  openingTag(externalScripts[0]),
+  /\bsrc=["']\/upload-tool\/cms\.js["']/,
+  "cms.html must load /upload-tool/cms.js",
 );
-const bulkUploadSource = functionSource(
-  "async function doBulkUpload()",
-  "function setupDragSort()",
+assert.match(openingTag(externalScripts[0]), /\bdefer\b/, "the CMS script must be deferred");
+assert.ok(fs.existsSync(cmsPath), "upload-tool/cms.js must exist");
+
+const source = fs.readFileSync(cmsPath, "utf8");
+new vm.Script(source, { filename: "cms.js" });
+
+assert.doesNotMatch(
+  source,
+  /R2_UPLOAD_URL|R2_BASE_URL|bulk-import-form|deleteFromR2|r2KeyFromUrl/,
+  "browser code must not call R2 or the mutating GET import route directly",
 );
-
-async function runUnconfiguredUpload(source, name, config) {
-  const apiMutations = [];
-  const elements = new Map();
-  const context = {
-    ...config,
-    currentGroupId: 1,
-    S: { photoGroups: [{ id: 1, category: "portrait", date: "2026-07-16" }] },
-    bulkFiles: [{ name: "test.jpg", date: "2026-07-16", file: {} }],
-    bulkSelectedCat: "portrait",
-    toast() {},
-    loadData() {},
-    compressImage: async () => ({}),
-    FormData: class { append() {} },
-    document: { getElementById: () => ({ textContent: "" }) },
-    $(id) {
-      if (!elements.has(id)) elements.set(id, { disabled: false, style: {} });
-      return elements.get(id);
-    },
-    fetch: async (url) => {
-      if (String(url).startsWith("/api/")) apiMutations.push(String(url));
-      return { ok: false };
-    },
-  };
-  context.window = {};
-  Object.defineProperty(context.window, "location", {
-    set(value) { apiMutations.push(String(value)); },
-  });
-  new vm.Script(`${source}\nthis.uploadUnderTest = ${name};`).runInNewContext(context);
-  if (name === "handleFileUpload") {
-    await context.uploadUnderTest({ target: { files: [{ name: "test.jpg", type: "image/jpeg" }] } });
-  } else {
-    await context.uploadUnderTest();
-  }
-  assert.deepEqual(apiMutations, [], `${name} mutated CMS state while R2 was unconfigured`);
+assert.doesNotMatch(source, /(?:workers|r2)\.dev/i, "browser code must not contain an R2 host");
+assert.doesNotMatch(source, /['"]\/api\/upload['"]/, "legacy split upload must not be used");
+assert.match(source, /\/api\/photo-items\/upload/, "uploads must use the local multipart endpoint");
+for (const field of ["image", "group_id", "category", "date"]) {
+  assert.match(source, new RegExp(`\\.append\\(['"]${field}['"]`), `multipart upload must append ${field}`);
 }
-
-for (const sourceAndName of [
-  [singleUploadSource, "handleFileUpload"],
-  [bulkUploadSource, "doBulkUpload"],
-]) {
-  await runUnconfiguredUpload(sourceAndName[0], sourceAndName[1], {
-    R2_UPLOAD_URL: "",
-    R2_BASE_URL: "https://configured.invalid",
-  });
-  await runUnconfiguredUpload(sourceAndName[0], sourceAndName[1], {
-    R2_UPLOAD_URL: "https://configured.invalid/upload",
-    R2_BASE_URL: "",
-  });
-}
-
-assert.doesNotMatch(html, /r2-upload\.linweigh58\.workers\.dev/i);
-assert.doesNotMatch(html, /(?:workers|r2)\.dev/i);
+assert.match(source, /jpgName\s*=\s*[^;]+\+\s*['"]\.jpg['"]/, "compressed upload names must end in .jpg");
+assert.match(source, /\.append\(['"]image['"],\s*blob,\s*jpgName\)/, "multipart image must use the .jpg name");
+assert.match(source, /let\s+editorState\s*=\s*null/, "editor state must be explicit");
+assert.match(source, /mode:\s*['"]create['"]/, "editor state must support create mode");
+assert.match(source, /mode:\s*['"]edit['"]/, "editor state must support edit mode");
+assert.match(source, /\bsaving\b/, "savePanel must guard duplicate submissions");
+assert.match(source, /if\s*\(!editorState\s*\|\|\s*saving\)\s*return/, "savePanel must reject duplicate submissions");
+assert.match(source, /state\.mode\s*===\s*['"]create['"]\s*\?\s*['"]POST['"]\s*:\s*['"]PUT['"]/, "savePanel must choose POST or PUT from editor state");
+assert.match(source, /Promise\.all\s*\(/, "state and health must load concurrently");
+assert.match(source, /\/api\/health/, "CMS must load health information");
+assert.match(source, /status\s*=\s*['"]pending['"]/, "batch items must start pending");
+assert.match(source, /status\s*=\s*['"]uploading['"]/, "batch items must expose uploading state");
+assert.match(source, /status\s*=\s*['"]succeeded['"]/, "batch items must expose succeeded state");
+assert.match(source, /status\s*=\s*['"]failed['"]/, "batch items must expose failed state");
+assert.match(source, /retryFailedUploads/, "failed batch uploads must have a retry action");
+assert.match(source, /status\s*!==\s*['"]succeeded['"]/, "succeeded batch items must be removed");
+assert.match(source, /if\s*\(failed\s*===\s*0\)\s*closeBulkUpload\(\)/, "a failed batch must keep the modal open");
+assert.match(source, /成功 ['"]?\s*\+\s*succeeded\s*\+\s*['"]?，失败 ['"]?\s*\+\s*failed/, "completion text must use exact success and failure counters");
 
 console.log("CMS scripts: OK");

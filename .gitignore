@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Isolated Codex development worktrees
+.worktrees/
+
 # Compressed images (use rclone to sync)
 images-compressed/
 

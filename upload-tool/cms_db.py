@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -115,7 +116,7 @@ class Database:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.media_dir.mkdir(parents=True, exist_ok=True)
         existed = self.db_path.exists()
-        with self.connect() as conn:
+        with closing(self.connect()) as conn:
             conn.execute("pragma journal_mode = wal")
             current_version = conn.execute("pragma user_version").fetchone()[0]
             if current_version > SCHEMA_VERSION:
@@ -127,14 +128,20 @@ class Database:
                     backup_path = self.db_path.with_name(
                         f"{self.db_path.name}.bak-v{current_version}"
                     )
-                    with sqlite3.connect(backup_path) as backup:
+                    with closing(sqlite3.connect(backup_path)) as backup:
                         conn.backup(backup)
-                with conn:
+                conn.execute("begin immediate")
+                try:
                     for statement in SCHEMA_STATEMENTS:
                         conn.execute(statement)
                     self._ensure_column(conn, "videos", "platform", "text not null default ''")
                     self._ensure_column(conn, "videos", "source", "text not null default ''")
                     conn.execute(f"pragma user_version = {SCHEMA_VERSION}")
+                except Exception:
+                    conn.rollback()
+                    raise
+                else:
+                    conn.commit()
 
         if seed and self._is_empty():
             self._seed_from_frontend()
@@ -148,7 +155,7 @@ class Database:
             conn.execute(f"alter table {table} add column {column} {definition}")
 
     def _is_empty(self) -> bool:
-        with self.connect() as conn:
+        with closing(self.connect()) as conn:
             photo_count = conn.execute("select count(*) from photo_groups").fetchone()[0]
             project_count = conn.execute(
                 "select count(*) from commercial_projects"
@@ -255,13 +262,26 @@ console.log(JSON.stringify(ctx.__out));
     def _dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
         return dict(row) if row is not None else None
 
+    def _get_on(
+        self, conn: sqlite3.Connection, table: str, record_id: Any
+    ) -> dict[str, Any] | None:
+        return self._dict(
+            conn.execute(f"select * from {table} where id=?", (record_id,)).fetchone()
+        )
+
     def _get(self, table: str, record_id: Any) -> dict[str, Any] | None:
-        with self.connect() as conn:
-            return self._dict(conn.execute(f"select * from {table} where id=?", (record_id,)).fetchone())
+        with closing(self.connect()) as conn:
+            return self._get_on(conn, table, record_id)
+
+    @staticmethod
+    def _rows_on(
+        conn: sqlite3.Connection, sql: str, args: Iterable[Any] = ()
+    ) -> list[dict[str, Any]]:
+        return [dict(row) for row in conn.execute(sql, tuple(args)).fetchall()]
 
     def _rows(self, sql: str, args: Iterable[Any] = ()) -> list[dict[str, Any]]:
-        with self.connect() as conn:
-            return [dict(row) for row in conn.execute(sql, tuple(args)).fetchall()]
+        with closing(self.connect()) as conn:
+            return self._rows_on(conn, sql, args)
 
     @staticmethod
     def _integer(value: Any, field: str) -> int:
@@ -294,23 +314,40 @@ console.log(JSON.stringify(ctx.__out));
         return record
 
     def state(self) -> dict[str, Any]:
-        groups = self._rows("select * from photo_groups order by sort_order,id")
-        for group in groups:
-            group["images"] = self._rows(
-                "select * from photo_items where group_id=? order by sort_order,id",
-                (group["id"],),
-            )
-        projects = self._rows("select * from commercial_projects order by sort_order,id")
-        for project in projects:
-            project["items"] = self._rows(
-                "select * from commercial_items where project_id=? order by sort_order,id",
-                (project["id"],),
-            )
-        return {
-            "photoGroups": groups,
-            "videos": self._rows("select * from videos order by sort_order,id"),
-            "commercialProjects": projects,
-        }
+        with closing(self.connect()) as conn:
+            conn.execute("begin")
+            try:
+                groups = self._rows_on(
+                    conn, "select * from photo_groups order by sort_order,id"
+                )
+                for group in groups:
+                    group["images"] = self._rows_on(
+                        conn,
+                        "select * from photo_items where group_id=? order by sort_order,id",
+                        (group["id"],),
+                    )
+                projects = self._rows_on(
+                    conn, "select * from commercial_projects order by sort_order,id"
+                )
+                for project in projects:
+                    project["items"] = self._rows_on(
+                        conn,
+                        "select * from commercial_items where project_id=? order by sort_order,id",
+                        (project["id"],),
+                    )
+                result = {
+                    "photoGroups": groups,
+                    "videos": self._rows_on(
+                        conn, "select * from videos order by sort_order,id"
+                    ),
+                    "commercialProjects": projects,
+                }
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return result
 
     def health(self) -> dict[str, Any]:
         with self.connect() as conn:
@@ -355,27 +392,39 @@ console.log(JSON.stringify(ctx.__out));
         return self._require_row(self.get_photo_group(group_id), "photo group", group_id)
 
     def update_photo_group(self, group_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
-        current = self._require_row(self.get_photo_group(group_id), "photo group", group_id)
-        merged = {**current, **changes}
-        category = merged["category"]
-        if category not in VALID_CATEGORIES:
-            raise ValidationError("invalid photo category")
-        values = (
-            category,
-            merged["title"],
-            merged["description"],
-            self._validate_date(merged["date"]),
-            self._integer(merged["cols"], "cols"),
-            self._integer(merged["sort_order"], "sort_order"),
-            group_id,
-        )
-        with self.connect() as conn:
-            conn.execute(
-                """update photo_groups set category=?,title=?,description=?,date=?,cols=?,sort_order=?
-                where id=?""",
-                values,
-            )
-        return self._require_row(self.get_photo_group(group_id), "photo group", group_id)
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                current = self._require_row(
+                    self._get_on(conn, "photo_groups", group_id), "photo group", group_id
+                )
+                merged = {**current, **changes}
+                category = merged["category"]
+                if category not in VALID_CATEGORIES:
+                    raise ValidationError("invalid photo category")
+                values = (
+                    category,
+                    merged["title"],
+                    merged["description"],
+                    self._validate_date(merged["date"]),
+                    self._integer(merged["cols"], "cols"),
+                    self._integer(merged["sort_order"], "sort_order"),
+                    group_id,
+                )
+                conn.execute(
+                    """update photo_groups set
+                    category=?,title=?,description=?,date=?,cols=?,sort_order=? where id=?""",
+                    values,
+                )
+                updated = self._require_row(
+                    self._get_on(conn, "photo_groups", group_id), "photo group", group_id
+                )
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return updated
 
     def delete_photo_group(self, group_id: Any) -> dict[str, Any]:
         current = self._require_row(self.get_photo_group(group_id), "photo group", group_id)
@@ -407,26 +456,38 @@ console.log(JSON.stringify(ctx.__out));
         return self._require_row(self.get_photo_item(item_id), "photo item", item_id)
 
     def update_photo_item(self, item_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
-        current = self._require_row(self.get_photo_item(item_id), "photo item", item_id)
-        merged = {**current, **changes}
-        values = (
-            self._integer(merged["group_id"], "group_id"),
-            merged["src"],
-            merged["title"],
-            merged["description"],
-            self._integer(merged["sort_order"], "sort_order"),
-            item_id,
-        )
-        try:
-            with self.connect() as conn:
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                current = self._require_row(
+                    self._get_on(conn, "photo_items", item_id), "photo item", item_id
+                )
+                merged = {**current, **changes}
+                values = (
+                    self._integer(merged["group_id"], "group_id"),
+                    merged["src"],
+                    merged["title"],
+                    merged["description"],
+                    self._integer(merged["sort_order"], "sort_order"),
+                    item_id,
+                )
                 conn.execute(
                     """update photo_items set group_id=?,src=?,title=?,description=?,sort_order=?
                     where id=?""",
                     values,
                 )
-        except sqlite3.IntegrityError as exc:
-            raise ValidationError("invalid photo item") from exc
-        return self._require_row(self.get_photo_item(item_id), "photo item", item_id)
+                updated = self._require_row(
+                    self._get_on(conn, "photo_items", item_id), "photo item", item_id
+                )
+            except sqlite3.IntegrityError as exc:
+                conn.rollback()
+                raise ValidationError("invalid photo item") from exc
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return updated
 
     def delete_photo_item(self, item_id: Any) -> dict[str, Any]:
         current = self._require_row(self.get_photo_item(item_id), "photo item", item_id)
@@ -456,24 +517,36 @@ console.log(JSON.stringify(ctx.__out));
         return self._require_row(self.get_video(video_id), "video", video_id)
 
     def update_video(self, video_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
-        current = self._require_row(self.get_video(video_id), "video", video_id)
-        merged = {**current, **changes}
-        values = (
-            merged["title"],
-            merged["description"],
-            merged["url"],
-            merged["platform"],
-            merged["source"],
-            self._integer(merged["sort_order"], "sort_order"),
-            video_id,
-        )
-        with self.connect() as conn:
-            conn.execute(
-                """update videos set title=?,description=?,url=?,platform=?,source=?,sort_order=?
-                where id=?""",
-                values,
-            )
-        return self._require_row(self.get_video(video_id), "video", video_id)
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                current = self._require_row(
+                    self._get_on(conn, "videos", video_id), "video", video_id
+                )
+                merged = {**current, **changes}
+                values = (
+                    merged["title"],
+                    merged["description"],
+                    merged["url"],
+                    merged["platform"],
+                    merged["source"],
+                    self._integer(merged["sort_order"], "sort_order"),
+                    video_id,
+                )
+                conn.execute(
+                    """update videos set
+                    title=?,description=?,url=?,platform=?,source=?,sort_order=? where id=?""",
+                    values,
+                )
+                updated = self._require_row(
+                    self._get_on(conn, "videos", video_id), "video", video_id
+                )
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return updated
 
     def delete_video(self, video_id: Any) -> dict[str, Any]:
         current = self._require_row(self.get_video(video_id), "video", video_id)
@@ -516,32 +589,45 @@ console.log(JSON.stringify(ctx.__out));
     def update_commercial_project(
         self, project_id: Any, changes: dict[str, Any]
     ) -> dict[str, Any]:
-        current = self._require_row(
-            self.get_commercial_project(project_id), "commercial project", project_id
-        )
-        merged = {**current, **changes}
-        category = merged["category"]
-        if category and category not in VALID_COMMERCIAL_CATEGORIES:
-            raise ValidationError("invalid commercial category")
-        values = (
-            merged["client"],
-            merged["title"],
-            merged["description"],
-            merged["cover"],
-            self._integer(merged["year"], "year"),
-            category,
-            self._integer(merged["sort_order"], "sort_order"),
-            project_id,
-        )
-        with self.connect() as conn:
-            conn.execute(
-                """update commercial_projects set
-                client=?,title=?,description=?,cover=?,year=?,category=?,sort_order=? where id=?""",
-                values,
-            )
-        return self._require_row(
-            self.get_commercial_project(project_id), "commercial project", project_id
-        )
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                current = self._require_row(
+                    self._get_on(conn, "commercial_projects", project_id),
+                    "commercial project",
+                    project_id,
+                )
+                merged = {**current, **changes}
+                category = merged["category"]
+                if category and category not in VALID_COMMERCIAL_CATEGORIES:
+                    raise ValidationError("invalid commercial category")
+                values = (
+                    merged["client"],
+                    merged["title"],
+                    merged["description"],
+                    merged["cover"],
+                    self._integer(merged["year"], "year"),
+                    category,
+                    self._integer(merged["sort_order"], "sort_order"),
+                    project_id,
+                )
+                conn.execute(
+                    """update commercial_projects set
+                    client=?,title=?,description=?,cover=?,year=?,category=?,sort_order=?
+                    where id=?""",
+                    values,
+                )
+                updated = self._require_row(
+                    self._get_on(conn, "commercial_projects", project_id),
+                    "commercial project",
+                    project_id,
+                )
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return updated
 
     def delete_commercial_project(self, project_id: Any) -> dict[str, Any]:
         current = self._require_row(
@@ -555,6 +641,11 @@ console.log(JSON.stringify(ctx.__out));
         return self._get("commercial_items", item_id)
 
     def create_commercial_item(self, data: dict[str, Any]) -> dict[str, Any]:
+        return self.create_commercial_item_with_cover(data, set_cover=False)
+
+    def create_commercial_item_with_cover(
+        self, data: dict[str, Any], set_cover: bool
+    ) -> dict[str, Any]:
         item_type = data.get("type", "image")
         if item_type not in {"image", "video"}:
             raise ValidationError("invalid commercial item type")
@@ -566,46 +657,79 @@ console.log(JSON.stringify(ctx.__out));
             data.get("poster", ""),
             self._sort_order(data),
         )
-        try:
-            with self.connect() as conn:
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
                 cursor = conn.execute(
                     """insert into commercial_items
                     (project_id,type,src,title,poster,sort_order) values(?,?,?,?,?,?)""",
                     values,
                 )
                 item_id = cursor.lastrowid
-        except sqlite3.IntegrityError as exc:
-            raise ValidationError("invalid commercial item") from exc
-        return self._require_row(self.get_commercial_item(item_id), "commercial item", item_id)
+                if set_cover:
+                    cursor = conn.execute(
+                        "update commercial_projects set cover=? where id=?",
+                        (data.get("src", ""), data.get("project_id", "")),
+                    )
+                    if cursor.rowcount == 0:
+                        raise NotFoundError(
+                            f"commercial project {data.get('project_id', '')} not found"
+                        )
+                created = self._require_row(
+                    self._get_on(conn, "commercial_items", item_id),
+                    "commercial item",
+                    item_id,
+                )
+            except sqlite3.IntegrityError as exc:
+                conn.rollback()
+                raise ValidationError("invalid commercial item or cover") from exc
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return created
 
     def update_commercial_item(self, item_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
-        current = self._require_row(
-            self.get_commercial_item(item_id), "commercial item", item_id
-        )
-        merged = {**current, **changes}
-        if merged["type"] not in {"image", "video"}:
-            raise ValidationError("invalid commercial item type")
-        values = (
-            merged["project_id"],
-            merged["type"],
-            merged["src"],
-            merged["title"],
-            merged["poster"],
-            self._integer(merged["sort_order"], "sort_order"),
-            item_id,
-        )
-        try:
-            with self.connect() as conn:
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                current = self._require_row(
+                    self._get_on(conn, "commercial_items", item_id),
+                    "commercial item",
+                    item_id,
+                )
+                merged = {**current, **changes}
+                if merged["type"] not in {"image", "video"}:
+                    raise ValidationError("invalid commercial item type")
+                values = (
+                    merged["project_id"],
+                    merged["type"],
+                    merged["src"],
+                    merged["title"],
+                    merged["poster"],
+                    self._integer(merged["sort_order"], "sort_order"),
+                    item_id,
+                )
                 conn.execute(
                     """update commercial_items set
                     project_id=?,type=?,src=?,title=?,poster=?,sort_order=? where id=?""",
                     values,
                 )
-        except sqlite3.IntegrityError as exc:
-            raise ValidationError("invalid commercial item") from exc
-        return self._require_row(
-            self.get_commercial_item(item_id), "commercial item", item_id
-        )
+                updated = self._require_row(
+                    self._get_on(conn, "commercial_items", item_id),
+                    "commercial item",
+                    item_id,
+                )
+            except sqlite3.IntegrityError as exc:
+                conn.rollback()
+                raise ValidationError("invalid commercial item") from exc
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return updated
 
     def delete_commercial_item(self, item_id: Any) -> dict[str, Any]:
         current = self._require_row(
@@ -798,29 +922,64 @@ console.log(JSON.stringify(ctx.__out));
             raise
         return temporary_path
 
+    @staticmethod
+    def _write_temporary_bytes(target: Path, content: bytes) -> Path:
+        handle = tempfile.NamedTemporaryFile(mode="wb", dir=target.parent, delete=False)
+        temporary_path = Path(handle.name)
+        try:
+            with handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except Exception:
+            temporary_path.unlink(missing_ok=True)
+            raise
+        return temporary_path
+
     def export_frontend(self) -> dict[str, Path]:
         data_js, commercial_js = self._frontend_strings()
         targets = (self.root / "data.js", self.root / "commercial.js")
         for target in targets:
             target.parent.mkdir(parents=True, exist_ok=True)
-        originals = {
-            target: target.read_bytes() if target.exists() else None for target in targets
-        }
         temporary_paths: list[Path] = []
+        rollback_paths: dict[Path, Path | None] = {}
+        replaced_targets: list[Path] = []
+        retained_rollbacks: set[Path] = set()
         try:
             temporary_paths.append(self._write_temporary(targets[0], data_js))
             temporary_paths.append(self._write_temporary(targets[1], commercial_js))
+            for target in targets:
+                rollback_paths[target] = (
+                    self._write_temporary_bytes(target, target.read_bytes())
+                    if target.exists()
+                    else None
+                )
             for temporary_path, target in zip(temporary_paths, targets):
                 os.replace(temporary_path, target)
-            temporary_paths.clear()
-        except Exception:
-            for target, original in originals.items():
-                if original is None:
-                    target.unlink(missing_ok=True)
-                else:
-                    target.write_bytes(original)
+                replaced_targets.append(target)
+        except Exception as export_error:
+            rollback_errors = []
+            for target in reversed(replaced_targets):
+                rollback_path = rollback_paths[target]
+                try:
+                    if rollback_path is None:
+                        target.unlink(missing_ok=True)
+                    else:
+                        os.replace(rollback_path, target)
+                except Exception as rollback_error:
+                    rollback_errors.append(rollback_error)
+                    if rollback_path is not None:
+                        retained_rollbacks.add(rollback_path)
+            if rollback_errors:
+                retained = ", ".join(str(path) for path in retained_rollbacks)
+                raise OSError(
+                    f"export failed and atomic rollback files were retained: {retained}"
+                ) from export_error
             raise
         finally:
             for temporary_path in temporary_paths:
                 temporary_path.unlink(missing_ok=True)
+            for rollback_path in rollback_paths.values():
+                if rollback_path is not None and rollback_path not in retained_rollbacks:
+                    rollback_path.unlink(missing_ok=True)
         return {"data": targets[0], "commercial": targets[1]}

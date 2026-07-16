@@ -12,7 +12,6 @@ from urllib.parse import parse_qs, urlparse
 import cgi
 import json
 import os
-import re
 import time
 
 from cms_db import Database, NotFoundError, ValidationError
@@ -171,17 +170,16 @@ class Handler(SimpleHTTPRequestHandler):
         src = save_upload(form["file"], area) if "file" in form else form.getfirst("src", "")
         if area == "commercial":
             project_id = form.getfirst("project_id", "")
-            record = self.database.create_commercial_item(
+            record = self.database.create_commercial_item_with_cover(
                 {
                     "project_id": project_id,
                     "type": form.getfirst("type", "image"),
                     "src": src,
                     "title": form.getfirst("title", ""),
                     "poster": form.getfirst("poster", ""),
-                }
+                },
+                set_cover=form.getfirst("set_cover") == "1",
             )
-            if form.getfirst("set_cover") == "1":
-                self.database.update_commercial_project(project_id, {"cover": src})
         else:
             record = self.database.create_photo_item(
                 {
@@ -245,23 +243,6 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"error": "not found"}, 404)
             return
         self.send_json({"ok": True})
-
-
-VALID_CATEGORIES = {"portrait", "landscape", "street", "performance", "official"}
-VALID_COMMERCIAL_CATEGORIES = {"公務攝影", "演出攝影", "體育攝影", "空間攝影", "廣告", "視頻", "電商"}
-
-
-def validate_date(date):
-    """Return date if YYYY-MM-DD or YYYY-MM, else an empty string."""
-    if not date:
-        return ""
-    if re.match(r"^\d{4}-\d{2}(-\d{2})?$", date):
-        return date
-    return ""
-
-
-def validate_enum(value, allowed, default):
-    return value if value in allowed else default
 
 
 def main():

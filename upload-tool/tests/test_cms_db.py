@@ -12,6 +12,7 @@ TOOL_DIR = Path(__file__).resolve().parents[1]
 SERVER = TOOL_DIR / "cms_server.py"
 sys.path.insert(0, str(TOOL_DIR))
 
+import cms_db  # noqa: E402
 from cms_db import Database, NotFoundError, ValidationError  # noqa: E402
 
 
@@ -92,6 +93,32 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 0)
         self.assertEqual(self.db.health()["orphan_photo_items"], 1)
 
+    def test_mid_migration_failure_rolls_back_schema_and_version(self):
+        failed_path = self.root / "failed-migration.sqlite"
+        database = Database(failed_path, self.root, self.root / "failed-media")
+        injected_statements = (
+            cms_db.SCHEMA_STATEMENTS[0],
+            "create table this is invalid sql",
+            *cms_db.SCHEMA_STATEMENTS[1:],
+        )
+
+        with mock.patch.object(cms_db, "SCHEMA_STATEMENTS", injected_statements):
+            with self.assertRaises(sqlite3.OperationalError):
+                database.initialize(seed=False)
+
+        conn = sqlite3.connect(failed_path)
+        try:
+            tables = {
+                row[0]
+                for row in conn.execute(
+                    "select name from sqlite_master where type='table'"
+                ).fetchall()
+            }
+            self.assertNotIn("photo_groups", tables)
+            self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 0)
+        finally:
+            conn.close()
+
     def test_crud_methods_return_plain_dictionaries_and_missing_updates_raise(self):
         group = self.db.create_photo_group({"category": "portrait", "cols": 3})
         photo = self.db.create_photo_item(
@@ -128,6 +155,94 @@ class DatabaseTests(unittest.TestCase):
             self.db.update_video(999999, {"title": "missing"})
         with self.assertRaises(ValidationError):
             self.db.update_photo_group(group["id"], {"category": "not-a-category"})
+
+    def test_each_update_uses_one_immediate_transaction_connection(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        photo = self.db.create_photo_item(
+            {"group_id": group["id"], "src": "https://example.test/photo.jpg"}
+        )
+        video = self.db.create_video({"url": "https://example.test/video"})
+        project = self.db.create_commercial_project({"id": "snapshot-project"})
+        commercial = self.db.create_commercial_item(
+            {"project_id": project["id"], "src": "https://example.test/item.jpg"}
+        )
+        cases = (
+            (self.db.update_photo_group, group["id"]),
+            (self.db.update_photo_item, photo["id"]),
+            (self.db.update_video, video["id"]),
+            (self.db.update_commercial_project, project["id"]),
+            (self.db.update_commercial_item, commercial["id"]),
+        )
+
+        for update, record_id in cases:
+            with self.subTest(update=update.__name__):
+                statements = []
+                real_connect = self.db.connect
+
+                def traced_connect():
+                    connection = real_connect()
+                    connection.set_trace_callback(statements.append)
+                    return connection
+
+                with mock.patch.object(self.db, "connect", side_effect=traced_connect) as connect:
+                    update(record_id, {"title": update.__name__})
+
+                self.assertEqual(connect.call_count, 1)
+                self.assertIn("BEGIN IMMEDIATE", [sql.upper() for sql in statements])
+
+    def test_state_uses_one_explicit_snapshot_connection(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        self.db.create_photo_item(
+            {"group_id": group["id"], "src": "https://example.test/photo.jpg"}
+        )
+        project = self.db.create_commercial_project({"id": "state-project"})
+        self.db.create_commercial_item(
+            {"project_id": project["id"], "src": "https://example.test/item.jpg"}
+        )
+        statements = []
+        real_connect = self.db.connect
+
+        def traced_connect():
+            connection = real_connect()
+            connection.set_trace_callback(statements.append)
+            return connection
+
+        with mock.patch.object(self.db, "connect", side_effect=traced_connect) as connect:
+            state = self.db.state()
+
+        self.assertEqual(connect.call_count, 1)
+        self.assertEqual(len(state["photoGroups"][0]["images"]), 1)
+        self.assertEqual(len(state["commercialProjects"][0]["items"]), 1)
+        self.assertIn("BEGIN", [sql.upper() for sql in statements])
+
+    def test_commercial_item_and_cover_roll_back_together_when_cover_update_fails(self):
+        project = self.db.create_commercial_project(
+            {"id": "atomic-cover", "cover": "old-cover.jpg"}
+        )
+        conn = self.db.connect()
+        try:
+            with conn:
+                conn.execute(
+                    """create trigger reject_cover_update before update of cover
+                    on commercial_projects begin
+                    select raise(abort, 'cover update rejected');
+                    end"""
+                )
+        finally:
+            conn.close()
+
+        with self.assertRaises(ValidationError):
+            self.db.create_commercial_item_with_cover(
+                {
+                    "project_id": project["id"],
+                    "src": "https://example.test/new-item.jpg",
+                },
+                set_cover=True,
+            )
+
+        state = self.db.state()
+        self.assertEqual(state["commercialProjects"][0]["cover"], "old-cover.jpg")
+        self.assertEqual(state["commercialProjects"][0]["items"], [])
 
     def test_reorder_uses_known_scope_and_enforces_parent(self):
         first_group = self.db.create_photo_group({"category": "portrait", "sort_order": 0})
@@ -230,6 +345,42 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(data_target.read_text(encoding="utf-8"), "old data")
         self.assertEqual(commercial_target.read_text(encoding="utf-8"), "old commercial")
 
+    def test_target_specific_replace_failure_uses_atomic_rollback_file(self):
+        data_target = self.root / "data.js"
+        commercial_target = self.root / "commercial.js"
+        data_target.write_text("old data", encoding="utf-8")
+        commercial_target.write_text("old commercial", encoding="utf-8")
+        real_replace = os.replace
+        replacements = []
+
+        def reject_new_commercial(source, target):
+            source = Path(source)
+            target = Path(target)
+            source_content = source.read_text(encoding="utf-8")
+            replacements.append((target, source_content))
+            if target == commercial_target and source_content != "old commercial":
+                raise OSError("commercial target unavailable")
+            return real_replace(source, target)
+
+        with mock.patch("cms_db.os.replace", side_effect=reject_new_commercial):
+            with self.assertRaises(OSError):
+                self.db.export_frontend()
+
+        data_replacements = [content for target, content in replacements if target == data_target]
+        self.assertEqual(data_replacements[-1], "old data")
+        self.assertGreaterEqual(len(data_replacements), 2)
+        self.assertEqual(data_target.read_text(encoding="utf-8"), "old data")
+        self.assertEqual(commercial_target.read_text(encoding="utf-8"), "old commercial")
+
+    def test_export_fsyncs_new_and_rollback_files_before_replacing(self):
+        (self.root / "data.js").write_text("old data", encoding="utf-8")
+        (self.root / "commercial.js").write_text("old commercial", encoding="utf-8")
+
+        with mock.patch("cms_db.os.fsync", wraps=os.fsync) as fsync:
+            self.db.export_frontend()
+
+        self.assertEqual(fsync.call_count, 4)
+
 
 class ServerDatabaseWiringTests(unittest.TestCase):
     def test_main_initializes_one_database_and_injects_handler_dependency(self):
@@ -256,6 +407,41 @@ class ServerDatabaseWiringTests(unittest.TestCase):
         handler_source = ast.unparse(handler)
         self.assertNotIn("connect()", handler_source)
         self.assertIn("self.database.state()", handler_source)
+
+    def test_upload_handler_uses_compound_commercial_item_cover_method(self):
+        tree = ast.parse(SERVER.read_text(encoding="utf-8-sig"))
+        handler = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "Handler"
+        )
+        upload = next(
+            node
+            for node in handler.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_upload"
+        )
+        source = ast.unparse(upload)
+        self.assertIn("create_commercial_item_with_cover", source)
+        self.assertNotIn("update_commercial_project", source)
+
+    def test_server_has_no_duplicate_database_validation_definitions(self):
+        tree = ast.parse(SERVER.read_text(encoding="utf-8-sig"))
+        names = {
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        }
+        assignments = {
+            target.id
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        self.assertNotIn("validate_date", names)
+        self.assertNotIn("validate_enum", names)
+        self.assertNotIn("VALID_CATEGORIES", assignments)
+        self.assertNotIn("VALID_COMMERCIAL_CATEGORIES", assignments)
 
 
 if __name__ == "__main__":

@@ -18,8 +18,10 @@ class ServerEntryTests(unittest.TestCase):
             for index, node in enumerate(tree.body)
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
         }
-        self.assertLess(names["validate_date"], main_index)
-        self.assertLess(names["validate_enum"], main_index)
+        self.assertLess(names["public_path"], main_index)
+        self.assertLess(names["save_upload"], main_index)
+        self.assertLess(names["Handler"], main_index)
+        self.assertLess(names["main"], main_index)
 
     def test_startup_message_uses_loopback_address(self):
         source = SERVER.read_text(encoding="utf-8-sig")

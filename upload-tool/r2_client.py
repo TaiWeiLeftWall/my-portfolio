@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, unquote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 import json
 import math
@@ -28,6 +28,44 @@ def _validate_upload_token(token: str) -> None:
         ord(character) < 33 or ord(character) > 126 for character in token
     ):
         raise ValueError(UNSAFE_TOKEN_MESSAGE)
+
+
+def _canonical_public_base_url(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    message = "r2_public_base_url must be a valid HTTPS URL"
+    if any(
+        character.isspace()
+        or unicodedata.category(character) in ("Cc", "Cf")
+        for character in raw
+    ):
+        raise ValueError(message)
+    try:
+        parsed = urlsplit(raw)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError(message) from exc
+    if (
+        parsed.scheme.lower() != "https"
+        or not hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(message)
+    canonical_host = hostname.lower()
+    if ":" in canonical_host:
+        canonical_host = "[{}]".format(canonical_host)
+    netloc = canonical_host
+    if port is not None and port != 443:
+        netloc = "{}:{}".format(netloc, port)
+    path = quote(
+        unquote(parsed.path), safe="/:@-._~!$&'()*+,;="
+    ).rstrip("/")
+    return urlunsplit(("https", netloc, path, "", ""))
 
 
 def _positive_float(value: Any, name: str) -> float:
@@ -60,18 +98,24 @@ def _positive_int(value: Any, name: str) -> int:
 @dataclass(frozen=True)
 class CmsConfig:
     r2_worker_url: str = ""
+    r2_public_base_url: str = ""
     r2_upload_token: str = field(default="", repr=False)
     request_timeout_seconds: float = DEFAULT_REQUEST_TIMEOUT_SECONDS
     max_upload_bytes: int = DEFAULT_MAX_UPLOAD_BYTES
 
     @property
     def configured(self) -> bool:
-        return bool(self.r2_worker_url and self.r2_upload_token)
+        return bool(
+            self.r2_worker_url
+            and self.r2_public_base_url
+            and self.r2_upload_token
+        )
 
     @classmethod
     def load(cls, path: Any, environ: Mapping[str, str]) -> "CmsConfig":
         values: Dict[str, Any] = {
             "r2_worker_url": "",
+            "r2_public_base_url": "",
             "r2_upload_token": "",
             "request_timeout_seconds": DEFAULT_REQUEST_TIMEOUT_SECONDS,
             "max_upload_bytes": DEFAULT_MAX_UPLOAD_BYTES,
@@ -88,6 +132,7 @@ class CmsConfig:
 
         environment_names = {
             "r2_worker_url": "R2_WORKER_URL",
+            "r2_public_base_url": "R2_PUBLIC_BASE_URL",
             "r2_upload_token": "R2_UPLOAD_TOKEN",
             "request_timeout_seconds": "R2_REQUEST_TIMEOUT_SECONDS",
             "max_upload_bytes": "R2_MAX_UPLOAD_BYTES",
@@ -101,6 +146,9 @@ class CmsConfig:
                     values[key] = str(environment_value).strip()
 
         worker_url = str(values["r2_worker_url"] or "").strip().rstrip("/")
+        public_base_url = _canonical_public_base_url(
+            values["r2_public_base_url"]
+        )
         upload_token = str(values["r2_upload_token"] or "")
         if upload_token.strip() == "":
             upload_token = ""
@@ -114,6 +162,7 @@ class CmsConfig:
         )
         return cls(
             r2_worker_url=worker_url,
+            r2_public_base_url=public_base_url,
             r2_upload_token=upload_token,
             request_timeout_seconds=timeout,
             max_upload_bytes=max_upload_bytes,

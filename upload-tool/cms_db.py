@@ -464,17 +464,29 @@ console.log(JSON.stringify(ctx.__out));
             data.get("description", ""),
             self._sort_order(data),
         )
-        try:
-            with self.connect() as conn:
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
                 cursor = conn.execute(
                     """insert into photo_items
                     (group_id,src,title,description,sort_order) values(?,?,?,?,?)""",
                     values,
                 )
                 item_id = cursor.lastrowid
-        except sqlite3.IntegrityError as exc:
-            raise ValidationError("invalid photo item") from exc
-        return self._require_row(self.get_photo_item(item_id), "photo item", item_id)
+                created = self._require_row(
+                    self._get_on(conn, "photo_items", item_id),
+                    "photo item",
+                    item_id,
+                )
+            except sqlite3.IntegrityError as exc:
+                conn.rollback()
+                raise ValidationError("invalid photo item") from exc
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return created
 
     def update_photo_item(self, item_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
         with closing(self.connect()) as conn:

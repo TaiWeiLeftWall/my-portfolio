@@ -83,6 +83,7 @@ class CmsConfigTests(unittest.TestCase):
                 json.dumps(
                     {
                         "r2_worker_url": "https://file.example.test/",
+                        "r2_public_base_url": "https://file-cdn.example.test/gallery/",
                         "r2_upload_token": "file-secret",
                         "request_timeout_seconds": 17,
                         "max_upload_bytes": 1234,
@@ -95,6 +96,7 @@ class CmsConfigTests(unittest.TestCase):
                 path,
                 {
                     "R2_WORKER_URL": "https://env.example.test/base/",
+                    "R2_PUBLIC_BASE_URL": "https://ENV-CDN.example.test:443/gallery/",
                     "R2_UPLOAD_TOKEN": "env-secret",
                     "R2_REQUEST_TIMEOUT_SECONDS": "4.5",
                     "R2_MAX_UPLOAD_BYTES": "4321",
@@ -102,6 +104,9 @@ class CmsConfigTests(unittest.TestCase):
             )
 
         self.assertEqual(config.r2_worker_url, "https://env.example.test/base")
+        self.assertEqual(
+            config.r2_public_base_url, "https://env-cdn.example.test/gallery"
+        )
         self.assertEqual(config.r2_upload_token, "env-secret")
         self.assertEqual(config.request_timeout_seconds, 4.5)
         self.assertEqual(config.max_upload_bytes, 4321)
@@ -115,6 +120,7 @@ class CmsConfigTests(unittest.TestCase):
                 json.dumps(
                     {
                         "r2_worker_url": "https://file.example.test",
+                        "r2_public_base_url": "https://file-cdn.example.test/base",
                         "r2_upload_token": "file-secret",
                         "request_timeout_seconds": 9,
                         "max_upload_bytes": 2048,
@@ -127,6 +133,7 @@ class CmsConfigTests(unittest.TestCase):
                 path,
                 {
                     "R2_WORKER_URL": " ",
+                    "R2_PUBLIC_BASE_URL": "",
                     "R2_UPLOAD_TOKEN": "",
                     "R2_REQUEST_TIMEOUT_SECONDS": "",
                     "R2_MAX_UPLOAD_BYTES": "  ",
@@ -134,6 +141,9 @@ class CmsConfigTests(unittest.TestCase):
             )
 
         self.assertEqual(config.r2_worker_url, "https://file.example.test")
+        self.assertEqual(
+            config.r2_public_base_url, "https://file-cdn.example.test/base"
+        )
         self.assertEqual(config.r2_upload_token, "file-secret")
         self.assertEqual(config.request_timeout_seconds, 9.0)
         self.assertEqual(config.max_upload_bytes, 2048)
@@ -146,6 +156,7 @@ class CmsConfigTests(unittest.TestCase):
             )
 
         self.assertFalse(config.configured)
+        self.assertEqual(config.r2_public_base_url, "")
         self.assertEqual(config.request_timeout_seconds, 30.0)
         self.assertEqual(config.max_upload_bytes, 15 * 1024 * 1024)
 
@@ -162,6 +173,44 @@ class CmsConfigTests(unittest.TestCase):
             "R2 upload token must contain only visible ASCII characters",
         )
         self.assertNotIn(unsafe_token, str(context.exception))
+
+    def test_public_base_is_required_for_configured_media_operations(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "cms_config.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "r2_worker_url": "https://worker.example.test",
+                        "r2_upload_token": "test-token",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = CmsConfig.load(path, {})
+
+        self.assertFalse(config.configured)
+
+    def test_public_base_rejects_untrusted_url_shapes(self):
+        invalid_values = (
+            "http://cdn.example.test",
+            "https://user:pass@cdn.example.test",
+            "https://cdn.example.test/base?query=1",
+            "https://cdn.example.test/base#fragment",
+            "https://cdn.example.test:bad-port",
+            "//cdn.example.test/base",
+            "https://cdn.example.test/\u202ehidden",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+            for value in invalid_values:
+                with self.subTest(value=value):
+                    with self.assertRaises(ValueError) as context:
+                        CmsConfig.load(path, {"R2_PUBLIC_BASE_URL": value})
+                    self.assertEqual(
+                        str(context.exception),
+                        "r2_public_base_url must be a valid HTTPS URL",
+                    )
 
     def test_non_finite_timeout_values_are_rejected(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -199,6 +248,7 @@ class R2ClientTests(unittest.TestCase):
     def config(self, **overrides):
         values = {
             "r2_worker_url": "https://worker.example.test/base",
+            "r2_public_base_url": "https://cdn.example.test/base",
             "r2_upload_token": "test-token",
             "request_timeout_seconds": 7.5,
             "max_upload_bytes": 1024,

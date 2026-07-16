@@ -27,6 +27,7 @@ class FakeR2Client:
         self.deletes = []
         self.health_calls = 0
         self.upload_error = None
+        self.upload_result = None
         self.delete_error_for = set()
         self.health_error = None
 
@@ -48,6 +49,8 @@ class FakeR2Client:
         )
         if self.upload_error:
             raise self.upload_error
+        if self.upload_result is not None:
+            return self.upload_result
         return R2Object(
             key="images/{}/{}/uploaded.jpg".format(category, date),
             url="https://cdn.example.test/images/{}/{}/uploaded.jpg".format(
@@ -61,10 +64,10 @@ class FakeR2Client:
             raise R2Error("service_unavailable", "secret worker detail", True)
 
 
-def multipart_body(fields, files):
-    boundary = "cms-test-boundary"
+def multipart_body(fields, files, *, boundary="cms-test-boundary", close=True):
     chunks = []
-    for name, value in fields.items():
+    field_items = fields.items() if isinstance(fields, dict) else fields
+    for name, value in field_items:
         chunks.extend(
             [
                 "--{}\r\n".format(boundary).encode("ascii"),
@@ -87,7 +90,8 @@ def multipart_body(fields, files):
                 b"\r\n",
             ]
         )
-    chunks.append("--{}--\r\n".format(boundary).encode("ascii"))
+    if close:
+        chunks.append("--{}--\r\n".format(boundary).encode("ascii"))
     return b"".join(chunks), "multipart/form-data; boundary={}".format(boundary)
 
 
@@ -129,6 +133,7 @@ class HttpApiTests(unittest.TestCase):
         self.r2 = FakeR2Client()
         self.config = CmsConfig(
             r2_worker_url="https://worker.example.test",
+            r2_public_base_url="https://cdn.example.test",
             r2_upload_token="test-token",
             max_upload_bytes=1024 * 1024,
         )
@@ -181,8 +186,8 @@ class HttpApiTests(unittest.TestCase):
             headers={"Content-Type": "application/json"},
         )
 
-    def multipart_request(self, path, fields, files):
-        body, content_type = multipart_body(fields, files)
+    def multipart_request(self, path, fields, files, **options):
+        body, content_type = multipart_body(fields, files, **options)
         return self.request(
             "POST", path, body=body, headers={"Content-Type": content_type}
         )
@@ -204,6 +209,22 @@ class HttpApiTests(unittest.TestCase):
                 connection.send(body)
             if shutdown_write:
                 connection.sock.shutdown(socket.SHUT_WR)
+            response = connection.getresponse()
+            raw = response.read()
+            return response.status, json.loads(raw.decode("utf-8"))
+        finally:
+            connection.close()
+
+    def raw_multipart_request(self, body, content_type, content_length):
+        connection = http.client.HTTPConnection(self.host, self.port, timeout=5)
+        try:
+            connection.putrequest("POST", "/api/photo-items/upload")
+            connection.putheader("Content-Type", content_type)
+            connection.putheader("Content-Length", str(content_length))
+            connection.putheader("Connection", "close")
+            connection.endheaders()
+            connection.send(body)
+            connection.sock.shutdown(socket.SHUT_WR)
             response = connection.getresponse()
             raw = response.read()
             return response.status, json.loads(raw.decode("utf-8"))
@@ -353,6 +374,36 @@ class HttpApiTests(unittest.TestCase):
         self.assertIs(payload["r2_rollback_succeeded"], False)
         self.assertNotIn("secret", json.dumps(payload))
 
+    def test_post_insert_read_failure_rolls_back_db_and_compensates_r2_once(self):
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+        original_get_on = self.db._get_on
+
+        def fail_photo_item_read(conn, table, record_id):
+            if table == "photo_items":
+                raise RuntimeError("injected post-insert read failure")
+            return original_get_on(conn, table, record_id)
+
+        with mock.patch.object(self.db, "_get_on", side_effect=fail_photo_item_read):
+            status, payload = self.multipart_request(
+                "/api/photo-items/upload",
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-07-16",
+                },
+                [("image", "portrait.jpg", "image/jpeg", b"fake-jpeg-bytes")],
+            )
+
+        self.assertEqual(status, 500)
+        self.assertEqual(payload["code"], "database_write_failed")
+        self.assertIs(payload["r2_rollback_succeeded"], True)
+        self.assertEqual(
+            self.r2.deletes, ["images/portrait/2026-07-16/uploaded.jpg"]
+        )
+        self.assertEqual(self.db.state()["photoGroups"][0]["images"], [])
+
     def test_photo_delete_r2_failure_preserves_database_row(self):
         group = self.db.create_photo_group({"category": "portrait"})
         item = self.db.create_photo_item(
@@ -428,9 +479,199 @@ class HttpApiTests(unittest.TestCase):
         self.assertEqual((status, payload), (200, {"ok": True}))
         self.assertEqual(self.r2.deletes, [])
 
+    def test_unrelated_remote_host_photo_delete_skips_r2(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        item = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://untrusted.example.test/images/portrait/a.jpg",
+            }
+        )
+
+        status, payload = self.request(
+            "DELETE", "/api/photo-items/{}".format(item["id"])
+        )
+
+        self.assertEqual((status, payload), (200, {"ok": True}))
+        self.assertEqual(self.r2.deletes, [])
+        self.assertIsNone(self.db.get_photo_item(item["id"]))
+
+    def test_upload_url_or_key_mismatch_compensates_exact_key_without_db_row(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        cases = (
+            R2Object(
+                key="images/portrait/2026-07-16/a.jpg",
+                url="https://untrusted.example.test/images/portrait/2026-07-16/a.jpg",
+            ),
+            R2Object(
+                key="images/portrait/2026-07-16/a.jpg",
+                url="https://cdn.example.test/images/portrait/2026-07-16/b.jpg",
+            ),
+            R2Object(
+                key="images/portrait/2026-07-16/a\n.jpg",
+                url="https://cdn.example.test/images/portrait/2026-07-16/a%0A.jpg",
+            ),
+        )
+
+        for uploaded in cases:
+            with self.subTest(url=uploaded.url):
+                self.r2.upload_result = uploaded
+                self.r2.deletes.clear()
+                status, payload = self.multipart_request(
+                    "/api/photo-items/upload",
+                    {
+                        "group_id": group["id"],
+                        "category": "portrait",
+                        "date": "2026-07-16",
+                    },
+                    [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+                )
+
+                self.assert_error(status, payload, 502, "r2_upload_failed")
+                self.assertNotIn("untrusted", json.dumps(payload))
+                self.assertEqual(self.r2.deletes, [uploaded.key])
+                self.assertEqual(
+                    self.db.state()["photoGroups"][0]["images"], []
+                )
+
+    def test_upload_accepts_exact_canonical_public_base_url_for_key(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        self.r2.upload_result = R2Object(
+            key="images/portrait/2026-07-16/a b(1).jpg",
+            url=(
+                "https://cdn.example.test/"
+                "images/portrait/2026-07-16/a%20b(1).jpg"
+            ),
+        )
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["src"], self.r2.upload_result.url)
+        self.assertEqual(self.r2.deletes, [])
+
+    def test_concurrent_photo_mutation_waits_for_coordinated_delete(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        item = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/images/portrait/2026-07-16/a.jpg",
+            }
+        )
+        delete_entered = threading.Event()
+        release_delete = threading.Event()
+        mutation_entered = threading.Event()
+        results = {}
+        original_delete = self.r2.delete
+        original_create_group = self.db.create_photo_group
+
+        def blocking_delete(key):
+            delete_entered.set()
+            if not release_delete.wait(5):
+                raise RuntimeError("test timed out waiting to release delete")
+            return original_delete(key)
+
+        def observed_create_group(data):
+            mutation_entered.set()
+            return original_create_group(data)
+
+        def run_request(name, method, path, payload=None):
+            try:
+                if payload is None:
+                    results[name] = self.request(method, path)
+                else:
+                    results[name] = self.json_request(method, path, payload)
+            except Exception as exc:
+                results[name] = exc
+
+        with mock.patch.object(self.r2, "delete", side_effect=blocking_delete), mock.patch.object(
+            self.db, "create_photo_group", side_effect=observed_create_group
+        ):
+            delete_thread = threading.Thread(
+                target=run_request,
+                args=("delete", "DELETE", "/api/photo-items/{}".format(item["id"])),
+            )
+            mutation_thread = threading.Thread(
+                target=run_request,
+                args=(
+                    "mutation",
+                    "POST",
+                    "/api/photo-groups",
+                    {"category": "portrait", "title": "concurrent"},
+                ),
+            )
+            delete_thread.start()
+            self.assertTrue(delete_entered.wait(2))
+            mutation_thread.start()
+            try:
+                self.assertFalse(mutation_entered.wait(0.25))
+            finally:
+                release_delete.set()
+                delete_thread.join(timeout=5)
+                mutation_thread.join(timeout=5)
+
+        self.assertFalse(delete_thread.is_alive())
+        self.assertFalse(mutation_thread.is_alive())
+        self.assertEqual(results["delete"], (200, {"ok": True}))
+        self.assertEqual(results["mutation"][0], 200)
+
+    def test_get_remains_concurrent_while_coordinated_delete_holds_lock(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        item = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/images/portrait/2026-07-16/a.jpg",
+            }
+        )
+        delete_entered = threading.Event()
+        release_delete = threading.Event()
+        get_finished = threading.Event()
+        results = {}
+        original_delete = self.r2.delete
+
+        def blocking_delete(key):
+            delete_entered.set()
+            if not release_delete.wait(5):
+                raise RuntimeError("test timed out waiting to release delete")
+            return original_delete(key)
+
+        def run_delete():
+            results["delete"] = self.request(
+                "DELETE", "/api/photo-items/{}".format(item["id"])
+            )
+
+        def run_get():
+            results["get"] = self.request("GET", "/api/state")
+            get_finished.set()
+
+        with mock.patch.object(self.r2, "delete", side_effect=blocking_delete):
+            delete_thread = threading.Thread(target=run_delete)
+            get_thread = threading.Thread(target=run_get)
+            delete_thread.start()
+            self.assertTrue(delete_entered.wait(2))
+            get_thread.start()
+            try:
+                self.assertTrue(get_finished.wait(1))
+            finally:
+                release_delete.set()
+                delete_thread.join(timeout=5)
+                get_thread.join(timeout=5)
+
+        self.assertEqual(results["get"][0], 200)
+        self.assertEqual(results["delete"], (200, {"ok": True}))
+
     def test_photo_upload_rejects_oversized_request_before_multipart_parse(self):
         self.handler_class.config = CmsConfig(
             r2_worker_url="https://worker.example.test",
+            r2_public_base_url="https://cdn.example.test",
             r2_upload_token="test-token",
             max_upload_bytes=10,
         )
@@ -443,6 +684,124 @@ class HttpApiTests(unittest.TestCase):
         )
 
         self.assert_error(status, payload, 413, "payload_too_large")
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_photo_upload_rejects_duplicate_and_unknown_multipart_fields(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        valid_fields = [
+            ("group_id", group["id"]),
+            ("category", "portrait"),
+            ("date", "2026-07-16"),
+        ]
+        cases = (
+            valid_fields + [("group_id", group["id"])],
+            valid_fields + [("title", "not accepted")],
+        )
+
+        for fields in cases:
+            with self.subTest(fields=fields):
+                status, payload = self.multipart_request(
+                    "/api/photo-items/upload",
+                    fields,
+                    [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+                )
+                self.assert_error(
+                    status, payload, 400, "invalid_multipart_fields"
+                )
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_photo_upload_rejects_malformed_boundary_and_missing_close(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        fields = {
+            "group_id": group["id"],
+            "category": "portrait",
+            "date": "2026-07-16",
+        }
+        valid_files = [("image", "a.jpg", "image/jpeg", b"image-bytes")]
+
+        body, _content_type = multipart_body(
+            fields, valid_files, boundary="invalid boundary"
+        )
+        status, payload = self.request(
+            "POST",
+            "/api/photo-items/upload",
+            body=body,
+            headers={
+                "Content-Type": "multipart/form-data; boundary=invalid boundary"
+            },
+        )
+        self.assert_error(status, payload, 400, "invalid_multipart")
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload", fields, valid_files, close=False
+        )
+        self.assert_error(status, payload, 400, "invalid_multipart")
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_photo_upload_rejects_truncated_multipart_body(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        body, content_type = multipart_body(
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+        )
+
+        status, payload = self.raw_multipart_request(
+            body, content_type, len(body) + 10
+        )
+
+        self.assert_error(status, payload, 400, "truncated_body")
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_photo_upload_rejects_invalid_date_and_zero_byte_image_locally(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        cases = (
+            (
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-02-30",
+                },
+                [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+                "invalid_date",
+            ),
+            (
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-07-16",
+                },
+                [("image", "a.jpg", "image/jpeg", b"")],
+                "empty_image",
+            ),
+        )
+
+        for fields, files, code in cases:
+            with self.subTest(code=code):
+                status, payload = self.multipart_request(
+                    "/api/photo-items/upload", fields, files
+                )
+                self.assert_error(status, payload, 400, code)
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_invalid_multipart_is_rejected_before_r2_configuration_check(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        self.handler_class.config = CmsConfig()
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "a.jpg", "image/jpeg", b"")],
+        )
+
+        self.assert_error(status, payload, 400, "empty_image")
         self.assertEqual(self.r2.uploads, [])
 
     def test_photo_upload_rejects_missing_group_category_mismatch_and_bad_image(self):

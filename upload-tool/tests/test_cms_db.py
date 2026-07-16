@@ -156,6 +156,24 @@ class DatabaseTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             self.db.update_photo_group(group["id"], {"category": "not-a-category"})
 
+    def test_photo_item_post_insert_read_failure_rolls_back_insert(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+
+        with mock.patch.object(
+            self.db,
+            "_get_on",
+            side_effect=RuntimeError("injected post-insert read failure"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.db.create_photo_item(
+                    {
+                        "group_id": group["id"],
+                        "src": "https://cdn.example.test/images/a.jpg",
+                    }
+                )
+
+        self.assertEqual(self.db.state()["photoGroups"][0]["images"], [])
+
     def test_each_update_uses_one_immediate_transaction_connection(self):
         group = self.db.create_photo_group({"category": "portrait"})
         photo = self.db.create_photo_item(

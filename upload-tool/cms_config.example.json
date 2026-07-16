@@ -1,5 +1,6 @@
 {
   "r2_worker_url": "",
+  "r2_public_base_url": "",
   "r2_upload_token": "",
   "request_timeout_seconds": 30,
   "max_upload_bytes": 15728640

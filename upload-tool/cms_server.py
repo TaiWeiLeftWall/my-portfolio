@@ -8,14 +8,18 @@ Run from the repository root:
 
 from datetime import date as calendar_date
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse, urlsplit
 import cgi
 import json
 import os
+import re
 import socket
 import sqlite3
+import threading
 import time
+import unicodedata
 
 from cms_db import Database, NotFoundError, ValidationError
 from r2_client import CmsConfig, R2Client, R2Error
@@ -29,6 +33,8 @@ CONFIG_PATH = TOOL_DIR / "cms_config.json"
 PORT = 8090
 MAX_JSON_BODY_SIZE = 1024 * 1024
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MULTIPART_BOUNDARY_PATTERN = re.compile(r"[0-9A-Za-z'()+_,./:=?-]{1,70}\Z")
+PHOTO_UPLOAD_FIELDS = {"image", "group_id", "category", "date"}
 
 try:
     from PIL import Image
@@ -66,25 +72,56 @@ def save_upload(field, area):
     return public_path(target)
 
 
-def r2_key_from_src(src):
-    if not isinstance(src, str) or not src:
-        return None
-    parsed = urlparse(src)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        return None
-    decoded_path = unquote(parsed.path)
-    marker = "/images/"
-    marker_index = decoded_path.find(marker)
-    if marker_index < 0:
-        return None
-    key = decoded_path[marker_index + 1 :]
+def _valid_r2_key(key):
+    if not isinstance(key, str) or not key.startswith("images/"):
+        return False
     parts = key.split("/")
-    if (
+    return not (
         len(parts) < 2
-        or parts[0] != "images"
         or any(part in ("", ".", "..") for part in parts)
         or "\\" in key
+        or any(
+            unicodedata.category(character) in ("Cc", "Cf")
+            for character in key
+        )
+    )
+
+
+def _r2_url_for_key(public_base_url, key):
+    if not public_base_url or not _valid_r2_key(key):
+        return None
+    encoded_key = "/".join(
+        quote(part, safe="-_.!~*'()") for part in key.split("/")
+    )
+    return "{}/{}".format(public_base_url.rstrip("/"), encoded_key)
+
+
+def _r2_key_from_url(src, public_base_url):
+    if not isinstance(src, str) or not src or not public_base_url:
+        return None
+    try:
+        parsed = urlsplit(src)
+        base = urlsplit(public_base_url)
+        parsed_port = parsed.port or 443
+        base_port = base.port or 443
+    except ValueError:
+        return None
+    if (
+        parsed.scheme != base.scheme
+        or parsed.hostname != base.hostname
+        or parsed_port != base_port
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
     ):
+        return None
+    base_path = base.path.rstrip("/")
+    path_prefix = base_path + "/"
+    if not parsed.path.startswith(path_prefix):
+        return None
+    key = unquote(parsed.path[len(path_prefix) :])
+    if not _valid_r2_key(key) or _r2_url_for_key(public_base_url, key) != src:
         return None
     return key
 
@@ -101,6 +138,7 @@ class Handler(SimpleHTTPRequestHandler):
     database: Database
     config = CmsConfig()
     r2_client = None
+    MUTATION_LOCK = threading.RLock()
     JSON_BODY_READ_TIMEOUT = 10.0
 
     def guess_type(self, path):
@@ -279,7 +317,8 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        self._dispatch(self._do_POST)
+        with self.MUTATION_LOCK:
+            self._dispatch(self._do_POST)
 
     def _do_POST(self):
         parsed = urlparse(self.path)
@@ -349,8 +388,10 @@ class Handler(SimpleHTTPRequestHandler):
 
         content_type = self.headers.get("Content-Type", "")
         media_type, parameters = cgi.parse_header(content_type)
-        if media_type.lower() != "multipart/form-data" or not parameters.get(
-            "boundary"
+        boundary = parameters.get("boundary", "")
+        if (
+            media_type.lower() != "multipart/form-data"
+            or not MULTIPART_BOUNDARY_PATTERN.fullmatch(boundary)
         ):
             raise ApiError(
                 400,
@@ -362,16 +403,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.connection.settimeout(self.JSON_BODY_READ_TIMEOUT)
         try:
             try:
-                return cgi.FieldStorage(
-                    fp=self.rfile,
-                    headers=self.headers,
-                    environ={
-                        "REQUEST_METHOD": "POST",
-                        "CONTENT_TYPE": content_type,
-                        "CONTENT_LENGTH": str(size),
-                    },
-                    keep_blank_values=True,
-                )
+                raw = self.rfile.read(size)
             except socket.timeout as exc:
                 raise ApiError(
                     408,
@@ -380,6 +412,34 @@ class Handler(SimpleHTTPRequestHandler):
                 ) from exc
         finally:
             self.connection.settimeout(previous_timeout)
+        if len(raw) != size:
+            raise ApiError(
+                400, "truncated_body", "request body is shorter than Content-Length"
+            )
+
+        closing_delimiter = b"--" + boundary.encode("ascii") + b"--"
+        if not (
+            raw.endswith(closing_delimiter)
+            or raw.endswith(closing_delimiter + b"\r\n")
+        ):
+            raise ApiError(
+                400, "invalid_multipart", "multipart body is missing its closing boundary"
+            )
+        try:
+            return cgi.FieldStorage(
+                fp=BytesIO(raw),
+                headers=self.headers,
+                environ={
+                    "REQUEST_METHOD": "POST",
+                    "CONTENT_TYPE": content_type,
+                    "CONTENT_LENGTH": str(size),
+                },
+                keep_blank_values=True,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ApiError(
+                400, "invalid_multipart", "multipart request body is malformed"
+            ) from exc
 
     @staticmethod
     def _validate_upload_date(value):
@@ -400,42 +460,57 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _upload_photo_item(self):
         form = self._multipart_form()
-        r2_client = self._require_r2()
-        file_fields = [
-            field
-            for field in (form.list or [])
-            if getattr(field, "filename", None) is not None
-        ]
-        if len(file_fields) != 1 or file_fields[0].name != "image":
+        fields = form.list or []
+        field_names = [field.name for field in fields]
+        if (
+            len(fields) != len(PHOTO_UPLOAD_FIELDS)
+            or set(field_names) != PHOTO_UPLOAD_FIELDS
+            or any(field_names.count(name) != 1 for name in PHOTO_UPLOAD_FIELDS)
+        ):
             raise ApiError(
-                400, "invalid_image_count", "exactly one image field is required"
+                400,
+                "invalid_multipart_fields",
+                "image, group_id, category, and date are each required exactly once",
             )
-        image = file_fields[0]
+        field_by_name = {field.name: field for field in fields}
+        image = field_by_name["image"]
+        if getattr(image, "filename", None) is None or any(
+            getattr(field_by_name[name], "filename", None) is not None
+            for name in ("group_id", "category", "date")
+        ):
+            raise ApiError(
+                400,
+                "invalid_multipart_fields",
+                "only image may be a file field",
+            )
         content_type = (image.type or "").lower()
         if content_type not in ACCEPTED_IMAGE_TYPES:
             raise ApiError(
                 400, "invalid_image_type", "image must be JPEG, PNG, or WebP"
             )
 
-        group_id = form.getfirst("group_id", "")
+        group_id = field_by_name["group_id"].value
         if not str(group_id).strip():
             raise ApiError(400, "missing_group", "group_id is required")
         group = self.database.get_photo_group(group_id)
         if group is None:
             raise ApiError(400, "missing_group", "photo group does not exist")
-        category = form.getfirst("category", "")
+        category = field_by_name["category"].value
         if category != group["category"]:
             raise ApiError(
                 400,
                 "category_mismatch",
                 "category does not match the selected photo group",
             )
-        upload_date = self._validate_upload_date(form.getfirst("date", ""))
+        upload_date = self._validate_upload_date(field_by_name["date"].value)
         filename = Path(image.filename or "").name
         if not filename:
             raise ApiError(400, "invalid_image", "image filename is required")
         content = image.file.read()
+        if not content:
+            raise ApiError(400, "empty_image", "image must not be empty")
 
+        r2_client = self._require_r2()
         try:
             uploaded = r2_client.upload(
                 content, content_type, category, upload_date, filename
@@ -444,6 +519,21 @@ class Handler(SimpleHTTPRequestHandler):
             raise ApiError(
                 502, "r2_upload_failed", "R2 image upload failed"
             ) from None
+
+        expected_url = _r2_url_for_key(
+            self.config.r2_public_base_url, uploaded.key
+        )
+        parsed_key = _r2_key_from_url(
+            uploaded.url, self.config.r2_public_base_url
+        )
+        if expected_url != uploaded.url or parsed_key != uploaded.key:
+            try:
+                r2_client.delete(uploaded.key)
+            except Exception:
+                pass
+            raise ApiError(
+                502, "r2_upload_failed", "R2 image upload failed"
+            )
 
         try:
             record = self.database.create_photo_item(
@@ -505,7 +595,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json({"ok": True, "id": record["id"], "src": src})
 
     def do_PUT(self):
-        self._dispatch(self._do_PUT)
+        with self.MUTATION_LOCK:
+            self._dispatch(self._do_PUT)
 
     def _do_PUT(self):
         parsed = urlparse(self.path)
@@ -530,7 +621,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json({"ok": True})
 
     def do_DELETE(self):
-        self._dispatch(self._do_DELETE)
+        with self.MUTATION_LOCK:
+            self._dispatch(self._do_DELETE)
 
     def _do_DELETE(self):
         parsed = urlparse(self.path)
@@ -538,14 +630,25 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path.startswith("/api/photo-groups/"):
             plan = self.database.get_photo_group_with_items(item_id)
             self._delete_r2_keys(
-                [r2_key_from_src(item.get("src")) for item in plan["items"]]
+                [
+                    _r2_key_from_url(
+                        item.get("src"), self.config.r2_public_base_url
+                    )
+                    for item in plan["items"]
+                ]
             )
             self.database.delete_photo_group(item_id)
         elif parsed.path.startswith("/api/photo-items/"):
             item = self.database.get_photo_item(item_id)
             if item is None:
                 raise NotFoundError("photo item {} not found".format(item_id))
-            self._delete_r2_keys([r2_key_from_src(item.get("src"))])
+            self._delete_r2_keys(
+                [
+                    _r2_key_from_url(
+                        item.get("src"), self.config.r2_public_base_url
+                    )
+                ]
+            )
             self.database.delete_photo_item(item_id)
         elif parsed.path.startswith("/api/videos/"):
             self.database.delete_video(item_id)

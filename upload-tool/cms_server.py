@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import cgi
 import json
 import os
+import socket
 import sqlite3
 import time
 
@@ -71,6 +72,7 @@ class ApiError(Exception):
 
 class Handler(SimpleHTTPRequestHandler):
     database: Database
+    JSON_BODY_READ_TIMEOUT = 10.0
 
     def guess_type(self, path):
         content_type = super().guess_type(path)
@@ -95,6 +97,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_response(self, code, message=None):
+        self._response_started = True
+        super().send_response(code, message)
+
     def read_json(self):
         content_length = self.headers.get("Content-Length")
         if content_length is None:
@@ -118,7 +124,19 @@ class Handler(SimpleHTTPRequestHandler):
                 "JSON request body exceeds the 1 MiB limit",
             )
 
-        raw = self.rfile.read(size)
+        previous_timeout = self.connection.gettimeout()
+        self.connection.settimeout(self.JSON_BODY_READ_TIMEOUT)
+        try:
+            try:
+                raw = self.rfile.read(size)
+            except socket.timeout as exc:
+                raise ApiError(
+                    408,
+                    "request_timeout",
+                    "timed out while reading the JSON request body",
+                ) from exc
+        finally:
+            self.connection.settimeout(previous_timeout)
         if len(raw) != size:
             raise ApiError(
                 400, "truncated_body", "request body is shorter than Content-Length"
@@ -142,49 +160,57 @@ class Handler(SimpleHTTPRequestHandler):
         return data
 
     def _dispatch(self, action):
+        self._response_started = False
         try:
             action()
-        except ApiError as exc:
-            self.send_json(
-                {"ok": False, "code": exc.code, "message": exc.message}, exc.status
-            )
-        except NotFoundError as exc:
-            self.send_json(
-                {"ok": False, "code": "not_found", "message": str(exc)}, 404
-            )
-        except ValidationError as exc:
-            self.send_json(
-                {"ok": False, "code": "validation_error", "message": str(exc)},
-                400,
-            )
-        except json.JSONDecodeError:
-            self.send_json(
-                {
-                    "ok": False,
-                    "code": "invalid_json",
-                    "message": "request body must contain valid JSON",
-                },
-                400,
-            )
-        except sqlite3.IntegrityError:
-            self.send_json(
-                {
-                    "ok": False,
-                    "code": "conflict",
-                    "message": "database integrity constraint failed",
-                },
-                409,
-            )
         except Exception as exc:
-            self.log_error("Unhandled exception for %s: %s", self.path, exc)
-            self.send_json(
-                {
-                    "ok": False,
-                    "code": "internal_error",
-                    "message": "an internal server error occurred",
-                },
-                500,
-            )
+            if self._response_started:
+                self.close_connection = True
+                self.log_error(
+                    "Exception after response started for %s: %s", self.path, exc
+                )
+            elif isinstance(exc, ApiError):
+                self.send_json(
+                    {"ok": False, "code": exc.code, "message": exc.message},
+                    exc.status,
+                )
+            elif isinstance(exc, NotFoundError):
+                self.send_json(
+                    {"ok": False, "code": "not_found", "message": str(exc)}, 404
+                )
+            elif isinstance(exc, ValidationError):
+                self.send_json(
+                    {"ok": False, "code": "validation_error", "message": str(exc)},
+                    400,
+                )
+            elif isinstance(exc, json.JSONDecodeError):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "code": "invalid_json",
+                        "message": "request body must contain valid JSON",
+                    },
+                    400,
+                )
+            elif isinstance(exc, sqlite3.IntegrityError):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "code": "conflict",
+                        "message": "database integrity constraint failed",
+                    },
+                    409,
+                )
+            else:
+                self.log_error("Unhandled exception for %s: %s", self.path, exc)
+                self.send_json(
+                    {
+                        "ok": False,
+                        "code": "internal_error",
+                        "message": "an internal server error occurred",
+                    },
+                    500,
+                )
 
     def do_GET(self):
         self._dispatch(self._do_GET)
@@ -197,7 +223,7 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/health":
             self.send_json(self.database.health())
             return
-        if parsed.path.startswith("/api/"):
+        if parsed.path == "/api" or parsed.path.startswith("/api/"):
             raise ApiError(404, "not_found", "API route not found")
         super().do_GET()
 

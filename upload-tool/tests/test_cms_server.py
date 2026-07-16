@@ -58,6 +58,7 @@ class HttpApiTests(unittest.TestCase):
 
         class IsolatedHandler(cms_server.Handler):
             database = self.db
+            JSON_BODY_READ_TIMEOUT = 0.1
 
             def log_message(self, format, *args):
                 pass
@@ -81,7 +82,10 @@ class HttpApiTests(unittest.TestCase):
         try:
             connection.request(method, path, body=body, headers=headers or {})
             response = connection.getresponse()
-            raw = response.read()
+            try:
+                raw = response.read()
+            except http.client.IncompleteRead as exc:
+                raw = exc.partial
             content_type = response.getheader("Content-Type", "")
             payload = json.loads(raw.decode("utf-8")) if "application/json" in content_type else raw
             return response.status, payload
@@ -98,8 +102,12 @@ class HttpApiTests(unittest.TestCase):
             headers={"Content-Type": "application/json"},
         )
 
-    def raw_request(self, body, content_length):
-        connection = http.client.HTTPConnection(self.host, self.port, timeout=5)
+    def raw_request(
+        self, body, content_length, *, shutdown_write=True, response_timeout=5
+    ):
+        connection = http.client.HTTPConnection(
+            self.host, self.port, timeout=response_timeout
+        )
         try:
             connection.putrequest("POST", "/api/photo-groups")
             connection.putheader("Content-Type", "application/json")
@@ -109,7 +117,8 @@ class HttpApiTests(unittest.TestCase):
             connection.endheaders()
             if body:
                 connection.send(body)
-            connection.sock.shutdown(socket.SHUT_WR)
+            if shutdown_write:
+                connection.sock.shutdown(socket.SHUT_WR)
             response = connection.getresponse()
             raw = response.read()
             return response.status, json.loads(raw.decode("utf-8"))
@@ -217,8 +226,23 @@ class HttpApiTests(unittest.TestCase):
 
         self.assert_error(status, payload, 400, "truncated_body")
 
+    def test_partial_body_without_client_shutdown_returns_request_timeout(self):
+        try:
+            status, payload = self.raw_request(
+                b"{}", "10", shutdown_write=False, response_timeout=0.75
+            )
+        except socket.timeout:
+            self.fail("server did not return an HTTP timeout before the test deadline")
+
+        self.assert_error(status, payload, 408, "request_timeout")
+
     def test_unknown_api_route_has_stable_not_found_error(self):
         status, payload = self.request("GET", "/api/not-a-route")
+
+        self.assert_error(status, payload, 404, "not_found")
+
+    def test_api_namespace_root_has_stable_not_found_error(self):
+        status, payload = self.request("GET", "/api")
 
         self.assert_error(status, payload, 404, "not_found")
 
@@ -269,6 +293,22 @@ class HttpApiTests(unittest.TestCase):
 
         self.assert_error(status, payload, 500, "internal_error")
         self.assertNotIn("sensitive", payload["message"])
+        log_error.assert_called_once()
+
+    def test_static_failure_after_headers_does_not_append_a_second_response(self):
+        partial_body = b"partial-static-body"
+
+        def fail_copy(_source, output):
+            output.write(partial_body)
+            output.flush()
+            raise RuntimeError("static stream failed after headers")
+
+        with mock.patch.object(
+            self.handler_class, "copyfile", side_effect=fail_copy
+        ), mock.patch.object(self.handler_class, "log_error") as log_error:
+            status, payload = self.request("GET", "/")
+
+        self.assertEqual((status, payload), (200, partial_body))
         log_error.assert_called_once()
 
 

@@ -8,6 +8,9 @@ let selectMode = false;
 let healthState = null;
 let editorState = null;
 let saving = false;
+let editorSequence = 0;
+let saveRequestSequence = 0;
+let activeSaveRequest = null;
 
 async function api(url, opts) {
   opts = opts || {};
@@ -238,6 +241,7 @@ function editEditorState(type, data) {
 }
 
 function openPanel(state) {
+  state.editorToken = ++editorSequence;
   editorState = state;
   var type = state.type;
   var data = state.data;
@@ -288,10 +292,18 @@ function openPanel(state) {
   panel.classList.remove('hidden');
 }
 
-function closePanel() {
+function closePanel(requestToken) {
+  if (saving && requestToken === undefined) {
+    toast('保存进行中，请稍候', true);
+    return false;
+  }
+  if (requestToken !== undefined) {
+    if (!activeSaveRequest || activeSaveRequest.requestToken !== requestToken) return false;
+    if (!editorState || editorState.editorToken !== activeSaveRequest.editorToken) return false;
+  }
   editorState = null;
-  saving = false;
   $('edit-panel').classList.add('hidden');
+  return true;
 }
 
 async function savePanel() {
@@ -303,6 +315,11 @@ async function savePanel() {
   var url = '';
   var method = state.mode === 'create' ? 'POST' : 'PUT';
   var saveButton = $('panel-save-btn');
+  var request = {
+    requestToken: ++saveRequestSequence,
+    editorToken: state.editorToken
+  };
+  activeSaveRequest = request;
   saving = true;
   if (saveButton) saveButton.disabled = true;
   try {
@@ -320,14 +337,24 @@ async function savePanel() {
       url = '/api/commercial-projects' + (state.mode === 'edit' ? '/' + data.id : '');
     }
     await api(url, { method: method, body: JSON.stringify(body) });
-    toast(state.mode === 'create' ? '已添加' : '已保存');
-    closePanel();
+    if (editorState && editorState.editorToken === request.editorToken) {
+      toast(state.mode === 'create' ? '已添加' : '已保存');
+      closePanel(request.requestToken);
+    }
     await loadData();
   } catch(e) {
-    toast((state.mode === 'create' ? '添加' : '保存') + '失败: ' + e.message, true);
+    if (editorState && editorState.editorToken === request.editorToken) {
+      toast((state.mode === 'create' ? '添加' : '保存') + '失败: ' + e.message, true);
+    }
   } finally {
-    saving = false;
-    if (saveButton && editorState === state) saveButton.disabled = false;
+    if (activeSaveRequest === request) {
+      saving = false;
+      activeSaveRequest = null;
+      if (editorState && editorState.editorToken === request.editorToken) {
+        var currentSaveButton = $('panel-save-btn');
+        if (currentSaveButton) currentSaveButton.disabled = false;
+      }
+    }
   }
 }
 function editGroup(id) { var g = S.photoGroups.find(function(x) { return x.id === id; }); if (g) openPanel(editEditorState('group', g)); }
@@ -427,29 +454,53 @@ async function deleteSelected() {
 function applyFilter() { render(); }
 
 function compressImage(file) {
-  return new Promise(function(resolve) {
+  return new Promise(function(resolve, reject) {
     var img = new Image();
-    img.onload = function() {
-      var canvas = document.createElement('canvas');
-      var width = img.width, height = img.height;
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        var ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
-        width = Math.floor(width * ratio);
-        height = Math.floor(height * ratio);
+    var objectUrl;
+    var cleaned = false;
+    function cleanup() {
+      if (!cleaned && objectUrl) {
+        cleaned = true;
+        URL.revokeObjectURL(objectUrl);
       }
-      canvas.width = width; canvas.height = height;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      var quality = 0.9, blob;
-      (function tryCompress() {
-        canvas.toBlob(function(b) {
-          if (b && b.size <= TARGET_SIZE_KB * 1024) { blob = b; resolve(blob); }
-          else if (quality > 0.3) { quality -= 0.1; tryCompress(); }
-          else { resolve(blob || b); }
-        }, 'image/jpeg', quality);
-      })();
+    }
+    function fail(error) {
+      cleanup();
+      reject(error instanceof Error ? error : new Error('image compression failed'));
+    }
+    img.onload = function() {
+      cleanup();
+      try {
+        var canvas = document.createElement('canvas');
+        var width = img.width, height = img.height;
+        if (!width || !height) throw new Error('image has invalid dimensions');
+        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+          var ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
+        }
+        canvas.width = width; canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('image canvas is unavailable');
+        ctx.drawImage(img, 0, 0, width, height);
+        var quality = 0.9;
+        (function tryCompress() {
+          try {
+            canvas.toBlob(function(blob) {
+              if (blob && blob.size <= TARGET_SIZE_KB * 1024) { resolve(blob); }
+              else if (quality > 0.3) { quality -= 0.1; tryCompress(); }
+              else if (blob) { resolve(blob); }
+              else { reject(new Error('image compression produced no data')); }
+            }, 'image/jpeg', quality);
+          } catch (error) { fail(error); }
+        })();
+      } catch (error) { fail(error); }
     };
-    img.src = URL.createObjectURL(file);
+    img.onerror = function() { fail(new Error('image decode failed')); };
+    try {
+      objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+    } catch (error) { fail(error); }
   });
 }
 
@@ -503,12 +554,23 @@ let bulkGroups = {};
 let bulkUploading = false;
 let bulkQueueLocked = false;
 
+function setBulkInputEnabled(enabled) {
+  var input = $('bulk-file-input');
+  var drop = $('bulk-drop');
+  if (input) input.disabled = !enabled;
+  if (drop) {
+    if (enabled) drop.classList.remove('disabled');
+    else drop.classList.add('disabled');
+  }
+}
+
 function openBulkUpload() {
   $('bulk-modal').classList.add('active');
   bulkFiles = [];
   bulkGroups = {};
   bulkUploading = false;
   bulkQueueLocked = false;
+  setBulkInputEnabled(true);
   renderBulkPreviews();
   $('bulk-upload-btn').disabled = true;
   $('bulk-retry-btn').style.display = 'none';
@@ -525,11 +587,11 @@ function openBulkUpload() {
   });
   // Setup drop zone
   var dz = $('bulk-drop');
-  dz.onclick = function() { $('bulk-file-input').click(); };
+  dz.onclick = function() { if (!bulkUploading) $('bulk-file-input').click(); };
   dz.ondragover = function(e) { e.preventDefault(); dz.classList.add('drag'); };
   dz.ondragleave = function() { dz.classList.remove('drag'); };
-  dz.ondrop = function(e) { e.preventDefault(); dz.classList.remove('drag'); handleBulkFiles(e.dataTransfer.files); };
-  $('bulk-file-input').onchange = function() { handleBulkFiles($('bulk-file-input').files); };
+  dz.ondrop = function(e) { e.preventDefault(); dz.classList.remove('drag'); if (!bulkUploading) handleBulkFiles(e.dataTransfer.files); };
+  $('bulk-file-input').onchange = function() { if (!bulkUploading) handleBulkFiles($('bulk-file-input').files); };
 }
 
 function closeBulkUpload() {
@@ -544,45 +606,69 @@ function closeBulkUpload() {
 function getExifDate(file) {
   return new Promise(function(resolve) {
     var reader = new FileReader();
-    reader.onload = function(e) {
-      var view = new DataView(e.target.result);
-      if (view.getUint16(0, false) !== 0xFFD8) { resolve(null); return; }
-      var length = view.byteLength, offset = 2;
-      while (offset < length) {
-        if (view.getUint16(offset, false) === 0xFFE1) {
-          var exd = '';
-          for (var k = offset + 4; k < offset + 10; k++) exd += String.fromCharCode(view.getUint8(k));
-          if (exd === 'Exif\u0000\u0000') {
-            resolve(findExifDateInner(e.target.result, offset + 10));
-            return;
-          }
-        }
-        offset += 2 + view.getUint16(offset + 2, false);
+    var settled = false;
+    function finish(value) {
+      if (!settled) {
+        settled = true;
+        resolve(value);
       }
-      resolve(null);
+    }
+    reader.onload = function(e) {
+      try {
+        var buffer = e && e.target && e.target.result;
+        var view = new DataView(buffer);
+        if (view.byteLength < 4 || view.getUint16(0, false) !== 0xFFD8) { finish(null); return; }
+        var length = view.byteLength, offset = 2;
+        while (offset + 4 <= length) {
+          var marker = view.getUint16(offset, false);
+          var segmentLength = view.getUint16(offset + 2, false);
+          if (segmentLength < 2 || offset + 2 + segmentLength > length) break;
+          if (marker === 0xFFE1 && offset + 10 <= length) {
+            var exd = '';
+            for (var k = offset + 4; k < offset + 10; k++) exd += String.fromCharCode(view.getUint8(k));
+            if (exd === 'Exif\u0000\u0000') {
+              finish(findExifDateInner(buffer, offset + 10));
+              return;
+            }
+          }
+          offset += 2 + segmentLength;
+        }
+        finish(null);
+      } catch (error) { finish(null); }
     };
-    reader.readAsArrayBuffer(file.slice(0, 65536));
+    reader.onerror = function() { finish(null); };
+    reader.onabort = function() { finish(null); };
+    try { reader.readAsArrayBuffer(file.slice(0, 65536)); }
+    catch (error) { finish(null); }
   });
 }
 
 function findExifDateInner(buffer, tiffOffset) {
-  var view = new DataView(buffer);
-  var le = view.getUint16(tiffOffset, false) === 0x4949;
-  var ifdOff = view.getUint32(tiffOffset + 4, le);
-  var ifdStart = tiffOffset + ifdOff;
-  var entries = view.getUint16(ifdStart, le);
-  for (var i = 0; i < entries; i++) {
-    var eo = ifdStart + 2 + i * 12;
-    if (view.getUint16(eo, le) === 0x9003) {
-      var vo = view.getUint32(eo + 8, le);
-      var dof = tiffOffset + vo;
-      var y = (view.getUint8(dof)-48)*1000+(view.getUint8(dof+1)-48)*100+(view.getUint8(dof+2)-48)*10+(view.getUint8(dof+3)-48);
-      var m = (view.getUint8(dof+5)-48)*10+(view.getUint8(dof+6)-48);
-      var d = (view.getUint8(dof+8)-48)*10+(view.getUint8(dof+9)-48);
-      if (y>2000 && y<2100 && m>=1 && m<=12 && d>=1 && d<=31) return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  try {
+    var view = new DataView(buffer);
+    if (tiffOffset < 0 || tiffOffset + 8 > view.byteLength) return null;
+    var byteOrder = view.getUint16(tiffOffset, false);
+    if (byteOrder !== 0x4949 && byteOrder !== 0x4D4D) return null;
+    var le = byteOrder === 0x4949;
+    var ifdOff = view.getUint32(tiffOffset + 4, le);
+    var ifdStart = tiffOffset + ifdOff;
+    if (ifdStart < tiffOffset || ifdStart + 2 > view.byteLength) return null;
+    var entries = view.getUint16(ifdStart, le);
+    for (var i = 0; i < entries; i++) {
+      var eo = ifdStart + 2 + i * 12;
+      if (eo + 12 > view.byteLength) return null;
+      if (view.getUint16(eo, le) === 0x9003) {
+        var vo = view.getUint32(eo + 8, le);
+        var dof = tiffOffset + vo;
+        if (dof < tiffOffset || dof + 10 > view.byteLength) return null;
+        var y = (view.getUint8(dof)-48)*1000+(view.getUint8(dof+1)-48)*100+(view.getUint8(dof+2)-48)*10+(view.getUint8(dof+3)-48);
+        var m = (view.getUint8(dof+5)-48)*10+(view.getUint8(dof+6)-48);
+        var d = (view.getUint8(dof+8)-48)*10+(view.getUint8(dof+9)-48);
+        if (y>2000 && y<2100 && m>=1 && m<=12 && d>=1 && d<=31) return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      }
     }
-  }
-  return null;
+    return null;
+  } catch (error) { return null; }
 }
 
 function extractDateFromFilename(name) {
@@ -591,6 +677,7 @@ function extractDateFromFilename(name) {
 }
 
 async function handleBulkFiles(files) {
+  if (bulkUploading) { toast('上传进行中，暂时不能添加图片', true); return; }
   if (!files || !files.length) return;
   $('bulk-stats').textContent = '读取中...';
   for (var i = 0; i < files.length; i++) {
@@ -641,6 +728,7 @@ async function doBulkUpload() {
   if (!queue.length) return;
   bulkUploading = true;
   bulkQueueLocked = true;
+  setBulkInputEnabled(false);
   $('bulk-progress').style.display = 'block';
   $('bulk-fill').style.width = '0%';
   $('bulk-label').style.color = '';
@@ -704,6 +792,7 @@ async function doBulkUpload() {
     return item.status !== 'succeeded';
   });
   bulkUploading = false;
+  setBulkInputEnabled(true);
   $('bulk-fill').style.width = '100%';
   var completion = '上传完成：成功 ' + succeeded + '，失败 ' + failed;
   $('bulk-label').textContent = completion;
@@ -711,7 +800,10 @@ async function doBulkUpload() {
   toast(completion, failed > 0);
   renderBulkPreviews();
   if (succeeded > 0) await loadData();
-  if (failed === 0) closeBulkUpload();
+  var hasRemainingWork = bulkFiles.some(function(item) {
+    return item.status === 'pending' || item.status === 'uploading' || item.status === 'failed';
+  });
+  if (!hasRemainingWork) closeBulkUpload();
 }
 
 async function retryFailedUploads() {

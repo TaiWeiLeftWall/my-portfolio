@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Mapping, Optional
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, unquote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
+import ipaddress
 import json
 import math
 import socket
@@ -39,7 +40,7 @@ def _canonical_public_base_url(value: Any) -> str:
         character.isspace()
         or unicodedata.category(character) in ("Cc", "Cf")
         for character in raw
-    ):
+    ) or "\\" in raw:
         raise ValueError(message)
     try:
         parsed = urlsplit(raw)
@@ -61,8 +62,18 @@ def _canonical_public_base_url(value: Any) -> str:
         for segment in parsed.path.split("/")
     ):
         raise ValueError(message)
-    canonical_host = hostname.lower()
-    if ":" in canonical_host:
+    is_ipv6 = False
+    try:
+        ip_address = ipaddress.ip_address(hostname)
+    except ValueError:
+        try:
+            canonical_host = hostname.encode("idna").decode("ascii").lower()
+        except UnicodeError as exc:
+            raise ValueError(message) from exc
+    else:
+        canonical_host = ip_address.compressed.lower()
+        is_ipv6 = isinstance(ip_address, ipaddress.IPv6Address)
+    if is_ipv6:
         canonical_host = "[{}]".format(canonical_host)
     netloc = canonical_host
     if port is not None and port != 443:

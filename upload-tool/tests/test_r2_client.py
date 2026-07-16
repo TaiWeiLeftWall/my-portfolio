@@ -204,6 +204,9 @@ class CmsConfigTests(unittest.TestCase):
             "https://cdn.example.test/base/../child",
             "https://cdn.example.test/base/%2e/child",
             "https://cdn.example.test/base/%2E%2E/child",
+            "https://cdn.example.test\\outside",
+            "https://cdn.example.test/base\\child",
+            "https://cdn.example.test/base\\..\\secret",
         )
         with tempfile.TemporaryDirectory() as tempdir:
             path = Path(tempdir) / "missing.json"
@@ -215,6 +218,33 @@ class CmsConfigTests(unittest.TestCase):
                         str(context.exception),
                         "r2_public_base_url must be a valid HTTPS URL",
                     )
+
+    def test_public_base_canonicalizes_idna_ipv4_and_ipv6_hosts(self):
+        cases = (
+            (
+                "https://BÜCHER.example:443/gallery/",
+                "https://xn--bcher-kva.example/gallery",
+            ),
+            ("https://127.0.0.1:443/gallery/", "https://127.0.0.1/gallery"),
+            (
+                "https://[2001:DB8::1]:443/gallery/",
+                "https://[2001:db8::1]/gallery",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "missing.json"
+            for value, expected in cases:
+                with self.subTest(value=value):
+                    config = CmsConfig.load(
+                        path,
+                        {
+                            "R2_WORKER_URL": "https://worker.example.test",
+                            "R2_PUBLIC_BASE_URL": value,
+                            "R2_UPLOAD_TOKEN": "test-token",
+                        },
+                    )
+                    self.assertEqual(config.r2_public_base_url, expected)
+                    self.assertTrue(config.configured)
 
     def test_non_finite_timeout_values_are_rejected(self):
         with tempfile.TemporaryDirectory() as tempdir:

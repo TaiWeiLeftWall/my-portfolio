@@ -1,0 +1,9 @@
+{
+  "name": "upload-tool",
+  "main": "r2-upload.js",
+  "compatibility_date": "2026-07-16",
+  "r2_buckets": [{ "binding": "MY_BUCKET", "bucket_name": "" }],
+  "vars": { "PUBLIC_BASE_URL": "" },
+  "secrets": { "required": ["UPLOAD_TOKEN"] },
+  "observability": { "enabled": true }
+}

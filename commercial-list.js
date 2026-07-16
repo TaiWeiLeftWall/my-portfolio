@@ -16,7 +16,7 @@ function _init() {
 }
 document.addEventListener('DOMContentLoaded', function() { _domReady = true; _init(); });
 document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
-setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000););
+setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000);
 
 function initLightbox() {
     const lightbox = document.getElementById('lightbox');
@@ -68,7 +68,7 @@ function setupFilters() {
     years.forEach(year => {
         const option = document.createElement('option');
         option.value = year;
-        option.textContent = year + '骞?;
+        option.textContent = year + '骞?';
         yearSelect.appendChild(option);
     });
 

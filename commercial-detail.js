@@ -3,6 +3,9 @@
 // ==========================================
 
 const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+let allImages = [];
+let currentImageIndex = 0;
+let currentGroupImages = [];
 
 let _domReady = false, _dataReady = false;
 function _init() {
@@ -80,9 +83,106 @@ function _init() {
     // 璁剧疆鐏
     setupLightbox();
 }
+
+function setupLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    const closeBtn = document.querySelector('.lightbox-close');
+
+    if (!lightbox || !closeBtn || lightbox.dataset.ready === 'true') return;
+    lightbox.dataset.ready = 'true';
+    closeBtn.addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', (event) => {
+        if (event.target === lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeLightbox();
+        if (event.key === 'ArrowLeft') navigateLightbox(-1);
+        if (event.key === 'ArrowRight') navigateLightbox(1);
+    });
+
+    let touchStartX = 0;
+    lightbox.addEventListener('touchstart', (event) => {
+        touchStartX = event.changedTouches[0].screenX;
+    }, { passive: true });
+    lightbox.addEventListener('touchend', (event) => {
+        const difference = touchStartX - event.changedTouches[0].screenX;
+        if (Math.abs(difference) > 50) navigateLightbox(difference > 0 ? 1 : -1);
+    }, { passive: true });
+
+    const previous = document.createElement('div');
+    previous.className = 'lightbox-nav lightbox-prev';
+    previous.innerHTML = '&#10094;';
+    previous.addEventListener('click', (event) => {
+        event.stopPropagation();
+        navigateLightbox(-1);
+    });
+
+    const next = document.createElement('div');
+    next.className = 'lightbox-nav lightbox-next';
+    next.innerHTML = '&#10095;';
+    next.addEventListener('click', (event) => {
+        event.stopPropagation();
+        navigateLightbox(1);
+    });
+
+    lightbox.appendChild(previous);
+    lightbox.appendChild(next);
+}
+
+function openLightbox(src, title, description, groupImages = []) {
+    const lightbox = document.getElementById('lightbox');
+    const image = document.getElementById('lightbox-img');
+    const caption = document.getElementById('lightbox-caption');
+    const previews = document.getElementById('lightbox-preview-strip');
+    if (!lightbox || !image || !caption || !previews) return;
+
+    currentImageIndex = allImages.findIndex((item) => item.src === src);
+    image.src = src;
+    caption.textContent = title || description || '';
+    currentGroupImages = groupImages;
+    previews.innerHTML = '';
+    if (currentGroupImages.length > 1) {
+        previews.style.display = 'flex';
+        currentGroupImages.forEach((item) => {
+            const preview = document.createElement('div');
+            preview.className = 'lightbox-preview-item' + (item.src === src ? ' active' : '');
+            preview.innerHTML = `<img src="${item.src}" alt="">`;
+            preview.addEventListener('click', (event) => {
+                event.stopPropagation();
+                openLightbox(item.src, item.title || '', item.description || '', currentGroupImages);
+            });
+            previews.appendChild(preview);
+        });
+    } else {
+        previews.style.display = 'none';
+    }
+
+    lightbox.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    if (!lightbox) return;
+    lightbox.classList.remove('active');
+    document.body.style.overflow = '';
+    currentGroupImages = [];
+}
+
+function navigateLightbox(direction) {
+    if (!allImages.length) return;
+    currentImageIndex = (currentImageIndex + direction + allImages.length) % allImages.length;
+    const image = allImages[currentImageIndex];
+    openLightbox(
+        image.src,
+        image.title || '',
+        image.description || '',
+        currentGroupImages
+    );
+}
 document.addEventListener('DOMContentLoaded', function() { _domReady = true; _init(); });
 document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
-setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000););
+setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000);
 
 
 

@@ -394,7 +394,23 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/batch-delete":
             data = self.read_json()
-            result = self.database.batch_delete(data.get("table", ""), data.get("ids", []))
+            scope = data.get("table", "")
+            record_ids = data.get("ids", [])
+            if scope == "photo_items":
+                items = [
+                    self.database.get_photo_item(record_id)
+                    for record_id in record_ids
+                ]
+                self._delete_r2_keys(
+                    [
+                        _r2_key_from_url(
+                            item.get("src"), self.config.r2_public_base_url
+                        )
+                        for item in items
+                        if item is not None
+                    ]
+                )
+            result = self.database.batch_delete(scope, record_ids)
             self.send_json({"ok": True, **result})
             return
         if parsed.path == "/api/bulk-import":
@@ -730,13 +746,16 @@ class Handler(SimpleHTTPRequestHandler):
         if not unique_keys:
             return
         r2_client = self._require_r2()
+        deletion_failed = False
         for key in unique_keys:
             try:
                 r2_client.delete(key)
             except R2Error:
-                raise ApiError(
-                    502, "r2_delete_failed", "R2 image deletion failed"
-                ) from None
+                deletion_failed = True
+        if deletion_failed:
+            raise ApiError(
+                502, "r2_delete_failed", "R2 image deletion failed"
+            ) from None
 
 
 def main():

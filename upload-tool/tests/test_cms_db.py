@@ -365,12 +365,16 @@ class DatabaseTests(unittest.TestCase):
         first = self.db.create_video({"url": "https://example.test/one"})
         second = self.db.create_video({"url": "https://example.test/two"})
 
-        result = self.db.batch_delete("videos", [first["id"], second["id"]])
+        result = self.db.batch_delete(
+            "videos", [first["id"], first["id"], second["id"]]
+        )
 
         self.assertEqual(result["deleted"], 2)
         self.assertEqual(self.db.state()["videos"], [])
         with self.assertRaises(ValidationError):
             self.db.batch_delete("photo_groups", [1])
+        with self.assertRaises(ValidationError):
+            self.db.batch_delete("videos", [])
 
     def test_export_keeps_frontend_shape_and_omits_database_fields(self):
         group = self.db.create_photo_group(

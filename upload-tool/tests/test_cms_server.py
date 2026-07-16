@@ -496,6 +496,97 @@ class HttpApiTests(unittest.TestCase):
             self.db.get_idempotency_response(key, cms_server.PHOTO_UPLOAD_OPERATION)
         )
 
+    def test_batch_photo_delete_removes_unique_trusted_r2_objects_first(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        remote = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/images/portrait/2026-07-16/a.jpg",
+            }
+        )
+        unrelated = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://untrusted.example.test/images/portrait/a.jpg",
+            }
+        )
+
+        status, payload = self.json_request(
+            "POST",
+            "/api/batch-delete",
+            {
+                "table": "photo_items",
+                "ids": [remote["id"], remote["id"], unrelated["id"]],
+            },
+        )
+
+        self.assertEqual((status, payload), (200, {"ok": True, "deleted": 2}))
+        self.assertEqual(
+            self.r2.deletes, ["images/portrait/2026-07-16/a.jpg"]
+        )
+        self.assertIsNone(self.db.get_photo_item(remote["id"]))
+        self.assertIsNone(self.db.get_photo_item(unrelated["id"]))
+
+        replay_status, replay_payload = self.json_request(
+            "POST",
+            "/api/batch-delete",
+            {
+                "table": "photo_items",
+                "ids": [remote["id"], remote["id"], unrelated["id"]],
+            },
+        )
+
+        self.assertEqual(
+            (replay_status, replay_payload),
+            (200, {"ok": True, "deleted": 0}),
+        )
+        self.assertEqual(
+            self.r2.deletes, ["images/portrait/2026-07-16/a.jpg"]
+        )
+
+    def test_batch_photo_delete_r2_failure_preserves_rows_and_is_retryable(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        first_key = "images/portrait/2026-07-16/a.jpg"
+        second_key = "images/portrait/2026-07-16/b.jpg"
+        first = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/" + first_key,
+            }
+        )
+        second = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/" + second_key,
+            }
+        )
+        payload = {
+            "table": "photo_items",
+            "ids": [first["id"], second["id"]],
+        }
+        self.r2.delete_error_for.add(second_key)
+
+        status, response = self.json_request("POST", "/api/batch-delete", payload)
+
+        self.assert_error(status, response, 502, "r2_delete_failed")
+        self.assertEqual(self.r2.deletes, [first_key, second_key])
+        self.assertIsNotNone(self.db.get_photo_item(first["id"]))
+        self.assertIsNotNone(self.db.get_photo_item(second["id"]))
+
+        self.r2.delete_error_for.clear()
+        retry_status, retry_response = self.json_request(
+            "POST", "/api/batch-delete", payload
+        )
+
+        self.assertEqual(
+            (retry_status, retry_response), (200, {"ok": True, "deleted": 2})
+        )
+        self.assertEqual(
+            self.r2.deletes, [first_key, second_key, first_key, second_key]
+        )
+        self.assertIsNone(self.db.get_photo_item(first["id"]))
+        self.assertIsNone(self.db.get_photo_item(second["id"]))
+
     def test_photo_delete_r2_failure_preserves_database_row(self):
         group = self.db.create_photo_group({"category": "portrait"})
         item = self.db.create_photo_item(

@@ -579,6 +579,6 @@ def validate_enum(value, allowed, default):
 if __name__ == "__main__":
     init_db()
     os.chdir(ROOT)
-    print(f"CMS running at http://localhost:{PORT}")
+    print(f"CMS running at http://127.0.0.1:{PORT}")
     print(f"Database: {DB_PATH}")
     ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

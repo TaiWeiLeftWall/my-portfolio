@@ -527,9 +527,9 @@ function findImageById(id) {
 }
 
 function r2KeyFromUrl(url) {
-  if (!url || !url.includes('r2.dev/')) return null;
-  var m = url.match(/r2\.dev\/(.+)$/);
-  return m ? m[1] : null;
+  if (!url || !R2_BASE_URL) return null;
+  var prefix = R2_BASE_URL.replace(/\/+$/, '') + '/';
+  return url.startsWith(prefix) ? url.slice(prefix.length) : null;
 }
 
 function deleteFromR2(url) {
@@ -657,6 +657,7 @@ async function handleFileUpload(event) {
   var files = event.target.files;
   if (!files || !files.length) return;
   if (!currentGroupId) { toast('请先选择一个图片组', true); return; }
+  if (!R2_UPLOAD_URL || !R2_BASE_URL) { toast('请先配置 R2_UPLOAD_URL 和 R2_BASE_URL', true); return; }
   var group = S.photoGroups.find(function(g) { return g.id === currentGroupId; });
   if (!group) return;
   var category = (group.category || 'portrait').replace('official', 'portrait');
@@ -695,8 +696,8 @@ async function handleFileUpload(event) {
 }
 
 // ==================== Bulk Upload (R2) ====================
-const R2_UPLOAD_URL = 'https://r2-upload.linweigh58.workers.dev/upload';
-const R2_BASE_URL = 'https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev';
+const R2_UPLOAD_URL = '';
+const R2_BASE_URL = '';
 let bulkFiles = [];
 let bulkSelectedCat = 'portrait';
 
@@ -818,7 +819,7 @@ function renderBulkPreviews() {
 
 async function doBulkUpload() {
   if (!bulkFiles.length) return;
-  if (!R2_UPLOAD_URL) { toast('请先配置 R2_UPLOAD_URL', true); return; }
+  if (!R2_UPLOAD_URL || !R2_BASE_URL) { toast('请先配置 R2_UPLOAD_URL 和 R2_BASE_URL', true); return; }
   var btn = $('bulk-upload-btn');
   btn.disabled = true;
   $('bulk-progress').style.display = 'block';

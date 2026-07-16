@@ -21,6 +21,12 @@ class ServerEntryTests(unittest.TestCase):
         self.assertLess(names["validate_date"], main_index)
         self.assertLess(names["validate_enum"], main_index)
 
+    def test_startup_message_uses_loopback_address(self):
+        source = SERVER.read_text(encoding="utf-8-sig")
+        self.assertIn("PORT = 8090", source)
+        self.assertIn('print(f"CMS running at http://127.0.0.1:{PORT}")', source)
+        self.assertNotIn("CMS running at http://localhost:", source)
+
 
 if __name__ == "__main__":
     unittest.main()

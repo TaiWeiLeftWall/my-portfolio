@@ -370,6 +370,27 @@ console.log(JSON.stringify(ctx.__out));
     def get_photo_group(self, group_id: Any) -> dict[str, Any] | None:
         return self._get("photo_groups", group_id)
 
+    def get_photo_group_with_items(self, group_id: Any) -> dict[str, Any]:
+        with closing(self.connect()) as conn:
+            conn.execute("begin")
+            try:
+                group = self._require_row(
+                    self._get_on(conn, "photo_groups", group_id),
+                    "photo group",
+                    group_id,
+                )
+                items = self._rows_on(
+                    conn,
+                    "select * from photo_items where group_id=? order by sort_order,id",
+                    (group_id,),
+                )
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return {"group": group, "items": items}
+
     def create_photo_group(self, data: dict[str, Any]) -> dict[str, Any]:
         category = data.get("category", "portrait")
         if category not in VALID_CATEGORIES:

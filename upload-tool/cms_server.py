@@ -6,9 +6,10 @@ Run from the repository root:
     python upload-tool/cms_server.py
 """
 
+from datetime import date as calendar_date
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 import cgi
 import json
 import os
@@ -17,14 +18,17 @@ import sqlite3
 import time
 
 from cms_db import Database, NotFoundError, ValidationError
+from r2_client import CmsConfig, R2Client, R2Error
 
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOL_DIR = Path(__file__).resolve().parent
 DB_PATH = TOOL_DIR / "site_content.sqlite"
 MEDIA_DIR = TOOL_DIR / "media"
+CONFIG_PATH = TOOL_DIR / "cms_config.json"
 PORT = 8090
 MAX_JSON_BODY_SIZE = 1024 * 1024
+ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 try:
     from PIL import Image
@@ -62,6 +66,29 @@ def save_upload(field, area):
     return public_path(target)
 
 
+def r2_key_from_src(src):
+    if not isinstance(src, str) or not src:
+        return None
+    parsed = urlparse(src)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+    decoded_path = unquote(parsed.path)
+    marker = "/images/"
+    marker_index = decoded_path.find(marker)
+    if marker_index < 0:
+        return None
+    key = decoded_path[marker_index + 1 :]
+    parts = key.split("/")
+    if (
+        len(parts) < 2
+        or parts[0] != "images"
+        or any(part in ("", ".", "..") for part in parts)
+        or "\\" in key
+    ):
+        return None
+    return key
+
+
 class ApiError(Exception):
     def __init__(self, status, code, message):
         super().__init__(message)
@@ -72,6 +99,8 @@ class ApiError(Exception):
 
 class Handler(SimpleHTTPRequestHandler):
     database: Database
+    config = CmsConfig()
+    r2_client = None
     JSON_BODY_READ_TIMEOUT = 10.0
 
     def guess_type(self, path):
@@ -221,7 +250,29 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(self.database.state())
             return
         if parsed.path == "/api/health":
-            self.send_json(self.database.health())
+            database_health = self.database.health()
+            configured = self.config.configured
+            reachable = False
+            if configured and self.r2_client is not None:
+                try:
+                    self.r2_client.health()
+                except R2Error:
+                    pass
+                else:
+                    reachable = True
+            database_ok = bool(database_health["ok"])
+            self.send_json(
+                {
+                    "ok": database_ok and (not configured or reachable),
+                    "database": database_ok,
+                    "r2": {"configured": configured, "reachable": reachable},
+                    "schema_version": database_health["schema_version"],
+                    "orphan_photo_items": database_health["orphan_photo_items"],
+                    "orphan_commercial_items": database_health[
+                        "orphan_commercial_items"
+                    ],
+                }
+            )
             return
         if parsed.path == "/api" or parsed.path.startswith("/api/"):
             raise ApiError(404, "not_found", "API route not found")
@@ -248,6 +299,9 @@ class Handler(SimpleHTTPRequestHandler):
             record = self.database.create_commercial_project(self.read_json())
             self.send_json({"ok": True, "id": record["id"]})
             return
+        if parsed.path == "/api/photo-items/upload":
+            self._upload_photo_item()
+            return
         if parsed.path == "/api/upload":
             self._upload()
             return
@@ -269,6 +323,151 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"ok": True, "groups": created})
             return
         raise ApiError(404, "not_found", "API route not found")
+
+    def _multipart_form(self):
+        content_length = self.headers.get("Content-Length")
+        if content_length is None:
+            raise ApiError(
+                400, "invalid_content_length", "Content-Length header is required"
+            )
+        try:
+            size = int(content_length)
+        except (TypeError, ValueError) as exc:
+            raise ApiError(
+                400, "invalid_content_length", "Content-Length must be an integer"
+            ) from exc
+        if size < 0:
+            raise ApiError(
+                400, "invalid_content_length", "Content-Length must not be negative"
+            )
+        if size > self.config.max_upload_bytes:
+            raise ApiError(
+                413,
+                "payload_too_large",
+                "multipart request body exceeds the configured upload limit",
+            )
+
+        content_type = self.headers.get("Content-Type", "")
+        media_type, parameters = cgi.parse_header(content_type)
+        if media_type.lower() != "multipart/form-data" or not parameters.get(
+            "boundary"
+        ):
+            raise ApiError(
+                400,
+                "invalid_multipart",
+                "Content-Type must be multipart/form-data with a boundary",
+            )
+
+        previous_timeout = self.connection.gettimeout()
+        self.connection.settimeout(self.JSON_BODY_READ_TIMEOUT)
+        try:
+            try:
+                return cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        "REQUEST_METHOD": "POST",
+                        "CONTENT_TYPE": content_type,
+                        "CONTENT_LENGTH": str(size),
+                    },
+                    keep_blank_values=True,
+                )
+            except socket.timeout as exc:
+                raise ApiError(
+                    408,
+                    "request_timeout",
+                    "timed out while reading the multipart request body",
+                ) from exc
+        finally:
+            self.connection.settimeout(previous_timeout)
+
+    @staticmethod
+    def _validate_upload_date(value):
+        if not isinstance(value, str):
+            raise ApiError(400, "invalid_date", "date must use YYYY-MM-DD")
+        try:
+            parsed = calendar_date.fromisoformat(value)
+        except ValueError as exc:
+            raise ApiError(400, "invalid_date", "date must use YYYY-MM-DD") from exc
+        if parsed.isoformat() != value:
+            raise ApiError(400, "invalid_date", "date must use YYYY-MM-DD")
+        return value
+
+    def _require_r2(self):
+        if not self.config.configured or self.r2_client is None:
+            raise ApiError(503, "r2_not_configured", "R2 storage is not configured")
+        return self.r2_client
+
+    def _upload_photo_item(self):
+        form = self._multipart_form()
+        r2_client = self._require_r2()
+        file_fields = [
+            field
+            for field in (form.list or [])
+            if getattr(field, "filename", None) is not None
+        ]
+        if len(file_fields) != 1 or file_fields[0].name != "image":
+            raise ApiError(
+                400, "invalid_image_count", "exactly one image field is required"
+            )
+        image = file_fields[0]
+        content_type = (image.type or "").lower()
+        if content_type not in ACCEPTED_IMAGE_TYPES:
+            raise ApiError(
+                400, "invalid_image_type", "image must be JPEG, PNG, or WebP"
+            )
+
+        group_id = form.getfirst("group_id", "")
+        if not str(group_id).strip():
+            raise ApiError(400, "missing_group", "group_id is required")
+        group = self.database.get_photo_group(group_id)
+        if group is None:
+            raise ApiError(400, "missing_group", "photo group does not exist")
+        category = form.getfirst("category", "")
+        if category != group["category"]:
+            raise ApiError(
+                400,
+                "category_mismatch",
+                "category does not match the selected photo group",
+            )
+        upload_date = self._validate_upload_date(form.getfirst("date", ""))
+        filename = Path(image.filename or "").name
+        if not filename:
+            raise ApiError(400, "invalid_image", "image filename is required")
+        content = image.file.read()
+
+        try:
+            uploaded = r2_client.upload(
+                content, content_type, category, upload_date, filename
+            )
+        except R2Error:
+            raise ApiError(
+                502, "r2_upload_failed", "R2 image upload failed"
+            ) from None
+
+        try:
+            record = self.database.create_photo_item(
+                {"group_id": group["id"], "src": uploaded.url}
+            )
+        except Exception:
+            rollback_succeeded = False
+            try:
+                r2_client.delete(uploaded.key)
+            except Exception:
+                pass
+            else:
+                rollback_succeeded = True
+            self.send_json(
+                {
+                    "ok": False,
+                    "code": "database_write_failed",
+                    "message": "database write failed after R2 upload",
+                    "r2_rollback_succeeded": rollback_succeeded,
+                },
+                500,
+            )
+            return
+        self.send_json({"ok": True, "id": record["id"], "src": uploaded.url})
 
     def _upload(self):
         content_type = self.headers.get("Content-Type", "")
@@ -337,8 +536,16 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         item_id = parsed.path.rsplit("/", 1)[-1]
         if parsed.path.startswith("/api/photo-groups/"):
+            plan = self.database.get_photo_group_with_items(item_id)
+            self._delete_r2_keys(
+                [r2_key_from_src(item.get("src")) for item in plan["items"]]
+            )
             self.database.delete_photo_group(item_id)
         elif parsed.path.startswith("/api/photo-items/"):
+            item = self.database.get_photo_item(item_id)
+            if item is None:
+                raise NotFoundError("photo item {} not found".format(item_id))
+            self._delete_r2_keys([r2_key_from_src(item.get("src"))])
             self.database.delete_photo_item(item_id)
         elif parsed.path.startswith("/api/videos/"):
             self.database.delete_video(item_id)
@@ -350,11 +557,30 @@ class Handler(SimpleHTTPRequestHandler):
             raise ApiError(404, "not_found", "API route not found")
         self.send_json({"ok": True})
 
+    def _delete_r2_keys(self, keys):
+        unique_keys = []
+        for key in keys:
+            if key and key not in unique_keys:
+                unique_keys.append(key)
+        if not unique_keys:
+            return
+        r2_client = self._require_r2()
+        for key in unique_keys:
+            try:
+                r2_client.delete(key)
+            except R2Error:
+                raise ApiError(
+                    502, "r2_delete_failed", "R2 image deletion failed"
+                ) from None
+
 
 def main():
     database = Database(DB_PATH, ROOT, MEDIA_DIR)
     database.initialize(seed=True)
+    config = CmsConfig.load(CONFIG_PATH, os.environ)
     Handler.database = database
+    Handler.config = config
+    Handler.r2_client = R2Client(config) if config.configured else None
     os.chdir(ROOT)
     print(f"CMS running at http://127.0.0.1:{PORT}")
     print(f"Database: {DB_PATH}")

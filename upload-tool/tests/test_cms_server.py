@@ -18,6 +18,77 @@ sys.path.insert(0, str(TOOL_DIR))
 
 import cms_server  # noqa: E402
 from cms_db import Database  # noqa: E402
+from r2_client import CmsConfig, R2Error, R2Object  # noqa: E402
+
+
+class FakeR2Client:
+    def __init__(self):
+        self.uploads = []
+        self.deletes = []
+        self.health_calls = 0
+        self.upload_error = None
+        self.delete_error_for = set()
+        self.health_error = None
+
+    def health(self):
+        self.health_calls += 1
+        if self.health_error:
+            raise self.health_error
+        return {"ok": True}
+
+    def upload(self, content, content_type, category, date, filename):
+        self.uploads.append(
+            {
+                "content": content,
+                "content_type": content_type,
+                "category": category,
+                "date": date,
+                "filename": filename,
+            }
+        )
+        if self.upload_error:
+            raise self.upload_error
+        return R2Object(
+            key="images/{}/{}/uploaded.jpg".format(category, date),
+            url="https://cdn.example.test/images/{}/{}/uploaded.jpg".format(
+                category, date
+            ),
+        )
+
+    def delete(self, key):
+        self.deletes.append(key)
+        if key in self.delete_error_for:
+            raise R2Error("service_unavailable", "secret worker detail", True)
+
+
+def multipart_body(fields, files):
+    boundary = "cms-test-boundary"
+    chunks = []
+    for name, value in fields.items():
+        chunks.extend(
+            [
+                "--{}\r\n".format(boundary).encode("ascii"),
+                'Content-Disposition: form-data; name="{}"\r\n\r\n'.format(
+                    name
+                ).encode("ascii"),
+                str(value).encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    for name, filename, content_type, content in files:
+        chunks.extend(
+            [
+                "--{}\r\n".format(boundary).encode("ascii"),
+                (
+                    'Content-Disposition: form-data; name="{}"; filename="{}"\r\n'
+                    "Content-Type: {}\r\n\r\n"
+                ).format(name, filename, content_type).encode("ascii"),
+                content,
+                b"\r\n",
+            ]
+        )
+    chunks.append("--{}--\r\n".format(boundary).encode("ascii"))
+    return b"".join(chunks), "multipart/form-data; boundary={}".format(boundary)
 
 
 class ServerEntryTests(unittest.TestCase):
@@ -55,9 +126,17 @@ class HttpApiTests(unittest.TestCase):
             media_dir=self.root / "media",
         )
         self.db.initialize(seed=False)
+        self.r2 = FakeR2Client()
+        self.config = CmsConfig(
+            r2_worker_url="https://worker.example.test",
+            r2_upload_token="test-token",
+            max_upload_bytes=1024 * 1024,
+        )
 
         class IsolatedHandler(cms_server.Handler):
             database = self.db
+            config = self.config
+            r2_client = self.r2
             JSON_BODY_READ_TIMEOUT = 0.1
 
             def log_message(self, format, *args):
@@ -102,6 +181,12 @@ class HttpApiTests(unittest.TestCase):
             headers={"Content-Type": "application/json"},
         )
 
+    def multipart_request(self, path, fields, files):
+        body, content_type = multipart_body(fields, files)
+        return self.request(
+            "POST", path, body=body, headers={"Content-Type": content_type}
+        )
+
     def raw_request(
         self, body, content_length, *, shutdown_write=True, response_timeout=5
     ):
@@ -138,9 +223,274 @@ class HttpApiTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(payload["ok"], True)
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["database"], True)
+        self.assertEqual(payload["r2"], {"configured": True, "reachable": True})
         self.assertEqual(payload["orphan_photo_items"], 0)
         self.assertEqual(payload["orphan_commercial_items"], 0)
+
+    def test_health_distinguishes_unconfigured_r2_from_reachability(self):
+        self.handler_class.config = CmsConfig()
+
+        status, payload = self.request("GET", "/api/health")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["database"], True)
+        self.assertEqual(payload["r2"], {"configured": False, "reachable": False})
+        self.assertEqual(self.r2.health_calls, 0)
+
+    def test_health_reports_configured_but_unreachable_r2(self):
+        self.r2.health_error = R2Error("network_error", "secret resolver", True)
+
+        status, payload = self.request("GET", "/api/health")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["database"], True)
+        self.assertEqual(payload["r2"], {"configured": True, "reachable": False})
+
+    def test_photo_upload_stores_r2_url_only_after_cloud_success(self):
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "portrait.jpg", "image/jpeg", b"fake-jpeg-bytes")],
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["ok"], True)
+        self.assertEqual(len(self.r2.uploads), 1)
+        self.assertEqual(self.r2.uploads[0]["content"], b"fake-jpeg-bytes")
+        self.assertEqual(self.r2.uploads[0]["content_type"], "image/jpeg")
+        created = self.db.get_photo_item(payload["id"])
+        self.assertEqual(created["src"], payload["src"])
+        self.assertEqual(
+            created["src"],
+            "https://cdn.example.test/images/portrait/2026-07-16/uploaded.jpg",
+        )
+        self.assertEqual(self.r2.deletes, [])
+        self.assertEqual(list((self.root / "media").rglob("*")), [])
+
+    def test_r2_upload_failure_does_not_insert_photo_item(self):
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+        self.r2.upload_error = R2Error(
+            "service_unavailable", "secret worker detail", True
+        )
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "portrait.jpg", "image/jpeg", b"fake-jpeg-bytes")],
+        )
+
+        self.assert_error(status, payload, 502, "r2_upload_failed")
+        self.assertNotIn("secret", payload["message"])
+        self.assertEqual(self.db.state()["photoGroups"][0]["images"], [])
+
+    def test_database_failure_rolls_back_exact_uploaded_r2_key(self):
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+
+        with mock.patch.object(
+            self.db,
+            "create_photo_item",
+            side_effect=RuntimeError("secret sqlite detail"),
+        ):
+            status, payload = self.multipart_request(
+                "/api/photo-items/upload",
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-07-16",
+                },
+                [("image", "portrait.jpg", "image/jpeg", b"fake-jpeg-bytes")],
+            )
+
+        self.assertEqual(status, 500)
+        self.assertEqual(payload["code"], "database_write_failed")
+        self.assertIs(payload["r2_rollback_succeeded"], True)
+        self.assertNotIn("secret", payload["message"])
+        self.assertEqual(
+            self.r2.deletes,
+            ["images/portrait/2026-07-16/uploaded.jpg"],
+        )
+
+    def test_database_failure_reports_failed_r2_rollback_without_details(self):
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+        self.r2.delete_error_for.add("images/portrait/2026-07-16/uploaded.jpg")
+
+        with mock.patch.object(
+            self.db,
+            "create_photo_item",
+            side_effect=RuntimeError("secret sqlite detail"),
+        ):
+            status, payload = self.multipart_request(
+                "/api/photo-items/upload",
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-07-16",
+                },
+                [("image", "portrait.jpg", "image/jpeg", b"fake-jpeg-bytes")],
+            )
+
+        self.assertEqual(status, 500)
+        self.assertEqual(payload["code"], "database_write_failed")
+        self.assertIs(payload["r2_rollback_succeeded"], False)
+        self.assertNotIn("secret", json.dumps(payload))
+
+    def test_photo_delete_r2_failure_preserves_database_row(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        item = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/images/portrait/2026-07-16/a.jpg",
+            }
+        )
+        self.r2.delete_error_for.add("images/portrait/2026-07-16/a.jpg")
+
+        status, payload = self.request(
+            "DELETE", "/api/photo-items/{}".format(item["id"])
+        )
+
+        self.assert_error(status, payload, 502, "r2_delete_failed")
+        self.assertIsNotNone(self.db.get_photo_item(item["id"]))
+
+    def test_photo_delete_removes_database_row_after_r2_success(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        item = self.db.create_photo_item(
+            {
+                "group_id": group["id"],
+                "src": "https://cdn.example.test/images/portrait/2026-07-16/a.jpg",
+            }
+        )
+
+        status, payload = self.request(
+            "DELETE", "/api/photo-items/{}".format(item["id"])
+        )
+
+        self.assertEqual((status, payload), (200, {"ok": True}))
+        self.assertEqual(self.r2.deletes, ["images/portrait/2026-07-16/a.jpg"])
+        self.assertIsNone(self.db.get_photo_item(item["id"]))
+
+    def test_group_delete_partial_r2_failure_keeps_group_for_idempotent_retry(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        first = "images/portrait/2026-07-16/a.jpg"
+        second = "images/portrait/2026-07-16/b.jpg"
+        for key in (first, second):
+            self.db.create_photo_item(
+                {"group_id": group["id"], "src": "https://cdn.example.test/" + key}
+            )
+        self.r2.delete_error_for.add(second)
+
+        status, payload = self.request(
+            "DELETE", "/api/photo-groups/{}".format(group["id"])
+        )
+
+        self.assert_error(status, payload, 502, "r2_delete_failed")
+        self.assertIsNotNone(self.db.get_photo_group(group["id"]))
+        self.assertEqual(len(self.db.state()["photoGroups"][0]["images"]), 2)
+        self.assertEqual(self.r2.deletes, [first, second])
+
+        self.r2.delete_error_for.clear()
+        status, payload = self.request(
+            "DELETE", "/api/photo-groups/{}".format(group["id"])
+        )
+
+        self.assertEqual((status, payload), (200, {"ok": True}))
+        self.assertEqual(self.r2.deletes, [first, second, first, second])
+        self.assertIsNone(self.db.get_photo_group(group["id"]))
+
+    def test_local_media_photo_delete_skips_r2(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+        item = self.db.create_photo_item(
+            {"group_id": group["id"], "src": "upload-tool/media/legacy.jpg"}
+        )
+
+        status, payload = self.request(
+            "DELETE", "/api/photo-items/{}".format(item["id"])
+        )
+
+        self.assertEqual((status, payload), (200, {"ok": True}))
+        self.assertEqual(self.r2.deletes, [])
+
+    def test_photo_upload_rejects_oversized_request_before_multipart_parse(self):
+        self.handler_class.config = CmsConfig(
+            r2_worker_url="https://worker.example.test",
+            r2_upload_token="test-token",
+            max_upload_bytes=10,
+        )
+
+        status, payload = self.request(
+            "POST",
+            "/api/photo-items/upload",
+            body=b"not parsed because too large",
+            headers={"Content-Type": "multipart/form-data; boundary=unused"},
+        )
+
+        self.assert_error(status, payload, 413, "payload_too_large")
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_photo_upload_rejects_missing_group_category_mismatch_and_bad_image(self):
+        group = self.db.create_photo_group(
+            {"category": "portrait", "date": "2026-07-16"}
+        )
+        cases = [
+            (
+                {"category": "portrait", "date": "2026-07-16"},
+                [("image", "a.jpg", "image/jpeg", b"x")],
+            ),
+            (
+                {
+                    "group_id": group["id"],
+                    "category": "landscape",
+                    "date": "2026-07-16",
+                },
+                [("image", "a.jpg", "image/jpeg", b"x")],
+            ),
+            (
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-07-16",
+                },
+                [("image", "a.txt", "text/plain", b"x")],
+            ),
+            (
+                {
+                    "group_id": group["id"],
+                    "category": "portrait",
+                    "date": "2026-07-16",
+                },
+                [
+                    ("image", "a.jpg", "image/jpeg", b"x"),
+                    ("image", "b.jpg", "image/jpeg", b"y"),
+                ],
+            ),
+        ]
+
+        for fields, files in cases:
+            with self.subTest(fields=fields, files=len(files)):
+                status, payload = self.multipart_request(
+                    "/api/photo-items/upload", fields, files
+                )
+                self.assertEqual(status, 400)
+                self.assertIs(payload["ok"], False)
+        self.assertEqual(self.r2.uploads, [])
 
     def test_photo_group_post_preserves_success_response_shape(self):
         status, payload = self.json_request(

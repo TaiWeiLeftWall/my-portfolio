@@ -8,10 +8,11 @@ Run from the repository root:
 
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 import cgi
 import json
 import os
+import sqlite3
 import time
 
 from cms_db import Database, NotFoundError, ValidationError
@@ -22,6 +23,7 @@ TOOL_DIR = Path(__file__).resolve().parent
 DB_PATH = TOOL_DIR / "site_content.sqlite"
 MEDIA_DIR = TOOL_DIR / "media"
 PORT = 8090
+MAX_JSON_BODY_SIZE = 1024 * 1024
 
 try:
     from PIL import Image
@@ -59,6 +61,14 @@ def save_upload(field, area):
     return public_path(target)
 
 
+class ApiError(Exception):
+    def __init__(self, status, code, message):
+        super().__init__(message)
+        self.status = status
+        self.code = code
+        self.message = message
+
+
 class Handler(SimpleHTTPRequestHandler):
     database: Database
 
@@ -86,10 +96,100 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def read_json(self):
-        size = int(self.headers.get("Content-Length", "0"))
-        return json.loads(self.rfile.read(size).decode("utf-8") or "{}")
+        content_length = self.headers.get("Content-Length")
+        if content_length is None:
+            raise ApiError(
+                400, "invalid_content_length", "Content-Length header is required"
+            )
+        try:
+            size = int(content_length)
+        except (TypeError, ValueError) as exc:
+            raise ApiError(
+                400, "invalid_content_length", "Content-Length must be an integer"
+            ) from exc
+        if size < 0:
+            raise ApiError(
+                400, "invalid_content_length", "Content-Length must not be negative"
+            )
+        if size > MAX_JSON_BODY_SIZE:
+            raise ApiError(
+                413,
+                "payload_too_large",
+                "JSON request body exceeds the 1 MiB limit",
+            )
+
+        raw = self.rfile.read(size)
+        if len(raw) != size:
+            raise ApiError(
+                400, "truncated_body", "request body is shorter than Content-Length"
+            )
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ApiError(
+                400, "invalid_utf8", "JSON request body must use UTF-8"
+            ) from exc
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ApiError(
+                400, "invalid_json", "request body must contain valid JSON"
+            ) from exc
+        if not isinstance(data, dict):
+            raise ApiError(
+                400, "invalid_json_body", "JSON request body must be an object"
+            )
+        return data
+
+    def _dispatch(self, action):
+        try:
+            action()
+        except ApiError as exc:
+            self.send_json(
+                {"ok": False, "code": exc.code, "message": exc.message}, exc.status
+            )
+        except NotFoundError as exc:
+            self.send_json(
+                {"ok": False, "code": "not_found", "message": str(exc)}, 404
+            )
+        except ValidationError as exc:
+            self.send_json(
+                {"ok": False, "code": "validation_error", "message": str(exc)},
+                400,
+            )
+        except json.JSONDecodeError:
+            self.send_json(
+                {
+                    "ok": False,
+                    "code": "invalid_json",
+                    "message": "request body must contain valid JSON",
+                },
+                400,
+            )
+        except sqlite3.IntegrityError:
+            self.send_json(
+                {
+                    "ok": False,
+                    "code": "conflict",
+                    "message": "database integrity constraint failed",
+                },
+                409,
+            )
+        except Exception as exc:
+            self.log_error("Unhandled exception for %s: %s", self.path, exc)
+            self.send_json(
+                {
+                    "ok": False,
+                    "code": "internal_error",
+                    "message": "an internal server error occurred",
+                },
+                500,
+            )
 
     def do_GET(self):
+        self._dispatch(self._do_GET)
+
+    def _do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/state":
             self.send_json(self.database.state())
@@ -97,15 +197,12 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/health":
             self.send_json(self.database.health())
             return
-        return super().do_GET()
+        if parsed.path.startswith("/api/"):
+            raise ApiError(404, "not_found", "API route not found")
+        super().do_GET()
 
     def do_POST(self):
-        try:
-            self._do_POST()
-        except NotFoundError as exc:
-            self.send_json({"error": str(exc)}, 404)
-        except (ValidationError, ValueError, json.JSONDecodeError) as exc:
-            self.send_json({"error": str(exc)}, 400)
+        self._dispatch(self._do_POST)
 
     def _do_POST(self):
         parsed = urlparse(self.path)
@@ -140,21 +237,12 @@ class Handler(SimpleHTTPRequestHandler):
             result = self.database.batch_delete(data.get("table", ""), data.get("ids", []))
             self.send_json({"ok": True, **result})
             return
-        if parsed.path in ("/api/bulk-import", "/api/bulk-import-form"):
-            if parsed.path == "/api/bulk-import-form":
-                query = parse_qs(parsed.query)
-                data = json.loads(query.get("d", ["{}"])[0])
-            else:
-                data = self.read_json()
+        if parsed.path == "/api/bulk-import":
+            data = self.read_json()
             created = self.database.bulk_import(data.get("groups", []))
-            if parsed.path == "/api/bulk-import-form":
-                self.send_response(302)
-                self.send_header("Location", "/")
-                self.end_headers()
-            else:
-                self.send_json({"ok": True, "groups": created})
+            self.send_json({"ok": True, "groups": created})
             return
-        self.send_json({"error": "not found"}, 404)
+        raise ApiError(404, "not_found", "API route not found")
 
     def _upload(self):
         content_type = self.headers.get("Content-Type", "")
@@ -192,39 +280,32 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json({"ok": True, "id": record["id"], "src": src})
 
     def do_PUT(self):
-        try:
-            self._do_PUT()
-        except NotFoundError as exc:
-            self.send_json({"error": str(exc)}, 404)
-        except (ValidationError, ValueError, json.JSONDecodeError) as exc:
-            self.send_json({"error": str(exc)}, 400)
+        self._dispatch(self._do_PUT)
 
     def _do_PUT(self):
         parsed = urlparse(self.path)
-        data = self.read_json()
         item_id = parsed.path.rsplit("/", 1)[-1]
         if parsed.path.startswith("/api/photo-groups/"):
+            data = self.read_json()
             self.database.update_photo_group(item_id, data)
         elif parsed.path.startswith("/api/videos/"):
+            data = self.read_json()
             self.database.update_video(item_id, data)
         elif parsed.path.startswith("/api/commercial-projects/"):
+            data = self.read_json()
             self.database.update_commercial_project(item_id, data)
         elif parsed.path.startswith("/api/photo-items/"):
+            data = self.read_json()
             self.database.update_photo_item(item_id, data)
         elif parsed.path.startswith("/api/commercial-items/"):
+            data = self.read_json()
             self.database.update_commercial_item(item_id, data)
         else:
-            self.send_json({"error": "not found"}, 404)
-            return
+            raise ApiError(404, "not_found", "API route not found")
         self.send_json({"ok": True})
 
     def do_DELETE(self):
-        try:
-            self._do_DELETE()
-        except NotFoundError as exc:
-            self.send_json({"error": str(exc)}, 404)
-        except ValidationError as exc:
-            self.send_json({"error": str(exc)}, 400)
+        self._dispatch(self._do_DELETE)
 
     def _do_DELETE(self):
         parsed = urlparse(self.path)
@@ -240,8 +321,7 @@ class Handler(SimpleHTTPRequestHandler):
         elif parsed.path.startswith("/api/commercial-items/"):
             self.database.delete_commercial_item(item_id)
         else:
-            self.send_json({"error": "not found"}, 404)
-            return
+            raise ApiError(404, "not_found", "API route not found")
         self.send_json({"ok": True})
 
 

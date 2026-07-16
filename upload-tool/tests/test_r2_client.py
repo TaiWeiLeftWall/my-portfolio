@@ -9,6 +9,7 @@ from urllib.error import HTTPError, URLError
 
 
 TOOL_DIR = Path(__file__).resolve().parents[1]
+OPERATION_KEY = "python-r2-operation-key-000000001"
 sys.path.insert(0, str(TOOL_DIR))
 
 from r2_client import CmsConfig, R2Client, R2Error, R2Object  # noqa: E402
@@ -391,6 +392,26 @@ class R2ClientTests(unittest.TestCase):
                 self.assertNotIn(unsafe_token, str(context.exception))
                 self.assertEqual(opener.calls, [])
 
+    def test_upload_rejects_invalid_operation_key_before_request(self):
+        for operation_key in ("short", "a" * 129, "a" * 31 + "!", "\u5bc6" * 32):
+            with self.subTest(operation_key=repr(operation_key)):
+                opener = FakeOpener()
+                client = R2Client(self.config(), opener=opener)
+
+                with self.assertRaises(ValueError) as context:
+                    client.upload(
+                        b"image",
+                        "image/jpeg",
+                        "portrait",
+                        "2026-07-16",
+                        "a.jpg",
+                        operation_key,
+                    )
+
+                self.assertEqual(str(context.exception), "invalid upload operation key")
+                self.assertNotIn(operation_key, str(context.exception))
+                self.assertEqual(opener.calls, [])
+
     def test_upload_sends_raw_bytes_and_returns_decoded_object(self):
         opener = FakeOpener(
             json_response(
@@ -409,6 +430,7 @@ class R2ClientTests(unittest.TestCase):
             "portrait work",
             "2026-07-16",
             "a/b \u7167\u7247.jpg",
+            OPERATION_KEY,
         )
 
         self.assertEqual(
@@ -428,6 +450,7 @@ class R2ClientTests(unittest.TestCase):
         )
         self.assertEqual(request.get_header("Authorization"), "Bearer test-token")
         self.assertEqual(request.get_header("Content-type"), "image/jpeg")
+        self.assertEqual(request.get_header("Idempotency-key"), OPERATION_KEY)
         self.assertEqual(request.data, b"image-bytes")
         self.assertEqual(timeout, 7.5)
 
@@ -637,7 +660,7 @@ class R2ClientTests(unittest.TestCase):
         client = R2Client(self.config(), opener=opener)
 
         with self.assertRaises(R2Error) as context:
-            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg")
+            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg", OPERATION_KEY)
 
         self.assert_r2_error(
             context,
@@ -651,7 +674,7 @@ class R2ClientTests(unittest.TestCase):
         client = R2Client(self.config(), opener=opener)
 
         with self.assertRaises(R2Error) as context:
-            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg")
+            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg", OPERATION_KEY)
 
         self.assert_r2_error(
             context,
@@ -667,7 +690,7 @@ class R2ClientTests(unittest.TestCase):
         client = R2Client(self.config(), opener=opener)
 
         with self.assertRaises(R2Error) as context:
-            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg")
+            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg", OPERATION_KEY)
 
         self.assert_r2_error(
             context,
@@ -683,7 +706,7 @@ class R2ClientTests(unittest.TestCase):
         client = R2Client(self.config(), opener=opener)
 
         with self.assertRaises(R2Error) as context:
-            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg")
+            client.upload(b"x", "image/jpeg", "portrait", "2026-07-16", "a.jpg", OPERATION_KEY)
 
         self.assert_r2_error(
             context,

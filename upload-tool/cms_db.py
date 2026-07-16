@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 VALID_CATEGORIES = {"portrait", "landscape", "street", "performance", "official"}
 VALID_COMMERCIAL_CATEGORIES = {"公務攝影", "演出攝影", "體育攝影", "空間攝影", "廣告", "視頻", "電商"}
@@ -84,6 +84,15 @@ SCHEMA_STATEMENTS = (
         sort_order integer not null default 0
     )
     """,
+    """
+    create table if not exists idempotency_records (
+        operation_key text primary key,
+        operation text not null,
+        response_status integer not null,
+        response_payload text not null,
+        created_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )
+    """,
 )
 
 
@@ -97,6 +106,10 @@ class ValidationError(DatabaseError):
 
 class NotFoundError(DatabaseError):
     """Raised when a requested CMS record does not exist."""
+
+
+class IdempotencyConflict(DatabaseError):
+    """Raised when an operation key was already used for another operation."""
 
 
 class Database:
@@ -370,6 +383,52 @@ console.log(JSON.stringify(ctx.__out));
     def get_photo_group(self, group_id: Any) -> dict[str, Any] | None:
         return self._get("photo_groups", group_id)
 
+    @staticmethod
+    def _idempotency_response_on(
+        conn: sqlite3.Connection, operation_key: str, operation: str
+    ) -> tuple[int, dict[str, Any]] | None:
+        row = conn.execute(
+            """select operation,response_status,response_payload
+            from idempotency_records where operation_key=?""",
+            (operation_key,),
+        ).fetchone()
+        if row is None:
+            return None
+        if row["operation"] != operation:
+            raise IdempotencyConflict(
+                "idempotency key was already used for another operation"
+            )
+        payload = json.loads(row["response_payload"])
+        if not isinstance(payload, dict):
+            raise DatabaseError("stored idempotency response is invalid")
+        return int(row["response_status"]), payload
+
+    @staticmethod
+    def _store_idempotency_response_on(
+        conn: sqlite3.Connection,
+        operation_key: str,
+        operation: str,
+        status: int,
+        payload: dict[str, Any],
+    ) -> None:
+        conn.execute(
+            """insert into idempotency_records
+            (operation_key,operation,response_status,response_payload)
+            values(?,?,?,?)""",
+            (
+                operation_key,
+                operation,
+                status,
+                json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            ),
+        )
+
+    def get_idempotency_response(
+        self, operation_key: str, operation: str
+    ) -> tuple[int, dict[str, Any]] | None:
+        with closing(self.connect()) as conn:
+            return self._idempotency_response_on(conn, operation_key, operation)
+
     def get_photo_group_with_items(self, group_id: Any) -> dict[str, Any]:
         with closing(self.connect()) as conn:
             conn.execute("begin")
@@ -411,6 +470,46 @@ console.log(JSON.stringify(ctx.__out));
             )
             group_id = cursor.lastrowid
         return self._require_row(self.get_photo_group(group_id), "photo group", group_id)
+
+    def create_photo_group_idempotent(
+        self, data: dict[str, Any], operation_key: str, operation: str
+    ) -> tuple[int, dict[str, Any]]:
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                replay = self._idempotency_response_on(
+                    conn, operation_key, operation
+                )
+                if replay is not None:
+                    conn.commit()
+                    return replay
+                category = data.get("category", "portrait")
+                if category not in VALID_CATEGORIES:
+                    raise ValidationError("invalid photo category")
+                values = (
+                    category,
+                    data.get("title", ""),
+                    data.get("description", ""),
+                    self._validate_date(data.get("date", "")),
+                    self._integer(data.get("cols", 3), "cols"),
+                    self._sort_order(data),
+                )
+                cursor = conn.execute(
+                    """insert into photo_groups
+                    (category,title,description,date,cols,sort_order)
+                    values(?,?,?,?,?,?)""",
+                    values,
+                )
+                payload = {"ok": True, "id": cursor.lastrowid}
+                self._store_idempotency_response_on(
+                    conn, operation_key, operation, 200, payload
+                )
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return 200, payload
 
     def update_photo_group(self, group_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
         with closing(self.connect()) as conn:
@@ -487,6 +586,54 @@ console.log(JSON.stringify(ctx.__out));
             else:
                 conn.commit()
                 return created
+
+    def create_photo_item_idempotent(
+        self, data: dict[str, Any], operation_key: str, operation: str
+    ) -> tuple[int, dict[str, Any]]:
+        values = (
+            self._integer(data.get("group_id"), "group_id"),
+            data.get("src", ""),
+            data.get("title", ""),
+            data.get("description", ""),
+            self._sort_order(data),
+        )
+        with closing(self.connect()) as conn:
+            conn.execute("begin immediate")
+            try:
+                replay = self._idempotency_response_on(
+                    conn, operation_key, operation
+                )
+                if replay is not None:
+                    conn.commit()
+                    return replay
+                cursor = conn.execute(
+                    """insert into photo_items
+                    (group_id,src,title,description,sort_order) values(?,?,?,?,?)""",
+                    values,
+                )
+                item_id = cursor.lastrowid
+                created = self._require_row(
+                    self._get_on(conn, "photo_items", item_id),
+                    "photo item",
+                    item_id,
+                )
+                payload = {
+                    "ok": True,
+                    "id": created["id"],
+                    "src": created["src"],
+                }
+                self._store_idempotency_response_on(
+                    conn, operation_key, operation, 200, payload
+                )
+            except sqlite3.IntegrityError as exc:
+                conn.rollback()
+                raise ValidationError("invalid photo item") from exc
+            except Exception:
+                conn.rollback()
+                raise
+            else:
+                conn.commit()
+                return 200, payload
 
     def update_photo_item(self, item_id: Any, changes: dict[str, Any]) -> dict[str, Any]:
         with closing(self.connect()) as conn:

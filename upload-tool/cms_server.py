@@ -15,13 +15,14 @@ import cgi
 import json
 import os
 import re
+import secrets
 import socket
 import sqlite3
 import threading
 import time
 import unicodedata
 
-from cms_db import Database, NotFoundError, ValidationError
+from cms_db import Database, IdempotencyConflict, NotFoundError, ValidationError
 from r2_client import CmsConfig, R2Client, R2Error
 
 
@@ -35,6 +36,9 @@ MAX_JSON_BODY_SIZE = 1024 * 1024
 ACCEPTED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MULTIPART_BOUNDARY_PATTERN = re.compile(r"[0-9A-Za-z'()+_,./:=?-]{1,70}\Z")
 PHOTO_UPLOAD_FIELDS = {"image", "group_id", "category", "date"}
+IDEMPOTENCY_KEY_PATTERN = re.compile(r"[A-Za-z0-9_-]{32,128}\Z")
+PHOTO_GROUP_CREATE_OPERATION = "photo_group_create"
+PHOTO_UPLOAD_OPERATION = "photo_item_upload"
 
 try:
     from PIL import Image
@@ -250,6 +254,15 @@ class Handler(SimpleHTTPRequestHandler):
                     {"ok": False, "code": "validation_error", "message": str(exc)},
                     400,
                 )
+            elif isinstance(exc, IdempotencyConflict):
+                self.send_json(
+                    {
+                        "ok": False,
+                        "code": "idempotency_conflict",
+                        "message": "idempotency key was already used for another operation",
+                    },
+                    409,
+                )
             elif isinstance(exc, json.JSONDecodeError):
                 self.send_json(
                     {
@@ -320,6 +333,18 @@ class Handler(SimpleHTTPRequestHandler):
         with self.MUTATION_LOCK:
             self._dispatch(self._do_POST)
 
+    def _idempotency_key(self):
+        values = self.headers.get_all("Idempotency-Key") or []
+        if not values:
+            return None
+        if len(values) != 1 or not IDEMPOTENCY_KEY_PATTERN.fullmatch(values[0]):
+            raise ApiError(
+                400,
+                "invalid_idempotency_key",
+                "Idempotency-Key must be 32 to 128 URL-safe ASCII characters",
+            )
+        return values[0]
+
     def _do_POST(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/export":
@@ -327,8 +352,16 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json({"ok": True})
             return
         if parsed.path == "/api/photo-groups":
-            record = self.database.create_photo_group(self.read_json())
-            self.send_json({"ok": True, "id": record["id"]})
+            operation_key = self._idempotency_key()
+            data = self.read_json()
+            if operation_key is None:
+                record = self.database.create_photo_group(data)
+                self.send_json({"ok": True, "id": record["id"]})
+            else:
+                status, payload = self.database.create_photo_group_idempotent(
+                    data, operation_key, PHOTO_GROUP_CREATE_OPERATION
+                )
+                self.send_json(payload, status)
             return
         if parsed.path == "/api/videos":
             record = self.database.create_video(self.read_json())
@@ -459,6 +492,15 @@ class Handler(SimpleHTTPRequestHandler):
         return self.r2_client
 
     def _upload_photo_item(self):
+        operation_key = self._idempotency_key()
+        if operation_key is not None:
+            replay = self.database.get_idempotency_response(
+                operation_key, PHOTO_UPLOAD_OPERATION
+            )
+            if replay is not None:
+                status, payload = replay
+                self.send_json(payload, status)
+                return
         form = self._multipart_form()
         fields = form.list or []
         field_names = [field.name for field in fields]
@@ -511,9 +553,15 @@ class Handler(SimpleHTTPRequestHandler):
             raise ApiError(400, "empty_image", "image must not be empty")
 
         r2_client = self._require_r2()
+        upload_operation_key = operation_key or secrets.token_urlsafe(32)
         try:
             uploaded = r2_client.upload(
-                content, content_type, category, upload_date, filename
+                content,
+                content_type,
+                category,
+                upload_date,
+                filename,
+                upload_operation_key,
             )
         except R2Error:
             raise ApiError(
@@ -536,9 +584,15 @@ class Handler(SimpleHTTPRequestHandler):
             )
 
         try:
-            record = self.database.create_photo_item(
-                {"group_id": group["id"], "src": uploaded.url}
-            )
+            data = {"group_id": group["id"], "src": uploaded.url}
+            if operation_key is None:
+                record = self.database.create_photo_item(data)
+                status = 200
+                payload = {"ok": True, "id": record["id"], "src": uploaded.url}
+            else:
+                status, payload = self.database.create_photo_item_idempotent(
+                    data, operation_key, PHOTO_UPLOAD_OPERATION
+                )
         except Exception:
             rollback_succeeded = False
             try:
@@ -557,7 +611,7 @@ class Handler(SimpleHTTPRequestHandler):
                 500,
             )
             return
-        self.send_json({"ok": True, "id": record["id"], "src": uploaded.url})
+        self.send_json(payload, status)
 
     def _upload(self):
         content_type = self.headers.get("Content-Type", "")

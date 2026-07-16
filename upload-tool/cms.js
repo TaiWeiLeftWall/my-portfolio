@@ -16,6 +16,9 @@ async function api(url, opts) {
   opts = opts || {};
   var method = opts.method || 'GET';
   var init = { method: method, headers: {} };
+  Object.keys(opts.headers || {}).forEach(function(name) {
+    init.headers[name] = opts.headers[name];
+  });
   if (opts.body) {
     if (!(opts.body instanceof FormData)) {
       init.headers['Content-Type'] = 'application/json; charset=utf-8';
@@ -510,14 +513,20 @@ function normalizeUploadDate(value) {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function uploadPhotoBlob(blob, filename, group, uploadDate) {
+function newOperationKey() {
+  return crypto.randomUUID();
+}
+
+async function uploadPhotoBlob(blob, filename, group, uploadDate, operationKey) {
   var form = new FormData();
   var jpgName = String(filename || 'image').replace(/\.[^.]*$/, '') + '.jpg';
   form.append('image', blob, jpgName);
   form.append('group_id', String(group.id));
   form.append('category', group.category);
   form.append('date', normalizeUploadDate(uploadDate));
-  return api('/api/photo-items/upload', { method: 'POST', body: form });
+  var options = { method: 'POST', body: form };
+  if (operationKey) options.headers = { 'Idempotency-Key': operationKey };
+  return api('/api/photo-items/upload', options);
 }
 
 async function handleFileUpload(event) {
@@ -551,6 +560,7 @@ async function handleFileUpload(event) {
 let bulkFiles = [];
 let bulkSelectedCat = 'portrait';
 let bulkGroups = {};
+let bulkGroupOperationKeys = {};
 let bulkUploading = false;
 let bulkQueueLocked = false;
 
@@ -568,6 +578,7 @@ function openBulkUpload() {
   $('bulk-modal').classList.add('active');
   bulkFiles = [];
   bulkGroups = {};
+  bulkGroupOperationKeys = {};
   bulkUploading = false;
   bulkQueueLocked = false;
   setBulkInputEnabled(true);
@@ -600,6 +611,7 @@ function closeBulkUpload() {
   bulkFiles.forEach(revokeBulkPreview);
   bulkFiles = [];
   bulkGroups = {};
+  bulkGroupOperationKeys = {};
   bulkQueueLocked = false;
 }
 
@@ -686,7 +698,7 @@ async function handleBulkFiles(files) {
     var exif = await getExifDate(f);
     var fnDate = extractDateFromFilename(f.name);
     var date = fnDate || exif || new Date(f.lastModified).toISOString().slice(0, 10);
-    bulkFiles.push({ file: f, name: f.name, date: date, status: 'pending', error: '', previewUrl: URL.createObjectURL(f) });
+    bulkFiles.push({ file: f, name: f.name, date: date, status: 'pending', error: '', operationKey: newOperationKey(), previewUrl: URL.createObjectURL(f) });
   }
   renderBulkPreviews();
 }
@@ -734,6 +746,10 @@ async function doBulkUpload() {
   $('bulk-label').style.color = '';
   renderBulkPreviews();
 
+  queue.forEach(function(item) {
+    if (!item.operationKey) item.operationKey = newOperationKey();
+  });
+
   var succeeded = 0;
   var failed = 0;
   var dateKeys = [];
@@ -746,10 +762,12 @@ async function doBulkUpload() {
   for (var groupIndex = 0; groupIndex < dateKeys.length; groupIndex++) {
     var groupDate = dateKeys[groupIndex];
     if (bulkGroups[groupDate]) continue;
+    if (!bulkGroupOperationKeys[groupDate]) bulkGroupOperationKeys[groupDate] = newOperationKey();
     $('bulk-label').textContent = '创建图片组 ' + groupDate + '...';
     try {
       var created = await api('/api/photo-groups', {
         method: 'POST',
+        headers: { 'Idempotency-Key': bulkGroupOperationKeys[groupDate] },
         body: JSON.stringify({ date: groupDate, category: bulkSelectedCat, title: '', description: '', cols: 3 })
       });
       bulkGroups[groupDate] = { id: created.id, category: bulkSelectedCat, date: groupDate };
@@ -776,7 +794,7 @@ async function doBulkUpload() {
     renderBulkPreviews();
     try {
       var compressed = await compressImage(item.file);
-      await uploadPhotoBlob(compressed, Date.now() + '-' + String(i).padStart(3, '0') + '.jpg', group, item.date);
+      await uploadPhotoBlob(compressed, Date.now() + '-' + String(i).padStart(3, '0') + '.jpg', group, item.date, item.operationKey);
       item.status = 'succeeded';
       succeeded++;
     } catch (error) {

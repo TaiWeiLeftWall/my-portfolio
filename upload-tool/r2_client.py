@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 import ipaddress
 import json
 import math
+import re
 import socket
 import unicodedata
 
@@ -18,6 +19,7 @@ DEFAULT_MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_RESPONSE_BYTES = 64 * 1024
 MAX_WORKER_MESSAGE_CHARACTERS = 1024
 UNSAFE_TOKEN_MESSAGE = "R2 upload token must contain only visible ASCII characters"
+OPERATION_KEY_PATTERN = re.compile(r"[A-Za-z0-9_-]{32,128}\Z")
 
 
 def _non_empty(value: Any) -> bool:
@@ -29,6 +31,13 @@ def _validate_upload_token(token: str) -> None:
         ord(character) < 33 or ord(character) > 126 for character in token
     ):
         raise ValueError(UNSAFE_TOKEN_MESSAGE)
+
+
+def _validate_operation_key(operation_key: str) -> None:
+    if not isinstance(operation_key, str) or not OPERATION_KEY_PATTERN.fullmatch(
+        operation_key
+    ):
+        raise ValueError("invalid upload operation key")
 
 
 def _looks_like_numeric_ipv4_hostname(hostname: str) -> bool:
@@ -242,7 +251,9 @@ class R2Client:
         category: str,
         date: str,
         filename: str,
+        operation_key: str,
     ) -> R2Object:
+        _validate_operation_key(operation_key)
         query = urlencode(
             {
                 "category": category,
@@ -255,6 +266,7 @@ class R2Client:
             method="POST",
             body=content,
             content_type=content_type,
+            operation_key=operation_key,
         )
         payload = self._open_json(request)
         key = payload.get("key")
@@ -290,6 +302,7 @@ class R2Client:
         method: str,
         body: Optional[bytes] = None,
         content_type: Optional[str] = None,
+        operation_key: Optional[str] = None,
     ) -> Request:
         headers = {
             "Authorization": "Bearer {}".format(self.config.r2_upload_token),
@@ -297,6 +310,8 @@ class R2Client:
         }
         if content_type:
             headers["Content-Type"] = content_type
+        if operation_key:
+            headers["Idempotency-Key"] = operation_key
         return Request(
             "{}{}".format(self.config.r2_worker_url, path),
             data=body,

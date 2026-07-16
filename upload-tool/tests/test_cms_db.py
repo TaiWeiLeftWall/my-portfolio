@@ -46,6 +46,30 @@ class DatabaseTests(unittest.TestCase):
 
         self.assertIsNone(self.db.get_photo_item(item_id))
 
+    def test_schema_v2_persists_successful_idempotency_responses(self):
+        conn = self.db.connect()
+        try:
+            self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 2)
+            columns = {
+                row[1]: row[2]
+                for row in conn.execute(
+                    "pragma table_info(idempotency_records)"
+                ).fetchall()
+            }
+        finally:
+            conn.close()
+
+        self.assertEqual(
+            columns,
+            {
+                "operation_key": "TEXT",
+                "operation": "TEXT",
+                "response_status": "INTEGER",
+                "response_payload": "TEXT",
+                "created_at": "TEXT",
+            },
+        )
+
     def test_health_reports_orphan_without_deleting_it(self):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("pragma foreign_keys = off")

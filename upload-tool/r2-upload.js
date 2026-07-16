@@ -12,6 +12,7 @@ const ALLOWED_CATEGORIES = new Set([
 ]);
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const encoder = new TextEncoder();
+const OPERATION_KEY_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
 function operationFor(pathname) {
   if (pathname === "/health") return "health";
@@ -81,6 +82,24 @@ function publicBaseUrl(value) {
   }
 }
 
+async function objectKeyFor(operationKey) {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", encoder.encode(operationKey)),
+  );
+  const hex = [...digest].map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `images/idempotent/${hex}`;
+}
+
+function metadataMatches(object, expected) {
+  const actual = object && object.customMetadata;
+  return Boolean(
+    actual &&
+    actual.category === expected.category &&
+    actual.date === expected.date &&
+    actual.contentType === expected.contentType
+  );
+}
+
 async function upload(request, env, url, context) {
   if (!env.MY_BUCKET) {
     return reject(context, 503, "service_not_configured", "R2 bucket is not configured");
@@ -90,9 +109,18 @@ async function upload(request, env, url, context) {
     return reject(context, 503, "service_not_configured", "Public base URL is not configured");
   }
 
+  const operationKey = request.headers.get("Idempotency-Key") || "";
+  if (!OPERATION_KEY_PATTERN.test(operationKey)) {
+    return reject(
+      context,
+      400,
+      "invalid_idempotency_key",
+      "Idempotency-Key must be 32 to 128 URL-safe ASCII characters",
+    );
+  }
+
   const contentType = request.headers.get("Content-Type") || "";
-  const extension = ALLOWED_UPLOADS.get(contentType);
-  if (!extension) {
+  if (!ALLOWED_UPLOADS.has(contentType)) {
     return reject(context, 415, "unsupported_media_type", "Unsupported image type");
   }
   if (!request.body) {
@@ -122,10 +150,31 @@ async function upload(request, env, url, context) {
     return reject(context, 400, "invalid_date", "Upload date must be YYYY-MM-DD");
   }
 
-  const key = `images/${category}/${date}/${crypto.randomUUID()}.${extension}`;
+  const key = await objectKeyFor(operationKey);
+  const metadata = { category, date, contentType };
   try {
+    const existing = await env.MY_BUCKET.head(key);
+    if (existing) {
+      if (!metadataMatches(existing, metadata)) {
+        return reject(
+          context,
+          409,
+          "idempotency_conflict",
+          "Idempotency-Key was already used with different upload metadata",
+          key,
+        );
+      }
+      const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+      return respond(
+        context,
+        200,
+        { ok: true, key, url: `${baseUrl}/${encodedKey}` },
+        key,
+      );
+    }
     await env.MY_BUCKET.put(key, request.body, {
       httpMetadata: { contentType },
+      customMetadata: metadata,
     });
   } catch {
     return reject(context, 500, "internal_error", "Internal server error", key);

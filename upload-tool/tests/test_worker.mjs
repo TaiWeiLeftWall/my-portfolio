@@ -31,7 +31,9 @@ const { default: worker } = await import(workerModuleUrl);
 class FakeBucket {
   constructor({ putError = null, deleteError = null } = {}) {
     this.puts = [];
+    this.heads = [];
     this.deletes = [];
+    this.objects = new Map();
     this.putError = putError;
     this.deleteError = deleteError;
   }
@@ -41,6 +43,17 @@ class FakeBucket {
     this.puts.push(call);
     if (this.putError) throw this.putError;
     call.bytes = new Uint8Array(await new Response(body).arrayBuffer());
+    this.objects.set(key, {
+      key,
+      bytes: call.bytes,
+      httpMetadata: options?.httpMetadata || {},
+      customMetadata: options?.customMetadata || {},
+    });
+  }
+
+  async head(key) {
+    this.heads.push(key);
+    return this.objects.get(key) || null;
   }
 
   async delete(key) {
@@ -63,10 +76,17 @@ async function invoke({
   method = "GET",
   token = "test-secret",
   headers = {},
+  operationKey,
   body,
   env = makeEnv(),
 }) {
   const requestHeaders = new Headers(headers);
+  if (path.startsWith("/upload") && operationKey === undefined) {
+    operationKey = "worker-operation-key-000000000001";
+  }
+  if (operationKey !== null && operationKey !== undefined) {
+    requestHeaders.set("Idempotency-Key", operationKey);
+  }
   if (token !== null) {
     requestHeaders.set("Authorization", `Bearer ${token}`);
   }
@@ -132,6 +152,21 @@ test("accepts the configured bearer token for health checks", async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(payload, { ok: true, service: "r2" });
+});
+
+test("rejects missing invalid and oversized upload operation keys", async () => {
+  for (const operationKey of [null, "too-short", "a".repeat(129), `${"a".repeat(31)}!`]) {
+    const { response, payload, env } = await invoke({
+      path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+      method: "POST",
+      operationKey,
+      headers: { "Content-Type": "image/jpeg" },
+      body: new Uint8Array([1]),
+    });
+    assert.equal(response.status, 400);
+    assert.equal(payload.error, "invalid_idempotency_key");
+    assert.equal(env.MY_BUCKET.puts.length, 0);
+  }
 });
 
 test("rejects unsupported upload MIME types", async () => {
@@ -284,7 +319,7 @@ test("streams an accepted image into R2 and returns its public URL", async () =>
   assert.equal(payload.ok, true);
   assert.match(
     payload.key,
-    /^images\/performance\/2026-07-16\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.jpg$/,
+    /^images\/idempotent\/[0-9a-f]{64}$/,
   );
   assert.equal(payload.url, `https://cdn.example.test/base/${payload.key}`);
   assert.equal(env.MY_BUCKET.puts.length, 1);
@@ -295,7 +330,109 @@ test("streams an accepted image into R2 and returns its public URL", async () =>
   assert.deepEqual(put.bytes, bytes);
   assert.deepEqual(put.options, {
     httpMetadata: { contentType: "image/jpeg" },
+    customMetadata: {
+      category: "performance",
+      date: "2026-07-16",
+      contentType: "image/jpeg",
+    },
   });
+});
+
+test("replays a lost upload response without creating or putting a second object", async () => {
+  const env = makeEnv();
+  const operationKey = "lost-worker-response-key-00000001";
+  const request = {
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1, 2, 3]),
+    env,
+  };
+
+  const first = await invoke(request);
+  const replay = await invoke(request);
+
+  assert.equal(first.response.status, 200);
+  assert.equal(replay.response.status, 200);
+  assert.deepEqual(replay.payload, first.payload);
+  assert.equal(env.MY_BUCKET.puts.length, 1);
+  assert.equal(env.MY_BUCKET.objects.size, 1);
+  assert.deepEqual(env.MY_BUCKET.heads, [first.payload.key, first.payload.key]);
+});
+
+test("rejects metadata changes for an existing upload operation key", async () => {
+  const env = makeEnv();
+  const operationKey = "metadata-conflict-operation-000001";
+  const first = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+  const conflict = await invoke({
+    path: "/upload?category=street&date=2026-07-17&filename=photo.png",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/png" },
+    body: new Uint8Array([2]),
+    env,
+  });
+
+  assert.equal(first.response.status, 200);
+  assert.equal(conflict.response.status, 409);
+  assert.equal(conflict.payload.error, "idempotency_conflict");
+  assert.equal(env.MY_BUCKET.puts.length, 1);
+  assert.equal(env.MY_BUCKET.objects.size, 1);
+});
+
+test("concurrent retries always target one deterministic object key", async () => {
+  let releasePuts;
+  const putsReleased = new Promise((resolve) => { releasePuts = resolve; });
+  class RacingBucket extends FakeBucket {
+    async put(key, body, options) {
+      const call = {
+        key,
+        body,
+        options,
+        bytes: new Uint8Array(await new Response(body).arrayBuffer()),
+      };
+      this.puts.push(call);
+      if (this.puts.length === 0) {
+        await putsReleased;
+      } else if (this.puts.length === 1) {
+        await putsReleased;
+      } else {
+        releasePuts();
+      }
+      this.objects.set(key, {
+        key,
+        bytes: call.bytes,
+        httpMetadata: options?.httpMetadata || {},
+        customMetadata: options?.customMetadata || {},
+      });
+    }
+  }
+  const env = makeEnv({ MY_BUCKET: new RacingBucket() });
+  const operationKey = "concurrent-worker-operation-00001";
+  const makeRequest = () => invoke({
+    path: "/upload?category=official&date=2026-07-16&filename=photo.webp",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/webp" },
+    body: new Uint8Array([9, 8, 7]),
+    env,
+  });
+
+  const [left, right] = await Promise.all([makeRequest(), makeRequest()]);
+
+  assert.equal(left.response.status, 200);
+  assert.equal(right.response.status, 200);
+  assert.equal(left.payload.key, right.payload.key);
+  assert.equal(new Set(env.MY_BUCKET.puts.map((call) => call.key)).size, 1);
+  assert.equal(env.MY_BUCKET.objects.size, 1);
 });
 
 test("rejects deletion keys outside the images prefix", async () => {

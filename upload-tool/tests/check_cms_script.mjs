@@ -98,6 +98,7 @@ function createHarness() {
   const objectUrls = [];
   const revokedUrls = [];
   let nextObjectUrl = 1;
+  let nextOperationKey = 1;
   const document = {
     getElementById: element,
     querySelectorAll() { return []; },
@@ -141,6 +142,11 @@ function createHarness() {
     clearTimeout() {},
     confirm: () => true,
     console,
+    crypto: {
+      randomUUID() {
+        return `00000000-0000-4000-8000-${String(nextOperationKey++).padStart(12, "0")}`;
+      },
+    },
     document,
     fetch: async () => { throw new Error("unexpected fetch"); },
     queueMicrotask,
@@ -236,13 +242,60 @@ async function testMultipartContract() {
   let request;
   h.cms.setApi(async (url, options) => { request = { url, options }; return { ok: true }; });
   const blob = new Blob(["image"], { type: "image/jpeg" });
-  await h.cms.uploadPhotoBlob(blob, "camera.png", { id: 7, category: "portrait" }, "2026-07-16");
+  const operationKey = "multipart-operation-key-000000001";
+  await h.cms.uploadPhotoBlob(
+    blob,
+    "camera.png",
+    { id: 7, category: "portrait" },
+    "2026-07-16",
+    operationKey,
+  );
   assert.equal(request.url, "/api/photo-items/upload");
   assert.equal(request.options.method, "POST");
+  assert.equal(request.options.headers["Idempotency-Key"], operationKey);
   assert.deepEqual(request.options.body.entries.map((entry) => entry.name), ["image", "group_id", "category", "date"]);
   assert.equal(request.options.body.entries.length, 4, "multipart requests must contain exactly four fields");
   assert.match(request.options.body.entries[0].filename, /\.jpg$/);
   assert.equal(request.options.body.entries[0].filename, "camera.jpg");
+}
+
+async function testBulkRetriesReuseOperationKeys() {
+  const h = createHarness();
+  h.element("bulk-modal").classList.add("active");
+  h.cms.setBulkFiles([
+    { file: {}, name: "retry.jpg", date: "2026-07-16", status: "pending", error: "", previewUrl: "blob:retry" },
+  ]);
+  h.cms.setCompressImage(async () => new Blob(["ok"], { type: "image/jpeg" }));
+  h.cms.setLoadData(async () => {});
+  h.cms.setToast(() => {});
+  const groupKeys = [];
+  let groupAttempts = 0;
+  h.cms.setApi(async (url, options) => {
+    if (url !== "/api/photo-groups") throw new Error(`unexpected ${url}`);
+    groupKeys.push(options.headers["Idempotency-Key"]);
+    groupAttempts++;
+    if (groupAttempts === 1) throw new Error("lost group response");
+    return { ok: true, id: 41 };
+  });
+  const uploadKeys = [];
+  let uploadAttempts = 0;
+  h.cms.setUploadPhotoBlob(async (_blob, _name, _group, _date, operationKey) => {
+    uploadKeys.push(operationKey);
+    uploadAttempts++;
+    if (uploadAttempts === 1) throw new Error("lost upload response");
+    return { ok: true, id: 51 };
+  });
+
+  await h.cms.doBulkUpload();
+  await h.cms.retryFailedUploads();
+  await h.cms.retryFailedUploads();
+
+  assert.equal(groupKeys.length, 2);
+  assert.equal(groupKeys[0], groupKeys[1], "group response-loss retry must reuse its operation key");
+  assert.match(groupKeys[0], /^[A-Za-z0-9_-]{32,128}$/);
+  assert.equal(uploadKeys.length, 2);
+  assert.equal(uploadKeys[0], uploadKeys[1], "image response-loss retry must reuse its operation key");
+  assert.notEqual(uploadKeys[0], groupKeys[0], "group and image operations need distinct keys");
 }
 
 async function testBulkInputGuardAndSnapshotRetention() {
@@ -384,6 +437,7 @@ async function testHealthDomContract() {
 
 await testSaveRequestOwnership();
 await testMultipartContract();
+await testBulkRetriesReuseOperationKeys();
 await testBulkInputGuardAndSnapshotRetention();
 await testBulkFailureRetryAndCounts();
 await testMalformedImageCleanup();

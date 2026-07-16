@@ -6,6 +6,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from urllib.parse import quote
@@ -37,7 +38,9 @@ class FakeR2Client:
             raise self.health_error
         return {"ok": True}
 
-    def upload(self, content, content_type, category, date, filename):
+    def upload(
+        self, content, content_type, category, date, filename, operation_key=None
+    ):
         self.uploads.append(
             {
                 "content": content,
@@ -45,6 +48,7 @@ class FakeR2Client:
                 "category": category,
                 "date": date,
                 "filename": filename,
+                "operation_key": operation_key,
             }
         )
         if self.upload_error:
@@ -178,19 +182,58 @@ class HttpApiTests(unittest.TestCase):
         finally:
             connection.close()
 
-    def json_request(self, method, path, payload):
+    def json_request(self, method, path, payload, headers=None):
+        request_headers = {"Content-Type": "application/json"}
+        request_headers.update(headers or {})
         return self.request(
             method,
             path,
             body=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=request_headers,
         )
 
-    def multipart_request(self, path, fields, files, **options):
+    def multipart_request(self, path, fields, files, headers=None, **options):
         body, content_type = multipart_body(fields, files, **options)
+        request_headers = {"Content-Type": content_type}
+        request_headers.update(headers or {})
         return self.request(
-            "POST", path, body=body, headers={"Content-Type": content_type}
+            "POST", path, body=body, headers=request_headers
         )
+
+    def discard_response(self, path, body, headers):
+        connection = socket.create_connection((self.host, self.port), timeout=5)
+        try:
+            request_headers = {
+                "Host": "{}:{}".format(self.host, self.port),
+                "Content-Length": str(len(body)),
+                "Connection": "close",
+                **headers,
+            }
+            head = "POST {} HTTP/1.1\r\n{}\r\n\r\n".format(
+                path,
+                "\r\n".join(
+                    "{}: {}".format(name, value)
+                    for name, value in request_headers.items()
+                ),
+            ).encode("ascii")
+            connection.sendall(head + body)
+        finally:
+            connection.close()
+
+    def wait_for_count(self, table, expected):
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            conn = self.db.connect()
+            try:
+                count = conn.execute(
+                    "select count(*) from {}".format(table)
+                ).fetchone()[0]
+            finally:
+                conn.close()
+            if count == expected:
+                return
+            time.sleep(0.01)
+        self.fail("{} did not reach {} rows".format(table, expected))
 
     def raw_request(
         self, body, content_length, *, shutdown_write=True, response_timeout=5
@@ -1044,6 +1087,199 @@ class HttpApiTests(unittest.TestCase):
 
         self.assertEqual((status, payload), (200, partial_body))
         log_error.assert_called_once()
+
+    def test_lost_group_response_retries_original_payload_without_duplicate(self):
+        key = "g" * 32
+        body = json.dumps(
+            {"category": "portrait", "title": "response lost"}
+        ).encode("utf-8")
+        self.discard_response(
+            "/api/photo-groups",
+            body,
+            {"Content-Type": "application/json", "Idempotency-Key": key},
+        )
+        self.wait_for_count("photo_groups", 1)
+
+        status, payload = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "street", "title": "must not replace"},
+            headers={"Idempotency-Key": key},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["ok"], True)
+        self.assertEqual(len(self.db.state()["photoGroups"]), 1)
+        self.assertEqual(self.db.state()["photoGroups"][0]["title"], "response lost")
+
+    def test_group_replay_returns_original_before_revalidating_changed_body(self):
+        key = "b" * 32
+        first = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "portrait", "title": "original"},
+            headers={"Idempotency-Key": key},
+        )
+
+        replay = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "invalid", "title": "changed"},
+            headers={"Idempotency-Key": key},
+        )
+
+        self.assertEqual(replay, first)
+        self.assertEqual(len(self.db.state()["photoGroups"]), 1)
+
+    def test_lost_upload_response_retries_without_second_r2_or_photo_row(self):
+        key = "u" * 32
+        group = self.db.create_photo_group({"category": "portrait"})
+        body, content_type = multipart_body(
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+        )
+        self.discard_response(
+            "/api/photo-items/upload",
+            body,
+            {"Content-Type": content_type, "Idempotency-Key": key},
+        )
+        self.wait_for_count("photo_items", 1)
+
+        status, payload = self.request(
+            "POST",
+            "/api/photo-items/upload",
+            body=body,
+            headers={"Content-Type": content_type, "Idempotency-Key": key},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["ok"], True)
+        self.assertEqual(len(self.r2.uploads), 1)
+        self.assertEqual(self.r2.uploads[0]["operation_key"], key)
+        with self.db.connect() as conn:
+            self.assertEqual(conn.execute("select count(*) from photo_items").fetchone()[0], 1)
+
+    def test_concurrent_same_key_group_requests_share_one_mutation(self):
+        key = "c" * 32
+        results = []
+        gate = threading.Barrier(3)
+
+        def request_group():
+            gate.wait()
+            results.append(
+                self.json_request(
+                    "POST",
+                    "/api/photo-groups",
+                    {"category": "portrait", "title": "concurrent"},
+                    headers={"Idempotency-Key": key},
+                )
+            )
+
+        threads = [threading.Thread(target=request_group) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        gate.wait()
+        for thread in threads:
+            thread.join(timeout=5)
+
+        self.assertFalse(any(thread.is_alive() for thread in threads))
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(len(self.db.state()["photoGroups"]), 1)
+
+    def test_same_key_cannot_cross_operation_types(self):
+        key = "x" * 32
+        status, _payload = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "portrait"},
+            headers={"Idempotency-Key": key},
+        )
+        self.assertEqual(status, 200)
+        group = self.db.state()["photoGroups"][0]
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            {
+                "group_id": group["id"],
+                "category": "portrait",
+                "date": "2026-07-16",
+            },
+            [("image", "a.jpg", "image/jpeg", b"image-bytes")],
+            headers={"Idempotency-Key": key},
+        )
+
+        self.assert_error(status, payload, 409, "idempotency_conflict")
+        self.assertEqual(self.r2.uploads, [])
+
+    def test_invalid_and_oversized_idempotency_keys_fail_before_mutation(self):
+        for key in ("too-short", "a" * 129, "a" * 31 + "!", "\xff" * 32):
+            with self.subTest(key=repr(key)):
+                status, payload = self.json_request(
+                    "POST",
+                    "/api/photo-groups",
+                    {"category": "portrait"},
+                    headers={"Idempotency-Key": key},
+                )
+                self.assert_error(status, payload, 400, "invalid_idempotency_key")
+        self.assertEqual(self.db.state()["photoGroups"], [])
+
+    def test_failed_idempotent_group_attempt_is_retryable(self):
+        key = "f" * 32
+        status, payload = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "invalid"},
+            headers={"Idempotency-Key": key},
+        )
+        self.assert_error(status, payload, 400, "validation_error")
+
+        status, payload = self.json_request(
+            "POST",
+            "/api/photo-groups",
+            {"category": "portrait"},
+            headers={"Idempotency-Key": key},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["ok"], True)
+        self.assertEqual(len(self.db.state()["photoGroups"]), 1)
+
+    def test_failed_r2_upload_with_key_is_retryable(self):
+        key = "r" * 32
+        group = self.db.create_photo_group({"category": "portrait"})
+        self.r2.upload_error = R2Error("network_error", "secret", True)
+        fields = {
+            "group_id": group["id"],
+            "category": "portrait",
+            "date": "2026-07-16",
+        }
+        files = [("image", "a.jpg", "image/jpeg", b"image-bytes")]
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            fields,
+            files,
+            headers={"Idempotency-Key": key},
+        )
+        self.assert_error(status, payload, 502, "r2_upload_failed")
+        self.r2.upload_error = None
+
+        status, payload = self.multipart_request(
+            "/api/photo-items/upload",
+            fields,
+            files,
+            headers={"Idempotency-Key": key},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["ok"], True)
+        self.assertEqual(len(self.r2.uploads), 2)
+        with self.db.connect() as conn:
+            self.assertEqual(conn.execute("select count(*) from photo_items").fetchone()[0], 1)
 
 
 if __name__ == "__main__":

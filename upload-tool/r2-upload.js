@@ -84,11 +84,14 @@ function publicBaseUrl(value) {
 }
 
 async function objectKeyFor(operationKey) {
+  return `images/idempotent/${await sha256Hex(encoder.encode(operationKey))}`;
+}
+
+async function sha256Hex(value) {
   const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", encoder.encode(operationKey)),
+    await crypto.subtle.digest("SHA-256", value),
   );
-  const hex = [...digest].map((value) => value.toString(16).padStart(2, "0")).join("");
-  return `images/idempotent/${hex}`;
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function metadataMatches(object, expected) {
@@ -161,6 +164,22 @@ async function upload(request, env, url, context) {
       return reject(context, 413, "payload_too_large", "Image exceeds the 15 MiB limit");
     }
   }
+  const bodyBytes = new Uint8Array(await request.arrayBuffer());
+  if (bodyBytes.length === 0) {
+    return reject(context, 400, "missing_body", "Image body is required");
+  }
+  if (bodyBytes.length > MAX_UPLOAD_BYTES) {
+    return reject(context, 413, "payload_too_large", "Image exceeds the 15 MiB limit");
+  }
+  const actualContentSha256 = await sha256Hex(bodyBytes);
+  if (actualContentSha256 !== contentSha256) {
+    return reject(
+      context,
+      400,
+      "content_digest_mismatch",
+      "X-Content-SHA256 does not match the upload body",
+    );
+  }
 
   const category = url.searchParams.get("category") || "";
   if (!ALLOWED_CATEGORIES.has(category)) {
@@ -172,7 +191,7 @@ async function upload(request, env, url, context) {
   }
 
   const key = await objectKeyFor(operationKey);
-  const metadata = { category, date, contentType, contentSha256 };
+  const metadata = { category, date, contentType, contentSha256: actualContentSha256 };
   try {
     const existing = await env.MY_BUCKET.head(key);
     if (existing) {
@@ -187,11 +206,11 @@ async function upload(request, env, url, context) {
       }
       return successfulUpload(context, baseUrl, key);
     }
-    const created = await env.MY_BUCKET.put(key, request.body, {
+    const created = await env.MY_BUCKET.put(key, bodyBytes, {
       httpMetadata: { contentType },
       customMetadata: metadata,
       onlyIf: new Headers({ "If-None-Match": "*" }),
-      sha256: contentSha256,
+      sha256: actualContentSha256,
     });
     if (created === null) {
       const winner = await env.MY_BUCKET.head(key);

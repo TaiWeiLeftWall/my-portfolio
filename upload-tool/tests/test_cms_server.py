@@ -662,6 +662,19 @@ class HttpApiTests(unittest.TestCase):
         self.assertEqual((status, payload), (200, {"ok": True}))
         self.assertEqual(self.r2.deletes, [])
 
+    def test_legacy_upload_rejects_local_file_when_r2_is_configured(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+
+        status, payload = self.multipart_request(
+            "/api/upload",
+            {"area": "gallery", "group_id": group["id"]},
+            [("file", "legacy.jpg", "image/jpeg", b"legacy-bytes")],
+        )
+
+        self.assert_error(status, payload, 410, "legacy_upload_disabled")
+        self.assertEqual(self.db.state()["photoGroups"][0]["images"], [])
+        self.assertEqual(list((self.root / "media").rglob("*")), [])
+
     def test_unrelated_remote_host_photo_delete_skips_r2(self):
         group = self.db.create_photo_group({"category": "portrait"})
         item = self.db.create_photo_item(

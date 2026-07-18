@@ -647,6 +647,12 @@ class Handler(SimpleHTTPRequestHandler):
         form = cgi.FieldStorage(
             fp=self.rfile, headers=self.headers, environ={"REQUEST_METHOD": "POST"}
         )
+        if "file" in form and self.config.configured:
+            raise ApiError(
+                410,
+                "legacy_upload_disabled",
+                "legacy file upload is disabled when R2 storage is configured",
+            )
         area = form.getfirst("area", "gallery")
         src = save_upload(form["file"], area) if "file" in form else form.getfirst("src", "")
         if area == "commercial":

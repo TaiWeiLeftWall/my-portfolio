@@ -157,7 +157,7 @@ function createHarness() {
   const exposure = `
 globalThis.__cms = {
   createEditorState, editEditorState, openPanel, closePanel, savePanel,
-  uploadPhotoBlob, handleBulkFiles, doBulkUpload, retryFailedUploads,
+  uploadPhotoBlob, handleFileUpload, handleBulkFiles, doBulkUpload, retryFailedUploads,
   compressImage, getExifDate, updateHealthStatus, renderBulkPreviews,
   getEditorState: () => editorState,
   getSaving: () => saving,
@@ -167,6 +167,8 @@ globalThis.__cms = {
   setBulkUploading: (value) => { bulkUploading = value; },
   setBulkGroups: (value) => { bulkGroups = value; },
   setBulkSelectedCat: (value) => { bulkSelectedCat = value; },
+  setState: (value) => { S = value; },
+  setCurrentGroupId: (value) => { currentGroupId = value; },
   setHealthState: (value) => { healthState = value; },
   setApi: (value) => { api = value; },
   setCompressImage: (value) => { compressImage = value; },
@@ -257,6 +259,38 @@ async function testMultipartContract() {
   assert.equal(request.options.body.entries.length, 4, "multipart requests must contain exactly four fields");
   assert.match(request.options.body.entries[0].filename, /\.jpg$/);
   assert.equal(request.options.body.entries[0].filename, "camera.jpg");
+}
+
+async function testSingleUploadsUseStableOperationKeys() {
+  const h = createHarness();
+  h.cms.setCurrentGroupId(7);
+  h.cms.setState({ photoGroups: [{ id: 7, category: "portrait", date: "2026-07-16" }] });
+  h.cms.setCompressImage(async () => new Blob(["encoded"], { type: "image/jpeg" }));
+  h.cms.setLoadData(async () => {});
+  h.cms.setToast(() => {});
+  const requests = [];
+  h.cms.setApi(async (url, options) => {
+    requests.push({ url, options });
+    return { ok: true, id: 51 };
+  });
+
+  await h.cms.handleFileUpload({
+    target: {
+      files: [
+        { name: "one.png", type: "image/png" },
+        { name: "two.webp", type: "image/webp" },
+      ],
+    },
+  });
+
+  assert.equal(requests.length, 2);
+  assert.match(requests[0].options.headers["Idempotency-Key"], /^[A-Za-z0-9_-]{32,128}$/);
+  assert.match(requests[1].options.headers["Idempotency-Key"], /^[A-Za-z0-9_-]{32,128}$/);
+  assert.notEqual(
+    requests[0].options.headers["Idempotency-Key"],
+    requests[1].options.headers["Idempotency-Key"],
+    "each selected file needs its own idempotency operation",
+  );
 }
 
 async function testBulkRetriesReuseOperationKeys() {
@@ -445,6 +479,7 @@ async function testHealthDomContract() {
 
 await testSaveRequestOwnership();
 await testMultipartContract();
+await testSingleUploadsUseStableOperationKeys();
 await testBulkRetriesReuseOperationKeys();
 await testBulkInputGuardAndSnapshotRetention();
 await testBulkFailureRetryAndCounts();

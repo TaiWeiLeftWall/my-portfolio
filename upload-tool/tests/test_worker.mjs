@@ -277,6 +277,20 @@ test("rejects declared uploads larger than 15 MiB", async () => {
   assert.equal(env.MY_BUCKET.puts.length, 0);
 });
 
+test("rejects streamed uploads larger than 15 MiB without Content-Length", async () => {
+  const body = new Uint8Array(15 * 1024 * 1024 + 1);
+  const { response, payload, env } = await invoke({
+    path: "/upload?category=official&date=2026-07-16&filename=photo.webp",
+    method: "POST",
+    headers: { "Content-Type": "image/webp" },
+    body,
+  });
+
+  assert.equal(response.status, 413);
+  assert.equal(payload.error, "payload_too_large");
+  assert.equal(env.MY_BUCKET.puts.length, 0);
+});
+
 test("rejects a declared zero-length upload before calling R2", async () => {
   const { response, payload, env } = await invoke({
     path: "/upload?category=official&date=2026-07-16&filename=empty.webp",
@@ -347,9 +361,9 @@ test("canonicalizes the configured HTTPS base URL", async () => {
   assert.equal(env.MY_BUCKET.puts.length, 1);
 });
 
-test("streams an accepted image into R2 and returns its public URL", async () => {
+test("stores an accepted image into R2 and returns its public URL", async () => {
   const bytes = new Uint8Array([10, 20, 30, 40]);
-  const { response, payload, env, request, requestBody } = await invoke({
+  const { response, payload, env, request } = await invoke({
     path: "/upload?category=performance&date=2026-07-16&filename=ignored-name.jpg",
     method: "POST",
     headers: { "Content-Type": "image/jpeg" },
@@ -366,8 +380,7 @@ test("streams an accepted image into R2 and returns its public URL", async () =>
   assert.equal(env.MY_BUCKET.puts.length, 1);
   const put = env.MY_BUCKET.puts[0];
   assert.equal(put.key, payload.key);
-  assert.equal(put.body, requestBody);
-  assert.ok(put.body instanceof ReadableStream);
+  assert.deepEqual(put.body, bytes);
   assert.deepEqual(put.bytes, bytes);
   assert.deepEqual(put.options, {
     httpMetadata: { contentType: "image/jpeg" },
@@ -456,6 +469,35 @@ test("rejects different content digest with otherwise identical metadata", async
   assert.equal(first.response.status, 200);
   assert.equal(conflict.response.status, 409);
   assert.equal(conflict.payload.error, "idempotency_conflict");
+  assert.equal(env.MY_BUCKET.puts.length, 1);
+  assert.deepEqual(env.MY_BUCKET.objects.get(first.payload.key).bytes, new Uint8Array([1]));
+});
+
+test("rejects a replay whose body does not match the supplied content digest", async () => {
+  const env = makeEnv();
+  const operationKey = "stale-digest-operation-0000000001";
+  const first = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1]),
+    env,
+  });
+  const staleDigest = first.request.headers.get("X-Content-SHA256");
+  const conflict = await invoke({
+    path: "/upload?category=portrait&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    operationKey,
+    headers: { "Content-Type": "image/jpeg" },
+    contentSha256: staleDigest,
+    body: new Uint8Array([2]),
+    env,
+  });
+
+  assert.equal(first.response.status, 200);
+  assert.equal(conflict.response.status, 400);
+  assert.equal(conflict.payload.error, "content_digest_mismatch");
   assert.equal(env.MY_BUCKET.puts.length, 1);
   assert.deepEqual(env.MY_BUCKET.objects.get(first.payload.key).bytes, new Uint8Array([1]));
 });

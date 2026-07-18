@@ -221,6 +221,37 @@ class CmsConfigTests(unittest.TestCase):
                         "r2_public_base_url must be a valid HTTPS URL",
                     )
 
+    def test_worker_url_rejects_untrusted_shapes_before_token_use(self):
+        invalid_values = (
+            "http://worker.example.test",
+            "https://user:pass@worker.example.test",
+            "https://worker.example.test/upload?token=secret",
+            "https://worker.example.test/#fragment",
+            "https://worker.example.test/%2e%2e",
+            "https://0177.0.0.1",
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "cms_config.json"
+            for value in invalid_values:
+                with self.subTest(value=value):
+                    path.write_text(
+                        json.dumps(
+                            {
+                                "r2_worker_url": value,
+                                "r2_public_base_url": "https://cdn.example.test",
+                                "r2_upload_token": "test-token",
+                            }
+                        ),
+                        encoding="utf-8",
+                    )
+
+                    with self.assertRaises(ValueError) as context:
+                        CmsConfig.load(path, {})
+                    self.assertEqual(
+                        str(context.exception),
+                        "r2_worker_url must be a valid HTTPS URL",
+                    )
+
     def test_public_base_canonicalizes_idna_ipv4_and_ipv6_hosts(self):
         cases = (
             (

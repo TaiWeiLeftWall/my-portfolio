@@ -59,11 +59,11 @@ def _looks_like_numeric_ipv4_hostname(hostname: str) -> bool:
     return all(is_ipv4_number(segment) for segment in candidate.split("."))
 
 
-def _canonical_public_base_url(value: Any) -> str:
+def _canonical_https_url(value: Any, field_name: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
-    message = "r2_public_base_url must be a valid HTTPS URL"
+    message = "{} must be a valid HTTPS URL".format(field_name)
     if any(
         character.isspace()
         or unicodedata.category(character) in ("Cc", "Cf")
@@ -114,6 +114,14 @@ def _canonical_public_base_url(value: Any) -> str:
         unquote(parsed.path), safe="/:@-._~!$&'()*+,;="
     ).rstrip("/")
     return urlunsplit(("https", netloc, path, "", ""))
+
+
+def _canonical_public_base_url(value: Any) -> str:
+    return _canonical_https_url(value, "r2_public_base_url")
+
+
+def _canonical_worker_url(value: Any) -> str:
+    return _canonical_https_url(value, "r2_worker_url")
 
 
 def _positive_float(value: Any, name: str) -> float:
@@ -193,7 +201,7 @@ class CmsConfig:
                 else:
                     values[key] = str(environment_value).strip()
 
-        worker_url = str(values["r2_worker_url"] or "").strip().rstrip("/")
+        worker_url = _canonical_worker_url(values["r2_worker_url"])
         public_base_url = _canonical_public_base_url(
             values["r2_public_base_url"]
         )

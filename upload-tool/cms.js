@@ -544,7 +544,7 @@ async function handleFileUpload(event) {
       var st = document.getElementById('stats');
       if (st) st.textContent = '上传中 ' + (i+1) + '/' + files.length + '...';
       var compressed = await compressImage(file);
-      await uploadPhotoBlob(compressed, Date.now() + '-' + i + '.jpg', group, group.date);
+      await uploadPhotoBlob(compressed, Date.now() + '-' + i + '.jpg', group, group.date, newOperationKey());
       succeeded++;
     } catch(e) {
       failed++;

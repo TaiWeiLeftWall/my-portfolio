@@ -402,6 +402,15 @@ class R2ClientTests(unittest.TestCase):
         self.assertEqual(timeout, 7.5)
         self.assertEqual(response.read_sizes, [64 * 1024 + 1])
 
+    def test_requests_identify_the_cms_in_user_agent(self):
+        opener = FakeOpener(json_response({"ok": True, "service": "r2"}))
+        client = R2Client(self.config(), opener=opener)
+
+        client.health()
+
+        request, _ = opener.calls[0]
+        self.assertEqual(request.get_header("User-agent"), "my-website-cms/1.0")
+
     def test_client_rejects_unsafe_tokens_before_constructing_a_request(self):
         unsafe_tokens = (
             "line\r\nbreak",

@@ -319,6 +319,7 @@ class R2Client:
         headers = {
             "Authorization": "Bearer {}".format(self.config.r2_upload_token),
             "Accept": "application/json",
+            "User-Agent": "my-website-cms/1.0",
         }
         if content_type:
             headers["Content-Type"] = content_type

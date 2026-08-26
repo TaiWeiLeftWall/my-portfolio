@@ -1,15 +1,17 @@
 // ==========================================
-// 鍟嗕笟椤圭洰璇︽儏椤甸€昏緫
+// 商业项目详情页逻辑
 // ==========================================
 
 const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 let allImages = [];
 let currentImageIndex = 0;
 let currentGroupImages = [];
+let lightboxReturnFocus = null;
 
-let _domReady = false, _dataReady = false;
+let _domReady = false, _dataReady = false, _initialized = false;
 function _init() {
-    if (!_domReady || !_dataReady) return;
+    if (!_domReady || !_dataReady || _initialized) return;
+    _initialized = true;
     const params = new URLSearchParams(location.search);
     const projectId = params.get('project');
 
@@ -21,36 +23,38 @@ function _init() {
     const project = getProjectById(projectId);
 
     if (!project) {
-        document.getElementById('project-detail').innerHTML = '<p class="error-message">椤圭洰涓嶅瓨鍦?/p>';
+        document.getElementById('project-detail').innerHTML = '<p class="error-message">项目不存在</p>';
         return;
     }
 
-    // 璁剧疆鍓鑸爣棰橈紙鍥犱负璇︽儏椤甸渶瑕佹樉绀鸿繑鍥為摼鎺ワ級
+    // 设置副导航标题
     const subNavTitle = document.querySelector('.sub-nav-title');
     if (subNavTitle) {
-        subNavTitle.textContent = '鍟嗕笟椤圭洰';
+        subNavTitle.textContent = '商业项目';
     }
 
-    // 娓叉煋椤圭洰淇℃伅
+    // 渲染项目信息
     document.getElementById('detail-client').textContent = project.client;
     document.getElementById('detail-title').textContent = project.title;
     document.getElementById('detail-description').textContent = project.description;
 
-    // 娓叉煋濯掍綋
+    // 渲染媒体
     const mediaGrid = document.getElementById('detail-media');
     const lightboxImages = [];
 
     project.items.forEach((item, index) => {
         if (item.type === 'image') {
-            const div = document.createElement('div');
-            div.className = 'media-item media-image';
-            div.innerHTML = `<img src="${transparentPixel}" data-src="${item.src}" alt="${item.title || ''}" loading="lazy" decoding="async">`;
-            div.addEventListener('click', () => {
+            const mediaButton = document.createElement('button');
+            mediaButton.type = 'button';
+            mediaButton.className = 'media-item media-image';
+            mediaButton.setAttribute('aria-label', `查看项目图片 ${index + 1}`);
+            mediaButton.innerHTML = `<img src="${transparentPixel}" data-src="${item.src}" alt="${item.title || project.title || '项目图片'}" loading="lazy" decoding="async">`;
+            mediaButton.addEventListener('click', () => {
                 openLightbox(item.src, item.title || '', '', lightboxImages);
             });
-            mediaGrid.appendChild(div);
+            mediaGrid.appendChild(mediaButton);
 
-            const img = div.querySelector('img');
+            const img = mediaButton.querySelector('img');
             img.addEventListener('load', () => img.classList.add('loaded'));
             img.addEventListener('error', () => img.classList.add('loaded'));
             observeLazyImage(img);
@@ -64,9 +68,9 @@ function _init() {
             const div = document.createElement('div');
             div.className = 'media-item media-video';
             div.innerHTML = `
-                <div class="video-placeholder" data-src="${item.src}" data-poster="${item.poster || ''}">
-                    <span class="play-icon">鈻?/span>
-                </div>
+                <button type="button" class="video-placeholder" data-src="${item.src}" data-poster="${item.poster || ''}" aria-label="播放视频：${item.title || project.title || '项目视频'}">
+                    <span class="play-icon" aria-hidden="true">▶</span>
+                </button>
             `;
 
             const placeholder = div.querySelector('.video-placeholder');
@@ -80,7 +84,7 @@ function _init() {
 
     allImages = lightboxImages;
 
-    // 璁剧疆鐏
+    // 设置灯箱
     setupLightbox();
 }
 
@@ -95,9 +99,27 @@ function setupLightbox() {
         if (event.target === lightbox) closeLightbox();
     });
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeLightbox();
+        if (!lightbox.classList.contains('active')) return;
+        if (event.key === 'Escape') {
+            closeLightbox();
+            return;
+        }
         if (event.key === 'ArrowLeft') navigateLightbox(-1);
         if (event.key === 'ArrowRight') navigateLightbox(1);
+        if (event.key === 'Tab') {
+            const focusable = Array.from(lightbox.querySelectorAll('button:not([disabled])'))
+                .filter((element) => element.offsetParent !== null);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
     });
 
     let touchStartX = 0;
@@ -109,16 +131,20 @@ function setupLightbox() {
         if (Math.abs(difference) > 50) navigateLightbox(difference > 0 ? 1 : -1);
     }, { passive: true });
 
-    const previous = document.createElement('div');
+    const previous = document.createElement('button');
+    previous.type = 'button';
     previous.className = 'lightbox-nav lightbox-prev';
+    previous.setAttribute('aria-label', '上一张图片');
     previous.innerHTML = '&#10094;';
     previous.addEventListener('click', (event) => {
         event.stopPropagation();
         navigateLightbox(-1);
     });
 
-    const next = document.createElement('div');
+    const next = document.createElement('button');
+    next.type = 'button';
     next.className = 'lightbox-nav lightbox-next';
+    next.setAttribute('aria-label', '下一张图片');
     next.innerHTML = '&#10095;';
     next.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -136,17 +162,24 @@ function openLightbox(src, title, description, groupImages = []) {
     const previews = document.getElementById('lightbox-preview-strip');
     if (!lightbox || !image || !caption || !previews) return;
 
+    if (!lightbox.classList.contains('active')) {
+        lightboxReturnFocus = document.activeElement;
+    }
     currentImageIndex = allImages.findIndex((item) => item.src === src);
     image.src = src;
+    image.alt = title || description || '项目图片大图';
     caption.textContent = title || description || '';
     currentGroupImages = groupImages;
     previews.innerHTML = '';
     if (currentGroupImages.length > 1) {
         previews.style.display = 'flex';
-        currentGroupImages.forEach((item) => {
-            const preview = document.createElement('div');
+        currentGroupImages.forEach((item, previewIndex) => {
+            const preview = document.createElement('button');
+            preview.type = 'button';
             preview.className = 'lightbox-preview-item' + (item.src === src ? ' active' : '');
-            preview.innerHTML = `<img src="${item.src}" alt="">`;
+            preview.setAttribute('aria-label', `查看缩略图 ${previewIndex + 1}`);
+            if (item.src === src) preview.setAttribute('aria-current', 'true');
+            preview.innerHTML = `<img src="${item.src}" alt="" loading="lazy" decoding="async">`;
             preview.addEventListener('click', (event) => {
                 event.stopPropagation();
                 openLightbox(item.src, item.title || '', item.description || '', currentGroupImages);
@@ -158,15 +191,22 @@ function openLightbox(src, title, description, groupImages = []) {
     }
 
     lightbox.classList.add('active');
+    lightbox.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    document.querySelector('.lightbox-close').focus();
 }
 
 function closeLightbox() {
     const lightbox = document.getElementById('lightbox');
-    if (!lightbox) return;
+    if (!lightbox || !lightbox.classList.contains('active')) return;
     lightbox.classList.remove('active');
+    lightbox.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     currentGroupImages = [];
+    if (lightboxReturnFocus && typeof lightboxReturnFocus.focus === 'function') {
+        lightboxReturnFocus.focus();
+    }
+    lightboxReturnFocus = null;
 }
 
 function navigateLightbox(direction) {
@@ -180,14 +220,17 @@ function navigateLightbox(direction) {
         currentGroupImages
     );
 }
-document.addEventListener('DOMContentLoaded', function() { _domReady = true; _init(); });
+document.addEventListener('DOMContentLoaded', function() {
+    _domReady = true;
+    _dataReady = typeof commercialProjects !== 'undefined' || _dataReady;
+    _init();
+});
 document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
-setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000);
 
 
 
 
-// 鍔犺浇瑙嗛 iframe
+// 加载视频 iframe
 function loadVideoIframe(placeholder, video) {
     if (placeholder.dataset.loaded) return;
     placeholder.dataset.loaded = 'true';
@@ -195,7 +238,7 @@ function loadVideoIframe(placeholder, video) {
     const wrapper = placeholder.parentElement;
     const iframe = document.createElement('iframe');
     iframe.src = video.src + (video.src.includes('?') ? '&autoplay=1' : '?autoplay=1');
-    iframe.title = video.title || '瑙嗛';
+    iframe.title = video.title || '视频';
     iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; autoplay');
     iframe.allowFullscreen = true;
     wrapper.replaceChild(iframe, placeholder);

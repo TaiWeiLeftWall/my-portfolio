@@ -1,5 +1,5 @@
 // ==========================================
-// 鍟嗕笟椤圭洰鍒楄〃椤甸€昏緫
+// 商业项目列表页逻辑
 // ==========================================
 
 let currentCategory = 'all';
@@ -7,16 +7,20 @@ let currentYear = 'all';
 let allImages = [];
 const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
-let _domReady = false, _dataReady = false;
+let _domReady = false, _dataReady = false, _initialized = false;
 function _init() {
-    if (!_domReady || !_dataReady) return;
+    if (!_domReady || !_dataReady || _initialized) return;
+    _initialized = true;
     setupFilters();
     loadProjects();
     initLightbox();
 }
-document.addEventListener('DOMContentLoaded', function() { _domReady = true; _init(); });
+document.addEventListener('DOMContentLoaded', function() {
+    _domReady = true;
+    _dataReady = typeof commercialProjects !== 'undefined' || _dataReady;
+    _init();
+});
 document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
-setTimeout(function() { if (!_dataReady) { _dataReady = true; _init(); } }, 2000);
 
 function initLightbox() {
     const lightbox = document.getElementById('lightbox');
@@ -47,48 +51,51 @@ function initLightbox() {
 
 
 
-// 璁剧疆绛涢€夊櫒
+// 设置筛选器
 function setupFilters() {
     const categoryList = document.getElementById('category-filters');
     const yearSelect = document.getElementById('year-filter');
 
-    // 娣诲姞鍒嗙被鎸夐挳
+    // 添加分类按钮
     const categories = getCommercialCategories();
     categories.forEach(cat => {
         const btn = document.createElement('button');
         btn.className = 'category-btn';
         btn.dataset.category = cat;
         btn.textContent = cat;
+        btn.setAttribute('aria-pressed', 'false');
         btn.addEventListener('click', () => selectCategory(cat));
         categoryList.appendChild(btn);
     });
 
-    // 濉厖骞翠唤涓嬫媺妗?
+    // 填充年份下拉框
     const years = getCommercialYears();
     years.forEach(year => {
         const option = document.createElement('option');
         option.value = year;
-        option.textContent = year + '骞?';
+        option.textContent = year + '年';
         yearSelect.appendChild(option);
     });
 
-    // 骞翠唤绛涢€変簨浠?
+    // 年份筛选事件
     yearSelect.addEventListener('change', () => {
         currentYear = yearSelect.value;
         loadProjects();
     });
 }
 
-// 閫夋嫨鍒嗙被
+// 选择分类
 function selectCategory(category) {
     document.querySelectorAll('#category-filters .category-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.category === category);
+        const isActive = btn.dataset.category === category;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
     });
     currentCategory = category;
     loadProjects();
 }
 
-// 鍔犺浇椤圭洰
+// 加载项目
 function loadProjects() {
     const grid = document.getElementById('project-grid');
     grid.innerHTML = '';
@@ -96,30 +103,30 @@ function loadProjects() {
 
     let filtered = commercialProjects;
 
-    // 鎸夊垎绫荤瓫閫?
+    // 按分类筛选
     if (currentCategory !== 'all') {
         filtered = filtered.filter(p => p.category === currentCategory);
     }
 
-    // 鎸夊勾浠界瓫閫?
+    // 按年份筛选
     if (currentYear !== 'all') {
         filtered = filtered.filter(p => p.year === parseInt(currentYear));
     }
 
-    // 鎸夊勾浠藉€掑簭
+    // 按年份倒序
     filtered.sort((a, b) => b.year - a.year);
 
     if (filtered.length === 0) {
-        grid.innerHTML = '<p class="no-projects">鏆傛棤椤圭洰</p>';
+        grid.innerHTML = '<p class="no-projects">暂无项目</p>';
         return;
     }
 
-    // 鐢熸垚椤圭洰鍗＄墖
+    // 生成项目卡片
     filtered.forEach(project => {
         const card = createProjectCard(project);
         grid.appendChild(card);
 
-        // 鏀堕泦鐏鍥剧墖
+        // 收集灯箱图片
         project.items.filter(item => item.type === 'image').forEach(img => {
             allImages.push({
                 src: img.src,
@@ -129,13 +136,13 @@ function loadProjects() {
         });
     });
 
-    // 娣″叆鍔ㄧ敾
+    // 淡入动画
     setTimeout(() => {
         grid.style.opacity = '1';
     }, 50);
 }
 
-// 鍒涘缓椤圭洰鍗＄墖
+// 创建项目卡片
 function createProjectCard(project) {
     const card = document.createElement('a');
     card.className = 'project-card';
@@ -148,7 +155,8 @@ function createProjectCard(project) {
     card.innerHTML = `
         <div class="project-card-cover">
             <img src="${transparentPixel}" data-src="${project.cover}" alt="${project.client}" loading="lazy" decoding="async">
-            ${hasVideo ? '<div class="media-badge video-badge">瑙嗛</div>' : ''}
+            <span class="missing-cover-text" hidden>暂无封面</span>
+            ${hasVideo ? '<div class="media-badge video-badge">视频</div>' : ''}
         </div>
         <div class="project-card-info">
             <h3 class="project-client">${project.client}</h3>
@@ -157,16 +165,22 @@ function createProjectCard(project) {
                 <span class="project-year">${project.year}</span>
                 <span class="project-category">${project.category}</span>
                 <span class="project-counts">
-                    ${imageCount > 0 ? `<span class="count-item">${imageCount}鍥?/span>` : ''}
-                    ${videoCount > 0 ? `<span class="count-item">${videoCount}瑙嗛</span>` : ''}
+                    ${imageCount > 0 ? `<span class="count-item">${imageCount} 图</span>` : ''}
+                    ${videoCount > 0 ? `<span class="count-item">${videoCount} 视频</span>` : ''}
                 </span>
             </div>
         </div>
     `;
 
     const img = card.querySelector('.project-card-cover img');
+    const cover = card.querySelector('.project-card-cover');
+    const missingText = card.querySelector('.missing-cover-text');
     img.addEventListener('load', () => img.classList.add('loaded'));
-    img.addEventListener('error', () => img.classList.add('loaded'));
+    img.addEventListener('error', () => {
+        cover.classList.add('is-missing');
+        cover.setAttribute('aria-label', `${project.client} 暂无封面`);
+        missingText.hidden = false;
+    });
     observeLazyImage(img);
 
     return card;

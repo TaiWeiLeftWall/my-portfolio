@@ -117,6 +117,20 @@
     opacity: 1;
 }
 
+.project-card-cover.is-missing img {
+    display: none;
+}
+
+.missing-cover-text {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--ink-muted-48);
+    font-size: 13px;
+    letter-spacing: 0;
+}
+
 .media-badge {
     position: absolute;
     top: 12px;
@@ -274,6 +288,13 @@
     border-radius: var(--radius-sm);
     background: var(--canvas-parchment);
     cursor: pointer;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
 }
 
 .media-item img {
@@ -313,6 +334,7 @@
     color: var(--on-dark);
     font-size: 3rem;
     transition: background 0.2s;
+    border: 0;
 }
 
 .video-placeholder:hover {

@@ -10,6 +10,9 @@
     <meta property="og:image" content="https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/icons/LOGO_white.png">
     <link rel="icon" href="https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/icons/LOGO_white.png" type="image/png">
     <title>摄影作品集 | 沉礁</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;family=Noto+Sans+SC:wght@300;400;600;700&amp;display=swap">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,8 +29,8 @@
                     <div class="filter-group-title">显示</div>
                     <div class="display-mode-group">
                         <div class="display-mode-toggle">
-                            <button class="mode-btn active" data-mode="stacked">时间线</button>
-                            <button class="mode-btn" data-mode="random">随机</button>
+                            <button class="mode-btn active" data-mode="stacked" aria-pressed="true">时间线</button>
+                            <button class="mode-btn" data-mode="random" aria-pressed="false">随机</button>
                         </div>
                     </div>
                 </div>
@@ -38,11 +41,11 @@
                 <div class="filter-group">
                     <div class="filter-group-title">分类</div>
                     <div class="category-list">
-                        <button class="category-btn active" data-category="all">全部</button>
-                        <button class="category-btn" data-category="landscape">风光</button>
-                        <button class="category-btn" data-category="portrait">人像</button>
-                        <button class="category-btn" data-category="street">街头</button>
-                        <button class="category-btn" data-category="performance">演出</button>
+                        <button class="category-btn active" data-category="all" aria-pressed="true">全部</button>
+                        <button class="category-btn" data-category="landscape" aria-pressed="false">风光</button>
+                        <button class="category-btn" data-category="portrait" aria-pressed="false">人像</button>
+                        <button class="category-btn" data-category="street" aria-pressed="false">街头</button>
+                        <button class="category-btn" data-category="performance" aria-pressed="false">演出</button>
                     </div>
                 </div>
 
@@ -52,10 +55,10 @@
                 <div class="filter-group">
                     <div class="filter-group-title">时间</div>
                     <div class="date-filter-group">
-                        <select id="year-filter" class="date-filter">
+                        <select id="year-filter" class="date-filter" aria-label="年份">
                             <option value="all">全部年份</option>
                         </select>
-                        <select id="month-filter" class="date-filter">
+                        <select id="month-filter" class="date-filter" aria-label="月份">
                             <option value="all">全部月份</option>
                         </select>
                     </div>
@@ -66,6 +69,7 @@
             <div class="filter-main">
                 <!-- 作品画廊 -->
                 <main class="gallery">
+                    <h1 class="visually-hidden">沉礁摄影作品集</h1>
                     <div class="gallery-grid" id="gallery-grid">
                         <!-- 照片将通过 JavaScript 动态插入 -->
                     </div>
@@ -75,8 +79,8 @@
     </section>
 
     <!-- 灯箱 -->
-    <div class="lightbox" id="lightbox">
-        <span class="lightbox-close">&times;</span>
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览" aria-hidden="true">
+        <button type="button" class="lightbox-close" aria-label="关闭图片预览">&times;</button>
         <div class="lightbox-img-wrapper">
             <img class="lightbox-img" id="lightbox-img" src="" alt="">
         </div>

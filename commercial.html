@@ -3,44 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="娌夌鍟嗕笟鎽勫奖浣滃搧 - 鍝佺墝骞垮憡銆佷骇鍝佹媿鎽勩€佽棰戝埗浣?>
-    <meta property="og:title" content="鍟嗕笟椤圭洰 | 娌夌">
-    <meta property="og:description" content="娌夌鍟嗕笟鎽勫奖浣滃搧 - 鍝佺墝骞垮憡銆佷骇鍝佹媿鎽勩€佽棰戝埗浣?>
+    <meta name="description" content="沉礁商业摄影作品 - 品牌广告、产品拍摄、视频制作">
+    <meta property="og:title" content="商业项目 | 沉礁">
+    <meta property="og:description" content="沉礁商业摄影作品 - 品牌广告、产品拍摄、视频制作">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/icons/LOGO_white.png">
     <link rel="icon" href="https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/icons/LOGO_white.png" type="image/png">
     <title>商业项目 | 沉礁</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;family=Noto+Sans+SC:wght@300;400;600;700&amp;display=swap">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="commercial.css">
 </head>
 <body>
-    <!-- 瀵艰埅鏍?-->
+    <!-- 导航栏 -->
     <nav class="navbar"></nav>
 
-    <!-- 鍐呭鍖?-->
+    <!-- 内容区 -->
     <main class="commercial-page">
-        <!-- Hero鍖?-->
+        <!-- 页面导语 -->
         <section class="commercial-hero">
-            <h1>鍟嗕笟椤圭洰</h1>
-            <p>鍝佺墝骞垮憡 路 浜у搧鎷嶆憚 路 瑙嗛鍒朵綔</p>
+            <h1>商业项目</h1>
+            <p>品牌广告 · 产品拍摄 · 视频制作</p>
         </section>
 
-        <!-- 绛涢€夋爮 -->
+        <!-- 筛选栏 -->
         <section class="commercial-filters">
             <div class="filter-bar-inner">
                 <aside class="filter-sidebar">
                     <div class="filter-group">
-                        <div class="filter-group-title">绫诲瀷</div>
+                        <div class="filter-group-title">类型</div>
                         <div class="category-list" id="category-filters">
-                            <button class="category-btn active" data-category="all">鍏ㄩ儴</button>
+                            <button class="category-btn active" data-category="all" aria-pressed="true">全部</button>
                         </div>
                     </div>
                     <div class="filter-divider"></div>
                     <div class="filter-group">
-                        <div class="filter-group-title">骞翠唤</div>
+                        <div class="filter-group-title">年份</div>
                         <div class="date-filter-group" id="year-filters">
-                            <select id="year-filter" class="date-filter">
-                                <option value="all">鍏ㄩ儴骞翠唤</option>
+                            <select id="year-filter" class="date-filter" aria-label="年份">
+                                <option value="all">全部年份</option>
                             </select>
                         </div>
                     </div>
@@ -48,17 +51,17 @@
             </div>
         </section>
 
-        <!-- 椤圭洰缃戞牸 -->
+        <!-- 项目网格 -->
         <section class="commercial-grid">
             <div class="commercial-grid-inner" id="project-grid">
-                <!-- 椤圭洰鍗＄墖灏嗛€氳繃 JavaScript 鍔ㄦ€佹彃鍏?-->
+                <!-- 项目卡片由 JavaScript 动态插入 -->
             </div>
         </section>
     </main>
 
-    <!-- 鐏 -->
-    <div class="lightbox" id="lightbox">
-        <span class="lightbox-close">&times;</span>
+    <!-- 灯箱 -->
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览" aria-hidden="true">
+        <button type="button" class="lightbox-close" aria-label="关闭图片预览">&times;</button>
         <div class="lightbox-img-wrapper">
             <img class="lightbox-img" id="lightbox-img" src="" alt="">
         </div>
@@ -66,11 +69,11 @@
         <p class="lightbox-caption" id="lightbox-caption"></p>
     </div>
 
-    <!-- 椤佃剼 -->
+    <!-- 页脚 -->
     <footer></footer>
 
     <script src="common.js"></script>
-<script src="commercial.js"></script>
+    <script src="commercial.js"></script>
     <script src="commercial-list.js"></script>
 </body>
 </html>

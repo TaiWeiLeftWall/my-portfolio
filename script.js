@@ -46,6 +46,7 @@ const watermarkUrl = 'icons/LOGO_black.png';
 function loadGallery(category = 'all') {
     const galleryGrid = document.getElementById('gallery-grid');
     galleryGrid.innerHTML = '';
+    getOrCreateColumns();
 
     // 构建所有图片列表用于灯箱导航
     allImages = [];
@@ -88,7 +89,7 @@ function loadGallery(category = 'all') {
     // 添加单独图片到画廊
     filteredPhotos.forEach(photo => {
         const item = createGalleryItem(photo);
-        galleryGrid.appendChild(item);
+        insertIntoShortestColumn(item);
 
         // 添加到灯箱图片列表
         allImages.push({
@@ -114,14 +115,6 @@ function loadGallery(category = 'all') {
                 description: randomImg.description,
                 type: 'single'
             });
-        });
-        // 瀑布流布局：插入到最短列
-        filteredGroups.forEach(group => {
-            if (group.images.length === 0) return;
-            const randomIndex = Math.floor(Math.random() * group.images.length);
-            const randomImg = group.images[randomIndex];
-            const item = createGalleryItem(randomImg);
-            item.dataset.src = randomImg.src;
             insertIntoShortestColumn(item);
         });
     } else {
@@ -147,18 +140,35 @@ function loadGallery(category = 'all') {
         });
     }
 
-    // 隐藏 masonry 容器，等图片加载完成后再显示
+    // 优先加载首张作品，其余图片继续懒加载
     const columnsContainer = galleryGrid.querySelector('.masonry-columns');
     if (columnsContainer) {
         columnsContainer.style.opacity = '0';
         columnsContainer.style.transition = 'opacity 0.3s ease';
 
-        // 等待图片加载完成后再显示（不调整布局，防止跳动）
-        imagesLoaded(columnsContainer, () => {
+        const firstImage = columnsContainer.querySelector('.gallery-item > img:first-child, .stacked-cover > img:first-child');
+        if (firstImage) {
+            firstImage.loading = 'eager';
+            firstImage.setAttribute('fetchpriority', 'high');
+            firstImage.decoding = 'async';
+        }
+
+        let revealed = false;
+        const revealGallery = () => {
+            if (revealed) return;
+            revealed = true;
             requestAnimationFrame(() => {
                 columnsContainer.style.opacity = '1';
             });
-        });
+        };
+
+        if (!firstImage || firstImage.complete) {
+            revealGallery();
+        } else {
+            firstImage.addEventListener('load', revealGallery, { once: true });
+            firstImage.addEventListener('error', revealGallery, { once: true });
+            setTimeout(revealGallery, 600);
+        }
     }
 }
 
@@ -215,49 +225,15 @@ function getOrCreateColumns() {
     return columnsContainer.querySelectorAll('.masonry-column');
 }
 
-// 图片加载检测
-function imagesLoaded(container, callback) {
-    const images = container.querySelectorAll('img');
-    let loadedCount = 0;
-
-    if (images.length === 0) {
-        callback();
-        return;
-    }
-
-    function checkComplete() {
-        if (loadedCount >= images.length) {
-            callback();
-        }
-    }
-
-    images.forEach(img => {
-        if (img.complete) {
-            loadedCount++;
-            checkComplete();
-        } else {
-            img.addEventListener('load', () => {
-                loadedCount++;
-                checkComplete();
-            });
-            img.addEventListener('error', () => {
-                loadedCount++;
-                checkComplete();
-            });
-        }
-    });
-
-    // 超时保护（5秒后强制执行）
-    setTimeout(callback, 5000);
-}
-
 // 创建单独图片项
 function createGalleryItem(photo) {
-    const item = document.createElement('div');
+    const item = document.createElement('button');
+    item.type = 'button';
     item.className = `gallery-item`;
+    item.setAttribute('aria-label', `查看照片：${photo.title || photo.description || '摄影作品'}`);
     item.innerHTML = `
-        <img src="${photo.src}" alt="" loading="lazy" draggable="false">
-        <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
+        <img src="${photo.src}" alt="${photo.title || photo.description || '摄影作品'}" loading="lazy" decoding="async" draggable="false">
+        <img class="watermark-overlay" src="${watermarkUrl}" alt="" aria-hidden="true">
     `;
 
     // 点击打开灯箱
@@ -279,11 +255,11 @@ function createPhotoGroup(group) {
     const otherCount = group.images.length - 1;
 
     groupElement.innerHTML = `
-        <div class="stacked-cover">
-            <img src="${coverImg.src}" alt="" loading="lazy" draggable="false">
-            <img class="watermark-overlay" src="${watermarkUrl}" alt="watermark">
-            ${otherCount > 0 ? `<div class="stacked-count">+${otherCount}</div>` : ''}
-        </div>
+        <button type="button" class="stacked-cover" aria-label="查看组图：${group.title || '摄影作品组'}，共 ${group.images.length} 张">
+            <img src="${coverImg.src}" alt="${coverImg.title || group.title || '摄影作品组'}" loading="lazy" decoding="async" draggable="false">
+            <img class="watermark-overlay" src="${watermarkUrl}" alt="" aria-hidden="true">
+            ${otherCount > 0 ? `<span class="stacked-count" aria-hidden="true">+${otherCount}</span>` : ''}
+        </button>
     `;
 
     // 点击打开组内随机一张图片，同时传递整组图片用于预览
@@ -301,8 +277,12 @@ function setupCategoryFilter() {
     categoryBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             // 更新激活状态
-            categoryBtns.forEach(b => b.classList.remove('active'));
+            categoryBtns.forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
+            });
             btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
 
             // 更新当前分类
             currentCategory = btn.dataset.category;
@@ -381,8 +361,12 @@ function setupDisplayModeToggle() {
 
     modeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            modeBtns.forEach(b => b.classList.remove('active'));
+            modeBtns.forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-pressed', 'false');
+            });
             btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
             currentDisplayMode = btn.dataset.mode;
             loadGallery(currentCategory);
         });
@@ -437,16 +421,18 @@ function setupDisplayModeToggle() {
                 item.className = 'video-item';
                 var isBilibili = video.url.indexOf('bilibili') >= 0;
                 if (isBilibili) {
-                    item.innerHTML = '<div class="video-wrapper"><div class="video-placeholder" data-src="' + video.url + '">\u25b6</div></div>';
+                    item.innerHTML = '<div class="video-wrapper"><button type="button" class="video-placeholder" data-src="' + video.url + '" aria-label="播放视频：' + (video.title || '视频') + '"><span aria-hidden="true">\u25b6</span></button></div>';
                 } else {
-                    item.innerHTML = '<a href="' + video.url + '" target="_blank" rel="noopener" class="video-external-link"><div class="video-wrapper"><div class="video-placeholder video-external">\u2197</div></div></a>';
+                    item.innerHTML = '<a href="' + video.url + '" target="_blank" rel="noopener noreferrer" class="video-external-link" aria-label="在新窗口打开视频：' + (video.title || '视频') + '"><div class="video-wrapper"><span class="video-placeholder video-external" aria-hidden="true">\u2197</span></div></a>';
                 }
                 grid.appendChild(item);
 
-                const placeholder = item.querySelector('.video-placeholder');
-                placeholder.addEventListener('click', function() {
-                    loadVideoIframe(this, video);
-                });
+                const placeholder = item.querySelector('button.video-placeholder');
+                if (placeholder) {
+                    placeholder.addEventListener('click', function() {
+                        loadVideoIframe(this, video);
+                    });
+                }
             });
 
             section.appendChild(grid);
@@ -455,22 +441,6 @@ function setupDisplayModeToggle() {
         videoGrid.appendChild(section);
     });
 
-    if ('IntersectionObserver' in window) {
-        const observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    const el = entry.target;
-                    const found = videos.find(function(v) { return v.url === el.dataset.src; });
-                    if (found) loadVideoIframe(el, found);
-                    observer.unobserve(el);
-                }
-            });
-        }, { rootMargin: '200px' });
-
-        document.querySelectorAll('.video-placeholder').forEach(function(el) {
-            observer.observe(el);
-        });
-    }
 }
 
 function loadVideoIframe(placeholder, video) {
@@ -489,6 +459,7 @@ function loadVideoIframe(placeholder, video) {
 // 灯箱功能
 let currentImageIndex = 0;
 let currentGroupImages = []; // 当前组的所有图片
+let lightboxReturnFocus = null;
 
 function setupLightbox() {
     const lightbox = document.getElementById('lightbox');
@@ -508,14 +479,31 @@ function setupLightbox() {
 
     // ESC 键关闭 & 左右箭头切换
     document.addEventListener('keydown', (e) => {
+        if (!lightbox.classList.contains('active')) return;
+
         if (e.key === 'Escape') {
             closeLightbox();
+            return;
         }
         if (e.key === 'ArrowLeft') {
             navigateLightbox(-1);
         }
         if (e.key === 'ArrowRight') {
             navigateLightbox(1);
+        }
+        if (e.key === 'Tab') {
+            const focusable = Array.from(lightbox.querySelectorAll('button:not([disabled])'))
+                .filter((element) => element.offsetParent !== null);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
         }
     });
 
@@ -534,16 +522,20 @@ function setupLightbox() {
     }, { passive: true });
 
     // 添加导航按钮
-    const prevBtn = document.createElement('div');
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
     prevBtn.className = 'lightbox-nav lightbox-prev';
+    prevBtn.setAttribute('aria-label', '上一张图片');
     prevBtn.innerHTML = '&#10094;';
     prevBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         navigateLightbox(-1);
     });
 
-    const nextBtn = document.createElement('div');
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
     nextBtn.className = 'lightbox-nav lightbox-next';
+    nextBtn.setAttribute('aria-label', '下一张图片');
     nextBtn.innerHTML = '&#10095;';
     nextBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -563,8 +555,13 @@ function openLightbox(src, title, description, groupImages = []) {
     // 找到当前图片索引
     currentImageIndex = allImages.findIndex(img => img.src === src);
 
+    if (!lightbox.classList.contains('active')) {
+        lightboxReturnFocus = document.activeElement;
+    }
+
     lightboxImg.src = src;
-    lightboxCaption.textContent = '';
+    lightboxImg.alt = title || description || '摄影作品大图';
+    lightboxCaption.textContent = title || description || '';
 
     // 如果有组图片，显示预览条
     currentGroupImages = groupImages;
@@ -573,9 +570,12 @@ function openLightbox(src, title, description, groupImages = []) {
         previewStrip.style.display = 'flex';
 
         currentGroupImages.forEach((img, index) => {
-            const item = document.createElement('div');
+            const item = document.createElement('button');
+            item.type = 'button';
             item.className = 'lightbox-preview-item' + (img.src === src ? ' active' : '');
-            item.innerHTML = `<img src="${img.src}" alt="">`;
+            item.setAttribute('aria-label', `查看缩略图 ${index + 1}`);
+            if (img.src === src) item.setAttribute('aria-current', 'true');
+            item.innerHTML = `<img src="${img.src}" alt="" loading="lazy" decoding="async">`;
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
                 openLightbox(img.src, '', '', currentGroupImages);
@@ -587,14 +587,22 @@ function openLightbox(src, title, description, groupImages = []) {
     }
 
     lightbox.classList.add('active');
+    lightbox.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    document.querySelector('.lightbox-close').focus();
 }
 
 function closeLightbox() {
     const lightbox = document.getElementById('lightbox');
+    if (!lightbox.classList.contains('active')) return;
     lightbox.classList.remove('active');
+    lightbox.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     currentGroupImages = [];
+    if (lightboxReturnFocus && typeof lightboxReturnFocus.focus === 'function') {
+        lightboxReturnFocus.focus();
+    }
+    lightboxReturnFocus = null;
 }
 
 function navigateLightbox(direction) {

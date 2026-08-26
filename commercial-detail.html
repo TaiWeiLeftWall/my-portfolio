@@ -3,42 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="娌夌鍟嗕笟鎽勫奖浣滃搧">
-    <meta property="og:title" content="鍟嗕笟椤圭洰 | 娌夌">
+    <meta name="description" content="沉礁商业摄影项目详情">
+    <meta property="og:title" content="商业项目 | 沉礁">
     <meta property="og:type" content="website">
     <link rel="icon" href="https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/icons/LOGO_white.png" type="image/png">
     <title>项目详情 | 沉礁</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;family=Noto+Sans+SC:wght@300;400;600;700&amp;display=swap">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="commercial.css">
 </head>
 <body>
-    <!-- 瀵艰埅鏍?-->
+    <!-- 导航栏 -->
     <nav class="navbar"></nav>
 
-    <!-- 椤圭洰璇︽儏 -->
+    <!-- 项目详情 -->
     <main class="project-detail" id="project-detail">
-        <!-- 椤圭洰澶撮儴 -->
+        <!-- 项目头部 -->
         <section class="detail-header">
             <div class="detail-header-inner">
-                <a href="commercial.html" class="detail-back-link">&larr; 杩斿洖鍟嗕笟椤圭洰</a>
+                <a href="commercial.html" class="detail-back-link">&larr; 返回商业项目</a>
                 <p class="detail-client" id="detail-client"></p>
                 <h1 class="detail-title" id="detail-title"></h1>
                 <p class="detail-description" id="detail-description"></p>
                 <div class="detail-actions">
-                    <a href="about.html" class="btn-contact">鑾峰彇鎶ヤ环</a>
+                    <a href="about.html" class="btn-contact">获取报价</a>
                 </div>
             </div>
         </section>
 
-        <!-- 濯掍綋缃戞牸 -->
+        <!-- 媒体网格 -->
         <section class="detail-media" id="detail-media">
-            <!-- 鍥剧墖鍜岃棰戝皢閫氳繃 JavaScript 鍔ㄦ€佹彃鍏?-->
+            <!-- 图片和视频由 JavaScript 动态插入 -->
         </section>
     </main>
 
-    <!-- 鐏 -->
-    <div class="lightbox" id="lightbox">
-        <span class="lightbox-close">&times;</span>
+    <!-- 灯箱 -->
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览" aria-hidden="true">
+        <button type="button" class="lightbox-close" aria-label="关闭图片预览">&times;</button>
         <div class="lightbox-img-wrapper">
             <img class="lightbox-img" id="lightbox-img" src="" alt="">
         </div>
@@ -46,11 +49,11 @@
         <p class="lightbox-caption" id="lightbox-caption"></p>
     </div>
 
-    <!-- 椤佃剼 -->
+    <!-- 页脚 -->
     <footer></footer>
 
     <script src="common.js"></script>
-<script src="commercial.js"></script>
+    <script src="commercial.js"></script>
     <script src="commercial-detail.js"></script>
 </body>
 </html>

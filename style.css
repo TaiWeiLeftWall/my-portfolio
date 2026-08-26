@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+SC:wght@300;400;600;700&display=swap");
-
 /* ========================================
    沉礁摄影作品集 - Apple Design System
    Primary: Apple Human Interface Guidelines
@@ -122,6 +120,25 @@ a:hover {
     opacity: 0.7;
 }
 
+a:focus-visible,
+button:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--primary-focus);
+    outline-offset: 3px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 /* Container */
 .container {
     max-width: var(--max-width);
@@ -186,6 +203,9 @@ a:hover {
     color: rgba(255, 255, 255, 0.8);
     letter-spacing: -0.12px;
     transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
 }
 
 .nav-links a:hover,
@@ -434,6 +454,12 @@ a:hover {
     overflow: hidden;
     cursor: pointer;
     background: var(--canvas-parchment);
+    width: 100%;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
 }
 
 .gallery-item img {
@@ -441,7 +467,6 @@ a:hover {
     height: auto;
     display: block;
     transition: transform 0.4s ease;
-    will-change: transform;
 }
 
 .gallery-item:hover img {
@@ -514,6 +539,14 @@ a:hover {
     position: relative;
     overflow: hidden;
     cursor: pointer;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
 }
 
 .stacked-cover img {
@@ -521,7 +554,6 @@ a:hover {
     height: auto;
     display: block;
     transition: transform 0.4s ease;
-    will-change: transform;
 }
 
 .stacked-cover:hover img {
@@ -599,6 +631,7 @@ a:hover {
     justify-content: center;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.1);
+    border: 0;
 }
 
 .lightbox-close:hover {
@@ -692,6 +725,8 @@ a:hover {
     padding: 20px;
     transition: color 0.2s;
     user-select: none;
+    border: 0;
+    background: transparent;
 }
 
 .lightbox-nav:hover {
@@ -814,6 +849,8 @@ footer p {
     color: var(--body-muted);
     font-size: 3rem;
     transition: color 0.2s;
+    border: 0;
+    background: transparent;
 }
 
 .video-item .video-placeholder:hover {
@@ -1005,9 +1042,28 @@ footer p {
 
 
 /* Video section grouping */
-.video-section { margin-bottom: 48px; }
-.video-platform-header { font-size: 28px; font-weight: 600; color: var(--on-dark); margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--border); letter-spacing: -0.336px; }
-.video-source-label { font-size: 14px; font-weight: 500; color: var(--body-muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+.video-section {
+    margin-bottom: 48px;
+}
+
+.video-platform-header {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--divider-soft);
+    letter-spacing: -0.336px;
+}
+
+.video-source-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-muted-48);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
 @media (max-width: 768px) {
     :root {
         --nav-height: 44px;
@@ -1052,6 +1108,7 @@ footer p {
         font-size: 11px;
         background: var(--canvas-parchment);
         border-radius: var(--radius-pill);
+        min-height: 44px;
     }
 
     .category-btn.active {
@@ -1069,6 +1126,7 @@ footer p {
         width: auto;
         flex: 1;
         min-width: 120px;
+        min-height: 44px;
     }
 
     .display-mode-group {
@@ -1082,6 +1140,7 @@ footer p {
     .mode-btn {
         padding: 8px 12px;
         font-size: 11px;
+        min-height: 44px;
     }
 
     .mode-btn:not(:last-child) {
@@ -1162,6 +1221,12 @@ footer p {
     .page-title { font-size: 26px; }
 
     .filter-sidebar {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .filter-divider {
         display: none;
     }
 
@@ -1175,7 +1240,12 @@ footer p {
     }
 
     .nav-links {
-        display: none;
+        display: flex;
+        gap: 16px;
+    }
+
+    .nav-links a {
+        font-size: 11px;
     }
 
     footer {
@@ -1216,6 +1286,18 @@ footer p {
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
     .gallery-item,
     .photo-group-stacked,
     .video-item {

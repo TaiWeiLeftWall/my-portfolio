@@ -75,6 +75,7 @@ function element(id) {
     id,
     children: [],
     dataset: {},
+    attributes: {},
     listeners: {},
     style: {},
     textContent: '',
@@ -87,6 +88,8 @@ function element(id) {
     addEventListener(type, callback) {
       (this.listeners[type] ||= []).push(callback);
     },
+    focus() { document.activeElement = this; },
+    setAttribute(name, value) { this.attributes[name] = String(value); },
     appendChild(child) { this.children.push(child); },
     querySelector(selector) {
       if (selector !== 'img') return null;
@@ -104,6 +107,7 @@ const closeButton = element('lightbox-close');
 const subNavTitle = element('sub-nav-title');
 const documentListeners = {};
 const document = {
+  activeElement: null,
   body: { style: {} },
   addEventListener(type, callback) {
     (documentListeners[type] ||= []).push(callback);

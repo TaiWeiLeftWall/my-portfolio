@@ -31,75 +31,71 @@ function observeLazyImage(img) {
 }
 
 // ==========================================
-// 公共组件 - 导航栏和页脚 (Apple Style)
+// Minimal portfolio shell
 // ==========================================
-(function() {
-    const logoPath = 'icons/LOGO_black.png';
+const PORTFOLIO_LINKS = [
+    ['index.html', 'Selected Works'],
+    ['index.html#category=portrait', '人像'],
+    ['index.html#category=performance', '演出'],
+    ['index.html#category=landscape', '风光'],
+    ['videos.html', '视频'],
+    ['commercial.html', '商业项目'],
+    ['about.html', 'About'],
+];
 
-    // 检测当前页面
+function setMenuExpanded(expanded) {
+    const nav = document.querySelector('.portfolio-nav');
+    const toggle = document.querySelector('[data-menu-toggle]');
+    if (!nav || !toggle) return;
+    nav.dataset.expanded = String(expanded);
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.textContent = expanded ? '关闭' : '菜单';
+}
+
+function updateActiveNavigation() {
     const page = location.pathname.split('/').pop() || 'index.html';
+    const current = `${page}${location.hash}`;
+    document.querySelectorAll('.portfolio-nav a[data-nav-link]').forEach(link => {
+        const href = link.getAttribute('href');
+        const commercialDetail = page === 'commercial-detail.html' && href === 'commercial.html';
+        const active = href === current || (!location.hash && href === page) || commercialDetail;
+        link.classList.toggle('active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+    });
+}
 
-    // 强制刷新 data.js，避免浏览器缓存旧数据
-    // cache-busting removed (causes const redeclaration errors)
+function renderPortfolioShell() {
+    const placeholder = document.querySelector('nav.navbar');
+    if (!placeholder) return;
 
-    // 渲染导航栏 - Apple双层导航
-    function renderNavbar() {
-        const nav = document.querySelector('nav.navbar');
-        if (!nav) return;
-
-        const activeIndex = page === 'index.html' ? 'active' : '';
-        const activeVideos = page === 'videos.html' ? 'active' : '';
-        const activeAbout = page === 'about.html' ? 'active' : '';
-
-        nav.innerHTML = `
-        <div class="nav-container">
-            <a href="index.html" class="logo">
-                <img src="${logoPath}" alt="沉礁" class="logo-img">
-            </a>
-            <ul class="nav-links">
-                <li><a href="index.html" class="${activeIndex}" ${activeIndex ? 'aria-current="page"' : ''}>图片</a></li>
-                <li><a href="videos.html" class="${activeVideos}" ${activeVideos ? 'aria-current="page"' : ''}>视频</a></li>
-                <li><a href="about.html" class="${activeAbout}" ${activeAbout ? 'aria-current="page"' : ''}>关于</a></li>
-            </ul>
-        </div>`;
-    }
-
-    // 渲染副导航栏
-    function renderSubNav() {
-        // 检查是否已存在副导航
-        if (document.querySelector('.sub-nav')) return;
-
-        const nav = document.querySelector('nav.navbar');
-        if (!nav) return;
-
-        const subNav = document.createElement('div');
-        subNav.className = 'sub-nav';
-        subNav.innerHTML = `
-        <div class="sub-nav-container">
-            <span class="sub-nav-title">沉礁摄影作品集</span>
-        </div>`;
-
-        nav.parentNode.insertBefore(subNav, nav.nextSibling);
-    }
-
-    // 渲染页脚 - Apple Parchment风格
-    function renderFooter() {
-        const footer = document.querySelector('footer');
-        if (!footer) return;
-
-        footer.innerHTML = `
-        <div class="container">
-            <img src="${logoPath}" alt="沉礁" class="footer-logo">
-            <p>&copy; 2026 沉礁. All rights reserved.</p>
-            <div class="social-links">
-                <a href="https://www.douyin.com/user/MS4wLjABAAAA7JQxOJE2ZpmOut3zgFxONESR0I6k9DhHVqTRPIfoVkJjBkw6tTMeSqQBqC6pa87S" target="_blank" rel="noopener noreferrer">抖音</a>
-                <a href="https://space.bilibili.com/7611277" target="_blank" rel="noopener noreferrer">哔哩哔哩</a>
-                <a href="https://www.xiaohongshu.com/user/profile/5ed20dde0000000001007763" target="_blank" rel="noopener noreferrer">小红书</a>
+    const shell = document.createElement('aside');
+    shell.className = 'portfolio-sidebar';
+    shell.innerHTML = `
+        <div class="portfolio-identity">
+            <a href="index.html" class="portfolio-name">沉礁</a>
+            <span class="portfolio-role">杭州自由摄影师</span>
+            <button type="button" data-menu-toggle aria-expanded="false" aria-controls="portfolio-navigation">菜单</button>
+        </div>
+        <nav class="portfolio-nav" id="portfolio-navigation" data-expanded="false" aria-label="作品集导航">
+            <div class="portfolio-nav-links">
+                ${PORTFOLIO_LINKS.map(([href, label]) => `<a href="${href}" data-nav-link>${label}</a>`).join('')}
             </div>
-        </div>`;
-    }
+            <div class="portfolio-contact"><a href="about.html">合作：sleepylagoon2894</a></div>
+        </nav>`;
 
-    renderNavbar();
-    renderSubNav();
-    renderFooter();
-})();
+    placeholder.replaceWith(shell);
+    document.querySelector('.sub-nav')?.remove();
+    document.querySelector('footer')?.remove();
+
+    shell.querySelector('[data-menu-toggle]').addEventListener('click', event => {
+        setMenuExpanded(event.currentTarget.getAttribute('aria-expanded') !== 'true');
+    });
+    shell.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => setMenuExpanded(false));
+    });
+    window.addEventListener('hashchange', updateActiveNavigation);
+    updateActiveNavigation();
+}
+
+renderPortfolioShell();

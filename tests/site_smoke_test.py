@@ -39,12 +39,8 @@ def assert_public_pages(browser):
 
     page = open_page(browser, "index", width=390, height=844)
     assert page.locator("h1").count() == 1
-    assert page.locator("nav a:visible").count() == 4
-    assert page.locator(".filter-sidebar button:visible, .filter-sidebar select:visible").count() >= 7
-    for control in page.locator(".filter-sidebar button:visible, .filter-sidebar select:visible").all():
-        assert control.bounding_box()["height"] >= 44
-    for link in page.locator(".nav-links a:visible").all():
-        assert link.bounding_box()["height"] >= 44
+    assert page.locator(".portfolio-sidebar").count() == 1
+    assert page.locator("[data-menu-toggle]:visible").count() == 1
     page.close()
 
 
@@ -161,10 +157,32 @@ def assert_reduced_motion_is_respected(browser):
     page.close()
 
 
+def assert_minimal_shell_and_mobile_menu(browser):
+    desktop = open_page(browser, "index", width=1280, height=720)
+    assert desktop.locator(".portfolio-sidebar").count() == 1
+    assert desktop.locator(".portfolio-nav a").count() == 8
+    assert desktop.locator(".navbar, .sub-nav, footer").count() == 0
+    assert desktop.locator("[data-menu-toggle]:visible").count() == 0
+    desktop.close()
+
+    mobile = open_page(browser, "index", width=390, height=844)
+    toggle = mobile.locator("[data-menu-toggle]")
+    assert toggle.is_visible()
+    assert toggle.get_attribute("aria-expanded") == "false"
+    assert mobile.locator(".portfolio-nav").get_attribute("data-expanded") == "false"
+    toggle.click()
+    assert toggle.get_attribute("aria-expanded") == "true"
+    assert mobile.locator(".portfolio-nav").get_attribute("data-expanded") == "true"
+    mobile.locator(".portfolio-nav a[data-nav-link][href='about.html']").click()
+    assert mobile.locator("[data-menu-toggle]").get_attribute("aria-expanded") == "false"
+    mobile.close()
+
+
 def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
+            assert_minimal_shell_and_mobile_menu(browser)
             assert_public_pages(browser)
             assert_interactions_are_accessible(browser)
             assert_commercial_detail_is_accessible(browser)

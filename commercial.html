@@ -17,60 +17,18 @@
     <link rel="stylesheet" href="commercial.css">
 </head>
 <body>
-    <!-- 导航栏 -->
     <nav class="navbar"></nav>
 
-    <!-- 内容区 -->
-    <main class="commercial-page">
-        <!-- 页面导语 -->
-        <section class="commercial-hero">
+    <main class="portfolio-main commercial-page">
+        <header class="section-heading">
+            <p class="section-kicker">Commissioned Work</p>
             <h1>商业项目</h1>
-            <p>品牌广告 · 产品拍摄 · 视频制作</p>
-        </section>
+        </header>
 
-        <!-- 筛选栏 -->
-        <section class="commercial-filters">
-            <div class="filter-bar-inner">
-                <aside class="filter-sidebar">
-                    <div class="filter-group">
-                        <div class="filter-group-title">类型</div>
-                        <div class="category-list" id="category-filters">
-                            <button class="category-btn active" data-category="all" aria-pressed="true">全部</button>
-                        </div>
-                    </div>
-                    <div class="filter-divider"></div>
-                    <div class="filter-group">
-                        <div class="filter-group-title">年份</div>
-                        <div class="date-filter-group" id="year-filters">
-                            <select id="year-filter" class="date-filter" aria-label="年份">
-                                <option value="all">全部年份</option>
-                            </select>
-                        </div>
-                    </div>
-                </aside>
-            </div>
-        </section>
-
-        <!-- 项目网格 -->
-        <section class="commercial-grid">
-            <div class="commercial-grid-inner" id="project-grid">
-                <!-- 项目卡片由 JavaScript 动态插入 -->
-            </div>
+        <section class="commercial-grid" aria-label="商业项目">
+            <div id="project-grid" class="commercial-grid-inner"></div>
         </section>
     </main>
-
-    <!-- 灯箱 -->
-    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览" aria-hidden="true">
-        <button type="button" class="lightbox-close" aria-label="关闭图片预览">&times;</button>
-        <div class="lightbox-img-wrapper">
-            <img class="lightbox-img" id="lightbox-img" src="" alt="">
-        </div>
-        <div class="lightbox-preview-strip" id="lightbox-preview-strip"></div>
-        <p class="lightbox-caption" id="lightbox-caption"></p>
-    </div>
-
-    <!-- 页脚 -->
-    <footer></footer>
 
     <script src="common.js"></script>
     <script src="commercial.js"></script>

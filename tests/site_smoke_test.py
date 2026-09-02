@@ -29,18 +29,26 @@ def assert_public_pages(browser):
     page = open_page(browser, "commercial", wait_ms=250)
     assert page.get_by_role("heading", name="商业项目", exact=True).count() == 1
     assert page.locator(".project-card").count() == 3
-    assert "品牌广告 · 产品拍摄 · 视频制作" in page.locator(".commercial-hero").inner_text()
-    assert page.locator("#lightbox[role='dialog'][aria-modal='true']").count() == 1
-    assert page.locator("button.lightbox-close").count() == 1
-    assert page.locator("#year-filter[aria-label='年份']").count() == 1
-    assert page.locator("#category-filters .category-btn[aria-pressed]").count() == 4
-    assert page.locator("#category-filters .category-btn.active[aria-pressed='true']").count() == 1
     page.close()
 
     page = open_page(browser, "index", width=390, height=844)
     assert page.locator("h1").count() == 1
     assert page.locator(".portfolio-sidebar").count() == 1
     assert page.locator("[data-menu-toggle]:visible").count() == 1
+    page.close()
+
+
+def assert_minimal_commercial_overview(browser):
+    page = open_page(browser, "commercial", width=1280, height=720, wait_ms=250)
+    assert page.locator("#project-grid .project-card").count() == 3
+    assert page.locator(
+        ".commercial-hero, .commercial-filters, #category-filters, #year-filter"
+    ).count() == 0
+    assert page.locator(
+        ".project-card[href='commercial-detail.html?project=brand-a']"
+    ).count() == 1
+    assert page.locator(".project-card-info").count() == 3
+    assert page.locator("#lightbox").count() == 0
     page.close()
 
 
@@ -210,6 +218,7 @@ def main():
             assert_selected_works_contract(browser)
             assert_photo_project_viewer(browser)
             assert_video_and_about_are_restrained(browser)
+            assert_minimal_commercial_overview(browser)
             assert_public_pages(browser)
             assert_interactions_are_accessible(browser)
             assert_commercial_detail_is_accessible(browser)

@@ -1,116 +1,29 @@
-/* ========================================
-   商业项目页面样式
-   ======================================== */
-
-/* 页面容器 - 顶部留出导航空间 */
-.commercial-page {
-    padding-top: calc(var(--nav-height) + 52px + 60px);
-}
-
-/* Hero区 */
-.commercial-hero {
-    text-align: center;
-    padding: 0 48px 60px;
-}
-
-.commercial-hero h1 {
-    font-size: 56px;
-    font-weight: 600;
-    letter-spacing: -0.28px;
-    margin-bottom: 16px;
-}
-
-.commercial-hero p {
-    font-size: 21px;
-    color: var(--ink-muted-48);
-    font-weight: 400;
-}
-
-/* 副导航栏标题 - 商业页专用 */
-.commercial-page .sub-nav-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--ink-muted-48);
-    letter-spacing: 0.5px;
-}
-
-/* 筛选栏 */
-.commercial-filters {
-    padding: 0 48px 40px;
-}
-
-.commercial-filters .filter-bar-inner {
-    max-width: 100%;
-    padding: 0;
-    display: block;
-}
-
-.commercial-filters .filter-sidebar {
-    position: static;
-    width: 100%;
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-}
-
-.commercial-filters .filter-group {
-    margin-bottom: 0;
-}
-
-.commercial-filters .category-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.commercial-filters .category-btn {
-    padding: 8px 16px;
-    font-size: 13px;
-    background: var(--canvas-parchment);
-    border-radius: var(--radius-pill);
-}
-
-.commercial-filters .category-btn.active {
-    background: var(--ink);
-    color: var(--on-primary);
-}
-
-/* 项目网格 */
-.commercial-grid {
-    padding: 0 48px 100px;
-}
-
+/* Commercial project overview */
 .commercial-grid-inner {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(30px, 5vw, 70px) var(--portfolio-gap);
 }
 
-/* 项目卡片 */
 .project-card {
     display: block;
-    text-decoration: none;
     color: inherit;
-    background: var(--canvas);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    text-decoration: none;
 }
 
 .project-card-cover {
     position: relative;
-    aspect-ratio: 3 / 2;
-    overflow: hidden;
-    background: var(--canvas-parchment);
+    min-height: 120px;
+    background: #f7f7f7;
 }
 
 .project-card-cover img {
+    display: block;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
+    object-fit: contain;
     opacity: 0;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.2s ease;
 }
 
 .project-card-cover img.loaded {
@@ -128,70 +41,31 @@
     place-items: center;
     color: var(--ink-muted-48);
     font-size: 13px;
-    letter-spacing: 0;
-}
-
-.media-badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    padding: 6px 12px;
-    border-radius: var(--radius-pill);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--on-dark);
-    background: rgba(0, 0, 0, 0.7);
 }
 
 .project-card-info {
-    padding: 20px;
+    padding-top: 10px;
 }
 
 .project-client {
-    font-size: 17px;
-    font-weight: 600;
-    margin-bottom: 4px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 400;
 }
 
 .project-title {
-    font-size: 14px;
-    color: var(--ink-muted-48);
-    margin-bottom: 12px;
+    margin: 3px 0 0;
+    color: var(--ink-muted-80);
+    font-size: 13px;
 }
 
 .project-meta {
     display: flex;
-    gap: 12px;
-    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    margin: 6px 0 0;
     color: var(--ink-muted-48);
-}
-
-.project-year {
-    font-weight: 600;
-}
-
-.project-category {
-    color: var(--primary);
-}
-
-.project-counts {
-    margin-left: auto;
-    display: flex;
-    gap: 8px;
-}
-
-.count-item {
-    background: var(--canvas-parchment);
-    padding: 2px 8px;
-    border-radius: var(--radius-xs);
-}
-
-/* 无项目提示 */
-.no-projects {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px 0;
-    color: var(--ink-muted-48);
+    font-size: 11px;
 }
 
 /* ========================================
@@ -371,45 +245,21 @@
    ======================================== */
 
 @media (max-width: 1400px) {
-    .commercial-grid-inner {
-        grid-template-columns: repeat(3, 1fr);
-    }
-
     .detail-media {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (max-width: 1024px) {
-    .commercial-grid-inner {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .detail-media {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (max-width: 768px) {
-    .commercial-hero {
-        padding: 60px 20px 40px;
-    }
-
-    .commercial-hero h1 {
-        font-size: 40px;
-    }
-
-    .commercial-filters {
-        padding: 0 20px 30px;
-    }
-
-    .commercial-grid {
-        padding: 0 20px 60px;
-    }
-
     .commercial-grid-inner {
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: 36px;
     }
 
     .detail-header {

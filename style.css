@@ -1483,3 +1483,222 @@ body > .commercial-page {
         min-height: 0;
     }
 }
+
+/* ========================================
+   Selected works and photo project viewer
+   ======================================== */
+.portfolio-main {
+    min-width: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: var(--portfolio-main-pad);
+}
+
+.selected-grid {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--portfolio-gap);
+}
+
+.selected-column {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--portfolio-gap);
+}
+
+.selected-work {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0;
+    overflow: visible;
+    background: transparent;
+    cursor: pointer;
+}
+
+.selected-work img {
+    display: block;
+    width: 100%;
+    height: auto;
+    contain-intrinsic-size: 320px 240px;
+}
+
+.image-fallback {
+    display: grid;
+    min-height: 160px;
+    place-items: center;
+    background: #f7f7f7;
+    color: var(--portfolio-muted);
+    font-size: 12px;
+}
+
+.portfolio-empty {
+    color: var(--portfolio-muted);
+    font-size: 13px;
+}
+
+@media (hover: hover) {
+    .selected-work img {
+        transition: transform 280ms ease;
+    }
+
+    .selected-work:hover img {
+        transform: scale(1.04);
+    }
+}
+
+.project-viewer {
+    position: relative;
+    display: grid;
+    min-height: calc(100dvh - (2 * var(--portfolio-main-pad)));
+    place-items: center;
+    overflow: hidden;
+    outline: 0;
+}
+
+.project-viewer[hidden],
+.selected-view[hidden] {
+    display: none;
+}
+
+.project-slide {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    max-width: 100%;
+    max-height: 85dvh;
+    place-items: center;
+    animation: projectSlideIn 300ms ease;
+}
+
+@keyframes projectSlideIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.project-statement {
+    width: min(500px, calc(100vw - var(--portfolio-sidebar) - (2 * var(--portfolio-main-pad))));
+    max-height: 80dvh;
+    padding: 16px;
+    overflow-y: auto;
+    background: var(--portfolio-paper);
+}
+
+.project-category {
+    margin-bottom: 18px;
+    color: var(--portfolio-muted);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.project-statement h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.project-description {
+    margin-top: 22px;
+    color: var(--portfolio-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.project-metadata {
+    margin-top: 24px;
+    color: var(--portfolio-muted);
+    font-size: 11px;
+}
+
+.project-figure {
+    display: grid;
+    max-width: 100%;
+    max-height: 85dvh;
+    margin: 0;
+    place-items: center;
+}
+
+.project-image {
+    display: block;
+    max-width: 100%;
+    max-height: 85dvh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.project-close {
+    position: absolute;
+    z-index: 4;
+    top: 0;
+    left: 0;
+    border: 0;
+    padding: 8px 0;
+    background: var(--portfolio-paper);
+    color: var(--portfolio-secondary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.project-zone {
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    bottom: 0;
+    width: 22%;
+    border: 0;
+    background: transparent;
+}
+
+.project-zone-prev {
+    left: 0;
+    cursor: w-resize;
+}
+
+.project-zone-next {
+    right: 0;
+    cursor: e-resize;
+}
+
+.project-counter {
+    position: absolute;
+    z-index: 4;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    color: var(--portfolio-muted);
+    font-size: 11px;
+    pointer-events: none;
+}
+
+@media (max-width: 800px) {
+    .portfolio-main {
+        flex: 1 1 auto;
+    }
+
+    .project-statement {
+        width: min(500px, calc(100vw - (2 * var(--portfolio-main-pad))));
+    }
+
+    .project-viewer {
+        min-height: calc(100dvh - 84px - (2 * var(--portfolio-main-pad)));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .selected-work img {
+        transition: none !important;
+    }
+
+    .selected-work:hover img {
+        transform: none;
+    }
+
+    .project-slide {
+        animation: none;
+    }
+}

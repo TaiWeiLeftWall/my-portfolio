@@ -16,83 +16,25 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- 导航栏 -->
     <nav class="navbar"></nav>
 
-    <!-- 筛选栏 - 左侧边栏 -->
-    <section class="filter-bar">
-        <div class="filter-bar-inner">
-            <!-- 左侧边栏 -->
-            <aside class="filter-sidebar">
-                <!-- 显示模式 -->
-                <div class="filter-group">
-                    <div class="filter-group-title">显示</div>
-                    <div class="display-mode-group">
-                        <div class="display-mode-toggle">
-                            <button class="mode-btn active" data-mode="stacked" aria-pressed="true">时间线</button>
-                            <button class="mode-btn" data-mode="random" aria-pressed="false">随机</button>
-                        </div>
-                    </div>
-                </div>
+    <main class="portfolio-main">
+        <section class="selected-view" id="selected-view" aria-labelledby="selected-heading">
+            <h1 class="visually-hidden" id="selected-heading">沉礁摄影作品集</h1>
+            <div class="selected-grid" id="selected-grid"></div>
+        </section>
 
-                <div class="filter-divider"></div>
-
-                <!-- 分类筛选 -->
-                <div class="filter-group">
-                    <div class="filter-group-title">分类</div>
-                    <div class="category-list">
-                        <button class="category-btn active" data-category="all" aria-pressed="true">全部</button>
-                        <button class="category-btn" data-category="landscape" aria-pressed="false">风光</button>
-                        <button class="category-btn" data-category="portrait" aria-pressed="false">人像</button>
-                        <button class="category-btn" data-category="street" aria-pressed="false">街头</button>
-                        <button class="category-btn" data-category="performance" aria-pressed="false">演出</button>
-                    </div>
-                </div>
-
-                <div class="filter-divider"></div>
-
-                <!-- 时间筛选 -->
-                <div class="filter-group">
-                    <div class="filter-group-title">时间</div>
-                    <div class="date-filter-group">
-                        <select id="year-filter" class="date-filter" aria-label="年份">
-                            <option value="all">全部年份</option>
-                        </select>
-                        <select id="month-filter" class="date-filter" aria-label="月份">
-                            <option value="all">全部月份</option>
-                        </select>
-                    </div>
-                </div>
-            </aside>
-
-            <!-- 右侧主内容 -->
-            <div class="filter-main">
-                <!-- 作品画廊 -->
-                <main class="gallery">
-                    <h1 class="visually-hidden">沉礁摄影作品集</h1>
-                    <div class="gallery-grid" id="gallery-grid">
-                        <!-- 照片将通过 JavaScript 动态插入 -->
-                    </div>
-                </main>
-            </div>
-        </div>
-    </section>
-
-    <!-- 灯箱 -->
-    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="图片预览" aria-hidden="true">
-        <button type="button" class="lightbox-close" aria-label="关闭图片预览">&times;</button>
-        <div class="lightbox-img-wrapper">
-            <img class="lightbox-img" id="lightbox-img" src="" alt="">
-        </div>
-        <div class="lightbox-preview-strip" id="lightbox-preview-strip"></div>
-        <p class="lightbox-caption" id="lightbox-caption"></p>
-    </div>
-
-    <!-- 页脚 -->
-    <footer></footer>
+        <section class="project-viewer" id="project-viewer" tabindex="-1" aria-label="摄影项目浏览器" hidden>
+            <button type="button" class="project-close" data-project-close>返回作品</button>
+            <div class="project-slide" data-project-slide></div>
+            <button type="button" class="project-zone project-zone-prev" data-project-prev aria-label="上一张"></button>
+            <button type="button" class="project-zone project-zone-next" data-project-next aria-label="下一张"></button>
+            <p class="project-counter" data-slide-counter aria-live="polite"></p>
+        </section>
+    </main>
 
     <script src="common.js"></script>
     <script src="data.js?v=1"></script>
-    <script src="script.js?v=1"></script>
+    <script src="script.js?v=2"></script>
 </body>
 </html>

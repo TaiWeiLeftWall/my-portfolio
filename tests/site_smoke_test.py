@@ -47,23 +47,10 @@ def assert_public_pages(browser):
 def assert_interactions_are_accessible(browser):
     page = open_page(browser, "index")
     assert page.locator("nav a[aria-current='page']").count() == 1
-    assert page.locator(".mode-btn[aria-pressed]").count() == 2
-    assert page.locator(".mode-btn.active[aria-pressed='true']").count() == 1
-    assert page.locator("#year-filter[aria-label='年份']").count() == 1
-    assert page.locator("#month-filter[aria-label='月份']").count() == 1
-    assert page.locator("button.gallery-item, button.stacked-cover").count() > 0
-    assert page.locator(".gallery-item:not(button), .stacked-cover:not(button)").count() == 0
-    assert page.locator("#lightbox[role='dialog'][aria-modal='true']").count() == 1
-    assert page.locator("button.lightbox-close").count() == 1
-
-    first_tile = page.locator("button.gallery-item, button.stacked-cover").first
-    first_tile.focus()
-    page.keyboard.press("Enter")
-    assert page.locator("#lightbox.active").count() == 1
-    assert page.locator("#lightbox .lightbox-close:focus").count() == 1
-    page.keyboard.press("Escape")
-    assert page.locator("#lightbox.active").count() == 0
-    assert first_tile.evaluate("element => element === document.activeElement")
+    assert page.locator("button.selected-work").count() == 12
+    assert page.locator(".selected-work:not(button)").count() == 0
+    assert page.locator("button[data-project-prev]").count() == 1
+    assert page.locator("button[data-project-next]").count() == 1
     page.close()
 
     page = open_page(browser, "about")
@@ -112,27 +99,9 @@ def assert_font_loading_is_declared_in_markup(browser):
         page.close()
 
 
-def assert_random_mode_uses_displayed_images(browser):
-    page = open_page(browser, "index")
-    page.evaluate(
-        """
-        const groupCount = photoGroups.length;
-        let call = 0;
-        Math.random = () => call++ < groupCount ? 0 : 0.999999;
-        """
-    )
-    page.get_by_role("button", name="随机", exact=True).click()
-    displayed = page.locator(".gallery-item > img:first-child").evaluate_all(
-        "images => images.map(image => image.src)"
-    )
-    lightbox_sources = page.evaluate("allImages.map(image => image.src)")
-    assert sorted(displayed) == sorted(lightbox_sources)
-    page.close()
-
-
 def assert_media_loading_is_deliberate(browser):
     page = open_page(browser, "index")
-    first = page.locator(".gallery-item > img:first-child, .stacked-cover > img:first-child").first
+    first = page.locator(".selected-work > img:first-child").first
     assert first.get_attribute("loading") == "eager"
     assert first.get_attribute("fetchpriority") == "high"
     assert first.get_attribute("decoding") == "async"
@@ -178,16 +147,55 @@ def assert_minimal_shell_and_mobile_menu(browser):
     mobile.close()
 
 
+def assert_selected_works_contract(browser):
+    page = open_page(browser, "index", width=1280, height=720)
+    assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
+    assert page.locator("#selected-grid .selected-work").count() == 12
+    assert page.locator("#selected-grid .selected-work img").count() == 12
+    assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 70
+    first_sources = page.evaluate("photoGroups.map(group => group.images[0].src)")
+    rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
+        "images => images.map(image => image.src)"
+    )
+    assert rendered_sources == first_sources
+    page.close()
+
+
+def assert_photo_project_viewer(browser):
+    page = open_page(browser, "index", width=1280, height=720)
+    trigger = page.locator("button.selected-work").first
+    trigger.focus()
+    trigger.press("Enter")
+    viewer = page.locator("#project-viewer")
+    assert viewer.get_attribute("hidden") is None
+    assert viewer.locator(".project-statement").is_visible()
+    total = page.evaluate("1 + photoGroups[0].images.length")
+    assert viewer.locator("[data-slide-counter]").inner_text() == f"1 / {total}"
+    viewer.press("ArrowRight")
+    assert viewer.locator(".project-image").is_visible()
+    assert viewer.locator("[data-slide-counter]").inner_text() == f"2 / {total}"
+    viewer.locator("[data-project-prev]").click()
+    assert viewer.locator("[data-slide-counter]").inner_text() == f"1 / {total}"
+    viewer.locator("[data-project-prev]").click()
+    assert viewer.locator("[data-slide-counter]").inner_text() == f"{total} / {total}"
+    viewer.locator("[data-project-close]").click()
+    assert viewer.get_attribute("hidden") is not None
+    assert trigger.evaluate("element => element === document.activeElement")
+    page.close()
+
+
 def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
             assert_minimal_shell_and_mobile_menu(browser)
+            assert_selected_works_contract(browser)
+            assert_photo_project_viewer(browser)
             assert_public_pages(browser)
             assert_interactions_are_accessible(browser)
             assert_commercial_detail_is_accessible(browser)
             assert_missing_commercial_covers_have_clean_fallback(browser)
-            assert_random_mode_uses_displayed_images(browser)
             assert_media_loading_is_deliberate(browser)
             assert_reduced_motion_is_respected(browser)
             assert_font_loading_is_declared_in_markup(browser)

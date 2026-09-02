@@ -58,7 +58,10 @@ function updateActiveNavigation() {
     document.querySelectorAll('.portfolio-nav a[data-nav-link]').forEach(link => {
         const href = link.getAttribute('href');
         const commercialDetail = page === 'commercial-detail.html' && href === 'commercial.html';
-        const active = href === current || (!location.hash && href === page) || commercialDetail;
+        const selectedState = page === 'index.html'
+            && (location.hash === '#selected' || location.hash.startsWith('#work='))
+            && href === 'index.html';
+        const active = href === current || (!location.hash && href === page) || commercialDetail || selectedState;
         link.classList.toggle('active', active);
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');

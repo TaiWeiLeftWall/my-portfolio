@@ -27,3 +27,7 @@ Thumbs.db
 # Logs
 *.log
 latest
+
+# Python test caches
+__pycache__/
+*.py[cod]

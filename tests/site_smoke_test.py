@@ -112,7 +112,7 @@ def assert_media_loading_is_deliberate(browser):
     header_color = page.locator(".video-platform-header").first.evaluate(
         "element => getComputedStyle(element).color"
     )
-    assert header_color == "rgb(29, 29, 31)"
+    assert header_color == "rgb(17, 17, 17)"
     page.locator("button.video-placeholder").first.click()
     assert page.locator("#video-grid iframe").count() == 1
     page.close()
@@ -185,6 +185,23 @@ def assert_photo_project_viewer(browser):
     page.close()
 
 
+def assert_video_and_about_are_restrained(browser):
+    video_page = open_page(browser, "videos", width=1280, height=720)
+    assert video_page.locator("#video-grid .video-work").count() == 15
+    assert video_page.locator("#video-grid iframe").count() == 0
+    video_page.locator("button.video-placeholder").first.click()
+    assert video_page.locator("#video-grid iframe").count() == 1
+    video_page.close()
+
+    about = open_page(browser, "about", width=1280, height=720)
+    assert about.locator(".about-composition").count() == 1
+    assert about.locator(".about-image img").count() == 1
+    assert about.locator(".about-links a[target='_blank']").count() == 4
+    assert about.locator(".social-module, .social-icon").count() == 0
+    assert "合作：sleepylagoon2894" in about.locator("main").inner_text()
+    about.close()
+
+
 def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -192,6 +209,7 @@ def main():
             assert_minimal_shell_and_mobile_menu(browser)
             assert_selected_works_contract(browser)
             assert_photo_project_viewer(browser)
+            assert_video_and_about_are_restrained(browser)
             assert_public_pages(browser)
             assert_interactions_are_accessible(browser)
             assert_commercial_detail_is_accessible(browser)

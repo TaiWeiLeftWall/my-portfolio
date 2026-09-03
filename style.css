@@ -1504,7 +1504,7 @@ body {
     inset: 0 auto 0 0;
     width: var(--portfolio-sidebar);
     padding: 50px 40px;
-    overflow-y: auto;
+    overflow-y: hidden;
     background: var(--portfolio-paper);
     border-right: 1px solid #f9f9f9;
 }

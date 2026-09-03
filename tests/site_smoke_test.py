@@ -275,6 +275,10 @@ def assert_minimal_shell_and_mobile_menu(browser):
     assert desktop.locator(
         ".portfolio-nav a[data-nav-link][href='about.html']"
     ).inner_text() == "关于我"
+    assert desktop.locator(".portfolio-sidebar").evaluate(
+        "node => ({ position: getComputedStyle(node).position, "
+        "overflowY: getComputedStyle(node).overflowY })"
+    ) == {"position": "fixed", "overflowY": "hidden"}
     assert desktop.locator(".navbar, .sub-nav, footer").count() == 0
     assert desktop.locator("[data-menu-toggle]:visible").count() == 0
     desktop.close()
@@ -282,6 +286,10 @@ def assert_minimal_shell_and_mobile_menu(browser):
     mobile = open_page(browser, "index", width=390, height=844)
     toggle = mobile.locator("[data-menu-toggle]")
     assert toggle.is_visible()
+    assert mobile.locator(".portfolio-sidebar").evaluate(
+        "node => ({ position: getComputedStyle(node).position, "
+        "overflowY: getComputedStyle(node).overflowY })"
+    ) == {"position": "static", "overflowY": "visible"}
     assert toggle.get_attribute("aria-expanded") == "false"
     assert mobile.locator(".portfolio-nav").get_attribute("data-expanded") == "false"
     toggle.click()

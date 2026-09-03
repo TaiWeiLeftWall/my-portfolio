@@ -75,9 +75,16 @@
     outline: none;
 }
 
+body.project-open .commercial-viewer {
+    height: 100%;
+    min-height: 0;
+}
+
 .detail-back-link {
-    position: relative;
+    position: absolute;
     z-index: 4;
+    top: 0;
+    left: 0;
     display: inline-block;
     color: var(--ink-muted-80);
     font-size: 12px;
@@ -85,9 +92,15 @@
 }
 
 .commercial-slide {
+    position: relative;
     display: grid;
     min-height: calc(100vh - 150px);
     place-items: center;
+}
+
+body.project-open .commercial-slide {
+    height: 100%;
+    min-height: 0;
 }
 
 .commercial-slide.is-entering {
@@ -134,11 +147,13 @@
 }
 
 .commercial-media {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
-    height: calc(100vh - 175px);
+    height: 100%;
     max-width: min(100%, 1200px);
-    max-height: calc(100vh - 175px);
+    max-height: 100%;
     object-fit: contain;
 }
 
@@ -191,11 +206,6 @@
     .commercial-grid-inner {
         grid-template-columns: 1fr;
         gap: 36px;
-    }
-
-    .commercial-slide,
-    .commercial-viewer {
-        min-height: calc(100vh - 120px);
     }
 
     .commercial-statement {

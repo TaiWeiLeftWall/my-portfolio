@@ -7,6 +7,7 @@ const CATEGORY_LABELS = {
 let activeProject = null;
 let activeSlideIndex = 0;
 let projectReturnFocus = null;
+let projectReturnScrollY = 0;
 let resizeTimer = null;
 
 function projectIdFor(group, index) {
@@ -188,6 +189,9 @@ function openProject(projectId, slideIndex = 0, trigger = document.activeElement
     if (!project) return false;
     activeProject = project;
     projectReturnFocus = trigger && typeof trigger.focus === 'function' ? trigger : null;
+    projectReturnScrollY = window.scrollY;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.body.classList.add('project-open');
     document.getElementById('selected-view').hidden = true;
     const viewer = document.getElementById('project-viewer');
     viewer.hidden = false;
@@ -201,12 +205,15 @@ function closeProject() {
     if (!viewer || viewer.hidden) return;
     viewer.hidden = true;
     document.getElementById('selected-view').hidden = false;
+    document.body.classList.remove('project-open');
     history.replaceState(null, '', '#selected');
     updateActiveNavigation();
     const returnTarget = projectReturnFocus;
     activeProject = null;
     projectReturnFocus = null;
     returnTarget?.focus({ preventScroll: true });
+    window.scrollTo({ top: projectReturnScrollY, left: 0, behavior: 'instant' });
+    projectReturnScrollY = 0;
 }
 
 function parsePortfolioHash() {
@@ -220,6 +227,9 @@ function parsePortfolioHash() {
         activeProject = null;
         document.getElementById('project-viewer').hidden = true;
         document.getElementById('selected-view').hidden = false;
+        document.body.classList.remove('project-open');
+        window.scrollTo({ top: projectReturnScrollY, left: 0, behavior: 'instant' });
+        projectReturnScrollY = 0;
     }
     const category = params.get('category');
     renderOverview(Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category) ? category : 'all');

@@ -25,6 +25,7 @@ function initializeCommercialDetail() {
     }
 
     commercialDetailInitialized = true;
+    document.body.classList.add('project-open');
     bindCommercialControls();
     renderCommercialSequence(project);
 }

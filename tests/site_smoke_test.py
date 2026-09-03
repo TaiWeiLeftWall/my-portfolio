@@ -9,6 +9,9 @@ from playwright.sync_api import sync_playwright
 
 
 SITE_ROOT = Path(__file__).resolve().parents[1]
+PORTRAIT_SVG = """<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1200">
+<rect width="800" height="1200" fill="#ddd"/>
+</svg>"""
 
 
 def open_page(
@@ -22,6 +25,21 @@ def open_page(
     page = browser.new_page(viewport={"width": width, "height": height})
     page.goto((SITE_ROOT / f"{name}.html").as_uri() + query, wait_until="domcontentloaded")
     page.wait_for_timeout(wait_ms)
+    return page
+
+
+def open_page_with_portrait_images(browser, name, width, height, query=""):
+    page = browser.new_page(viewport={"width": width, "height": height})
+
+    def route_media(route):
+        if route.request.resource_type == "image":
+            route.fulfill(status=200, content_type="image/svg+xml", body=PORTRAIT_SVG)
+        else:
+            route.continue_()
+
+    page.route("**/*", route_media)
+    page.goto((SITE_ROOT / f"{name}.html").as_uri() + query, wait_until="domcontentloaded")
+    page.wait_for_timeout(100)
     return page
 
 
@@ -338,6 +356,63 @@ def assert_photo_project_viewer(browser):
     page.close()
 
 
+def assert_box_within_viewport(page, selector, width, height):
+    box = page.locator(selector).bounding_box()
+    assert box is not None
+    assert box["x"] >= 0 and box["y"] >= 0
+    assert box["x"] + box["width"] <= width + 1
+    assert box["y"] + box["height"] <= height + 1
+
+
+def assert_single_media_fits_viewport(browser):
+    for width, height in ((1280, 720), (390, 844)):
+        page = open_page_with_portrait_images(
+            browser,
+            "index",
+            width,
+            height,
+            query="",
+        )
+        trigger = page.locator(".selected-work").first
+        trigger.focus()
+        page.evaluate("window.scrollTo(0, 300)")
+        previous_scroll = page.evaluate("window.scrollY")
+        assert previous_scroll > 0
+        trigger.evaluate("node => node.click()")
+        viewer = page.locator("#project-viewer")
+        viewer.press("ArrowRight")
+        assert page.evaluate("window.scrollY") == 0
+        assert page.locator("body").evaluate(
+            "node => getComputedStyle(node).overflowY"
+        ) == "hidden"
+        assert_box_within_viewport(page, ".project-image", width, height)
+        page.mouse.wheel(0, 1000)
+        page.wait_for_timeout(50)
+        assert page.evaluate("window.scrollY") == 0
+        viewer.locator("[data-project-close]").click()
+        assert abs(page.evaluate("window.scrollY") - previous_scroll) <= 1
+        page.close()
+
+        commercial = open_page_with_portrait_images(
+            browser,
+            "commercial-detail",
+            width,
+            height,
+            query="?project=brand-a",
+        )
+        commercial.locator(".commercial-viewer").press("ArrowRight")
+        assert commercial.locator("body").evaluate(
+            "node => getComputedStyle(node).overflowY"
+        ) == "hidden"
+        assert_box_within_viewport(
+            commercial, "img.commercial-media", width, height
+        )
+        commercial.mouse.wheel(0, 1000)
+        commercial.wait_for_timeout(50)
+        assert commercial.evaluate("window.scrollY") == 0
+        commercial.close()
+
+
 def assert_video_and_about_are_restrained(browser):
     video_page = open_page(browser, "videos", width=1280, height=720)
     assert video_page.locator("#video-grid .video-work").count() == 15
@@ -365,6 +440,7 @@ def main():
             assert_minimal_shell_and_mobile_menu(browser)
             assert_selected_works_contract(browser)
             assert_photo_project_viewer(browser)
+            assert_single_media_fits_viewport(browser)
             assert_video_and_about_are_restrained(browser)
             assert_minimal_commercial_overview(browser)
             assert_public_pages(browser)

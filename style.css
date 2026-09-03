@@ -1376,6 +1376,10 @@ footer p {
     animation: none;
 }
 
+.video-work::before {
+    content: none;
+}
+
 .video-work .video-wrapper {
     border-radius: 0;
     background: #f7f7f7;
@@ -1848,6 +1852,7 @@ body > .commercial-page {
 
 @media (prefers-reduced-motion: reduce) {
     .selected-work img {
+        transition-duration: 0s !important;
         transition: none !important;
     }
 
@@ -1856,6 +1861,7 @@ body > .commercial-page {
     }
 
     .project-slide {
-        animation: none;
+        animation: none !important;
+        animation-duration: 0s !important;
     }
 }

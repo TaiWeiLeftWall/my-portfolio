@@ -205,10 +205,12 @@
 
 @media (prefers-reduced-motion: reduce) {
     .project-card-cover img {
-        transition: none;
+        transition: none !important;
+        transition-duration: 0s !important;
     }
 
     .commercial-slide.is-entering {
-        animation: none;
+        animation: none !important;
+        animation-duration: 0s !important;
     }
 }

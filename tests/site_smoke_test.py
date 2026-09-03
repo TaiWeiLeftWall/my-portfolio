@@ -141,7 +141,115 @@ def assert_reduced_motion_is_respected(browser):
     page.emulate_media(reduced_motion="reduce")
     page.goto((SITE_ROOT / "index.html").as_uri(), wait_until="domcontentloaded")
     assert page.locator("html").evaluate("element => getComputedStyle(element).scrollBehavior") == "auto"
+    assert page.locator(".selected-work img").first.evaluate(
+        "element => getComputedStyle(element).transitionDuration"
+    ) == "0s"
+    page.locator(".selected-work").first.click()
+    assert page.locator(".project-slide").evaluate(
+        "element => getComputedStyle(element).animationDuration"
+    ) == "0s"
     page.close()
+
+    page = browser.new_page(viewport={"width": 1440, "height": 1000})
+    page.emulate_media(reduced_motion="reduce")
+    page.goto(
+        (SITE_ROOT / "commercial-detail.html").as_uri() + "?project=brand-a",
+        wait_until="domcontentloaded",
+    )
+    assert page.locator(".commercial-slide").evaluate(
+        "element => getComputedStyle(element).animationDuration"
+    ) == "0s"
+    page.close()
+
+
+def assert_responsive_breakpoints(browser):
+    expectations = [
+        (1101, "260px", False),
+        (1100, "220px", False),
+        (801, "220px", False),
+        (800, "800px", True),
+    ]
+    for width, sidebar_width, mobile in expectations:
+        page = open_page(browser, "index", width=width, height=844, wait_ms=100)
+        actual = page.locator(".portfolio-sidebar").evaluate(
+            "node => getComputedStyle(node).width"
+        )
+        assert actual == sidebar_width
+        assert page.locator("[data-menu-toggle]").is_visible() is mobile
+        assert page.evaluate(
+            "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+        )
+        page.close()
+
+
+def assert_content_inventory_and_routes(browser):
+    pages = {}
+    for name in ("index", "videos", "commercial", "commercial-detail", "about"):
+        errors = []
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
+        page.on("console", lambda message, errors=errors: errors.append(message.text)
+                if message.type == "error" else None)
+        page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
+        query = "?project=brand-a" if name == "commercial-detail" else ""
+        page.goto((SITE_ROOT / f"{name}.html").as_uri() + query, wait_until="domcontentloaded")
+        page.wait_for_timeout(250)
+        assert not errors, f"{name} emitted browser errors: {errors}"
+        pages[name] = page
+
+    assert pages["index"].evaluate("photoGroups.length") == 12
+    assert pages["index"].evaluate(
+        "photoGroups.reduce((n, group) => n + group.images.length, 0)"
+    ) == 70
+    assert pages["videos"].evaluate(
+        "typeof videos !== 'undefined' ? videos.length : 0"
+    ) == 15
+    assert pages["commercial"].evaluate("commercialProjects.length") == 3
+    assert pages["commercial"].evaluate(
+        "commercialProjects.reduce((n, project) => n + project.items.length, 0)"
+    ) == 10
+    for page in pages.values():
+        page.close()
+
+
+def assert_gallery_columns_and_focus(browser):
+    mobile = open_page(browser, "index", width=390, height=844, wait_ms=100)
+    assert mobile.locator(".selected-column").count() == 2
+    assert mobile.locator("#selected-grid").evaluate(
+        "node => getComputedStyle(node).gap"
+    ) == "10px"
+    toggle = mobile.locator("[data-menu-toggle]")
+    toggle.focus()
+    assert toggle.evaluate("node => getComputedStyle(node).outlineStyle") != "none"
+    mobile.close()
+
+    desktop = open_page(browser, "index", width=1280, height=720, wait_ms=100)
+    gallery_width = desktop.locator("#selected-grid").evaluate("node => node.clientWidth")
+    expected_columns = 4 if gallery_width >= 1000 else 3 if gallery_width >= 700 else 2
+    assert desktop.locator(".selected-column").count() == expected_columns
+
+    sidebar_link = desktop.locator(".portfolio-nav a").first
+    sidebar_link.focus()
+    assert sidebar_link.evaluate("node => getComputedStyle(node).outlineStyle") != "none"
+    selected = desktop.locator(".selected-work").first
+    selected.focus()
+    assert selected.evaluate("node => getComputedStyle(node).outlineStyle") != "none"
+    selected.press("Enter")
+    control = desktop.locator("[data-project-close]")
+    control.focus()
+    assert control.evaluate("node => getComputedStyle(node).outlineStyle") != "none"
+    desktop.close()
+
+    commercial = open_page(browser, "commercial", wait_ms=250)
+    card = commercial.locator(".project-card").first
+    card.focus()
+    assert card.evaluate("node => getComputedStyle(node).outlineStyle") != "none"
+    commercial.close()
+
+    about = open_page(browser, "about", wait_ms=100)
+    social_link = about.locator(".about-links a").first
+    social_link.focus()
+    assert social_link.evaluate("node => getComputedStyle(node).outlineStyle") != "none"
+    about.close()
 
 
 def assert_minimal_shell_and_mobile_menu(browser):
@@ -207,6 +315,9 @@ def assert_video_and_about_are_restrained(browser):
     video_page = open_page(browser, "videos", width=1280, height=720)
     assert video_page.locator("#video-grid .video-work").count() == 15
     assert video_page.locator("#video-grid iframe").count() == 0
+    assert video_page.locator(".video-work").first.evaluate(
+        "node => getComputedStyle(node, '::before').content"
+    ) == "none"
     video_page.locator("button.video-placeholder").first.click()
     assert video_page.locator("#video-grid iframe").count() == 1
     video_page.close()
@@ -237,6 +348,9 @@ def main():
             assert_media_loading_is_deliberate(browser)
             assert_reduced_motion_is_respected(browser)
             assert_font_loading_is_declared_in_markup(browser)
+            assert_responsive_breakpoints(browser)
+            assert_content_inventory_and_routes(browser)
+            assert_gallery_columns_and_focus(browser)
         finally:
             browser.close()
     print("site smoke checks passed")

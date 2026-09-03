@@ -73,18 +73,28 @@ def assert_commercial_detail_is_accessible(browser):
     assert page.get_by_role("link", name="返回商业项目").count() == 1
     assert page.get_by_role("link", name="获取报价", exact=True).count() == 1
     assert page.get_by_role("heading", name="2024春季广告", exact=True).count() == 1
-    assert page.locator("button.media-image").count() == 3
-    assert page.locator(".media-image:not(button)").count() == 0
-    assert page.locator("#lightbox[role='dialog'][aria-modal='true']").count() == 1
-    assert page.locator("button.lightbox-close").count() == 1
+    assert page.locator("button[data-commercial-prev]").count() == 1
+    assert page.locator("button[data-commercial-next]").count() == 1
+    assert page.locator("#lightbox").count() == 0
+    assert page.locator(".commercial-viewer").get_attribute("tabindex") == "-1"
+    page.close()
 
-    first_image = page.locator("button.media-image").first
-    first_image.focus()
-    page.keyboard.press("Enter")
-    assert page.locator("#lightbox.active").count() == 1
-    assert page.locator("#lightbox .lightbox-close:focus").count() == 1
-    page.keyboard.press("Escape")
-    assert first_image.evaluate("element => element === document.activeElement")
+
+def assert_commercial_detail_sequence(browser):
+    page = open_page(browser, "commercial-detail", wait_ms=250, query="?project=brand-a")
+    viewer = page.locator(".commercial-viewer")
+    assert viewer.count() == 1
+    assert viewer.locator(".commercial-statement").is_visible()
+    assert viewer.get_by_role("heading", name="2024春季广告", exact=True).count() == 1
+    assert viewer.locator("[data-commercial-counter]").inner_text() == "1 / 4"
+    assert page.get_by_role("link", name="获取报价", exact=True).count() == 1
+    viewer.focus()
+    viewer.press("ArrowRight")
+    assert viewer.locator("img.commercial-media").is_visible()
+    assert viewer.locator("[data-commercial-counter]").inner_text() == "2 / 4"
+    viewer.locator("[data-commercial-prev]").click()
+    viewer.locator("[data-commercial-prev]").click()
+    assert viewer.locator("[data-commercial-counter]").inner_text() == "4 / 4"
     page.close()
 
 
@@ -222,6 +232,7 @@ def main():
             assert_public_pages(browser)
             assert_interactions_are_accessible(browser)
             assert_commercial_detail_is_accessible(browser)
+            assert_commercial_detail_sequence(browser)
             assert_missing_commercial_covers_have_clean_fallback(browser)
             assert_media_loading_is_deliberate(browser)
             assert_reduced_motion_is_respected(browser)

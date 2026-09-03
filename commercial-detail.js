@@ -1,245 +1,145 @@
-// ==========================================
-// 商业项目详情页逻辑
-// ==========================================
+// Statement-first commercial project viewer.
 
-const transparentPixel = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
-let allImages = [];
-let currentImageIndex = 0;
-let currentGroupImages = [];
-let lightboxReturnFocus = null;
+let activeCommercialProject = null;
+let commercialSlideIndex = 0;
+let commercialDetailInitialized = false;
 
-let _domReady = false, _dataReady = false, _initialized = false;
-function _init() {
-    if (!_domReady || !_dataReady || _initialized) return;
-    _initialized = true;
-    const params = new URLSearchParams(location.search);
-    const projectId = params.get('project');
+document.addEventListener('DOMContentLoaded', initializeCommercialDetail);
+document.addEventListener('data-ready', initializeCommercialDetail);
 
+function initializeCommercialDetail() {
+    if (commercialDetailInitialized || typeof getProjectById !== 'function') return;
+
+    const projectId = new URLSearchParams(location.search).get('project');
     if (!projectId) {
         location.href = 'commercial.html';
         return;
     }
 
     const project = getProjectById(projectId);
-
     if (!project) {
-        document.getElementById('project-detail').innerHTML = '<p class="error-message">项目不存在</p>';
+        const detail = document.getElementById('project-detail');
+        if (detail) detail.innerHTML = '<p class="error-message">项目不存在</p>';
+        commercialDetailInitialized = true;
         return;
     }
 
-    // 设置副导航标题
-    const subNavTitle = document.querySelector('.sub-nav-title');
-    if (subNavTitle) {
-        subNavTitle.textContent = '商业项目';
+    commercialDetailInitialized = true;
+    bindCommercialControls();
+    renderCommercialSequence(project);
+}
+
+function commercialSlideCount(project) {
+    return 1 + project.items.length;
+}
+
+function renderCommercialSequence(project) {
+    activeCommercialProject = project;
+    setCommercialSlide(0);
+    document.getElementById('commercial-viewer').focus({ preventScroll: true });
+}
+
+function setCommercialSlide(index) {
+    if (!activeCommercialProject) return;
+
+    const total = commercialSlideCount(activeCommercialProject);
+    commercialSlideIndex = (index % total + total) % total;
+    const slide = document.querySelector('[data-commercial-slide]');
+    const content = commercialSlideIndex === 0
+        ? createCommercialStatement(activeCommercialProject)
+        : createCommercialMedia(
+            activeCommercialProject.items[commercialSlideIndex - 1],
+            activeCommercialProject
+        );
+
+    slide.replaceChildren(content);
+    slide.classList.remove('is-entering');
+    requestAnimationFrame(() => slide.classList.add('is-entering'));
+    document.querySelector('[data-commercial-counter]').textContent =
+        `${commercialSlideIndex + 1} / ${total}`;
+}
+
+function createCommercialStatement(project) {
+    const statement = document.createElement('article');
+    statement.className = 'commercial-statement';
+
+    const client = document.createElement('p');
+    client.className = 'commercial-client';
+    client.textContent = project.client;
+
+    const title = document.createElement('h1');
+    title.textContent = project.title;
+
+    const description = document.createElement('p');
+    description.className = 'commercial-description';
+    description.textContent = project.description;
+
+    const meta = document.createElement('p');
+    meta.className = 'commercial-meta';
+    meta.textContent = `${project.year} · ${project.category}`;
+
+    const contact = document.createElement('a');
+    contact.className = 'commercial-contact';
+    contact.href = 'about.html';
+    contact.textContent = '获取报价';
+
+    statement.append(client, title, description, meta, contact);
+    return statement;
+}
+
+function createCommercialMedia(item, project) {
+    if (item.type === 'video') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'commercial-video';
+        const placeholder = document.createElement('button');
+        placeholder.type = 'button';
+        placeholder.className = 'commercial-video-placeholder';
+        placeholder.setAttribute('aria-label', `播放视频：${item.title || project.title}`);
+        placeholder.innerHTML = '<span aria-hidden="true">▶</span>';
+        placeholder.addEventListener('click', () => loadCommercialVideo(placeholder, item, project));
+        wrapper.appendChild(placeholder);
+        return wrapper;
     }
 
-    // 渲染项目信息
-    document.getElementById('detail-client').textContent = project.client;
-    document.getElementById('detail-title').textContent = project.title;
-    document.getElementById('detail-description').textContent = project.description;
-
-    // 渲染媒体
-    const mediaGrid = document.getElementById('detail-media');
-    const lightboxImages = [];
-
-    project.items.forEach((item, index) => {
-        if (item.type === 'image') {
-            const mediaButton = document.createElement('button');
-            mediaButton.type = 'button';
-            mediaButton.className = 'media-item media-image';
-            mediaButton.setAttribute('aria-label', `查看项目图片 ${index + 1}`);
-            mediaButton.innerHTML = `<img src="${transparentPixel}" data-src="${item.src}" alt="${item.title || project.title || '项目图片'}" loading="lazy" decoding="async">`;
-            mediaButton.addEventListener('click', () => {
-                openLightbox(item.src, item.title || '', '', lightboxImages);
-            });
-            mediaGrid.appendChild(mediaButton);
-
-            const img = mediaButton.querySelector('img');
-            img.addEventListener('load', () => img.classList.add('loaded'));
-            img.addEventListener('error', () => img.classList.add('loaded'));
-            observeLazyImage(img);
-
-            lightboxImages.push({
-                src: item.src,
-                title: item.title || '',
-                description: ''
-            });
-        } else if (item.type === 'video') {
-            const div = document.createElement('div');
-            div.className = 'media-item media-video';
-            div.innerHTML = `
-                <button type="button" class="video-placeholder" data-src="${item.src}" data-poster="${item.poster || ''}" aria-label="播放视频：${item.title || project.title || '项目视频'}">
-                    <span class="play-icon" aria-hidden="true">▶</span>
-                </button>
-            `;
-
-            const placeholder = div.querySelector('.video-placeholder');
-            placeholder.addEventListener('click', () => {
-                loadVideoIframe(placeholder, item);
-            });
-
-            mediaGrid.appendChild(div);
-        }
-    });
-
-    allImages = lightboxImages;
-
-    // 设置灯箱
-    setupLightbox();
+    const image = document.createElement('img');
+    image.className = 'commercial-media';
+    image.src = item.src;
+    image.alt = item.title || project.title || '项目图片';
+    image.loading = 'eager';
+    image.decoding = 'async';
+    return image;
 }
 
-function setupLightbox() {
-    const lightbox = document.getElementById('lightbox');
-    const closeBtn = document.querySelector('.lightbox-close');
-
-    if (!lightbox || !closeBtn || lightbox.dataset.ready === 'true') return;
-    lightbox.dataset.ready = 'true';
-    closeBtn.addEventListener('click', closeLightbox);
-    lightbox.addEventListener('click', (event) => {
-        if (event.target === lightbox) closeLightbox();
-    });
-    document.addEventListener('keydown', (event) => {
-        if (!lightbox.classList.contains('active')) return;
-        if (event.key === 'Escape') {
-            closeLightbox();
-            return;
-        }
-        if (event.key === 'ArrowLeft') navigateLightbox(-1);
-        if (event.key === 'ArrowRight') navigateLightbox(1);
-        if (event.key === 'Tab') {
-            const focusable = Array.from(lightbox.querySelectorAll('button:not([disabled])'))
-                .filter((element) => element.offsetParent !== null);
-            if (!focusable.length) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (event.shiftKey && document.activeElement === first) {
-                event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-                event.preventDefault();
-                first.focus();
-            }
-        }
-    });
-
-    let touchStartX = 0;
-    lightbox.addEventListener('touchstart', (event) => {
-        touchStartX = event.changedTouches[0].screenX;
-    }, { passive: true });
-    lightbox.addEventListener('touchend', (event) => {
-        const difference = touchStartX - event.changedTouches[0].screenX;
-        if (Math.abs(difference) > 50) navigateLightbox(difference > 0 ? 1 : -1);
-    }, { passive: true });
-
-    const previous = document.createElement('button');
-    previous.type = 'button';
-    previous.className = 'lightbox-nav lightbox-prev';
-    previous.setAttribute('aria-label', '上一张图片');
-    previous.innerHTML = '&#10094;';
-    previous.addEventListener('click', (event) => {
-        event.stopPropagation();
-        navigateLightbox(-1);
-    });
-
-    const next = document.createElement('button');
-    next.type = 'button';
-    next.className = 'lightbox-nav lightbox-next';
-    next.setAttribute('aria-label', '下一张图片');
-    next.innerHTML = '&#10095;';
-    next.addEventListener('click', (event) => {
-        event.stopPropagation();
-        navigateLightbox(1);
-    });
-
-    lightbox.appendChild(previous);
-    lightbox.appendChild(next);
-}
-
-function openLightbox(src, title, description, groupImages = []) {
-    const lightbox = document.getElementById('lightbox');
-    const image = document.getElementById('lightbox-img');
-    const caption = document.getElementById('lightbox-caption');
-    const previews = document.getElementById('lightbox-preview-strip');
-    if (!lightbox || !image || !caption || !previews) return;
-
-    if (!lightbox.classList.contains('active')) {
-        lightboxReturnFocus = document.activeElement;
-    }
-    currentImageIndex = allImages.findIndex((item) => item.src === src);
-    image.src = src;
-    image.alt = title || description || '项目图片大图';
-    caption.textContent = title || description || '';
-    currentGroupImages = groupImages;
-    previews.innerHTML = '';
-    if (currentGroupImages.length > 1) {
-        previews.style.display = 'flex';
-        currentGroupImages.forEach((item, previewIndex) => {
-            const preview = document.createElement('button');
-            preview.type = 'button';
-            preview.className = 'lightbox-preview-item' + (item.src === src ? ' active' : '');
-            preview.setAttribute('aria-label', `查看缩略图 ${previewIndex + 1}`);
-            if (item.src === src) preview.setAttribute('aria-current', 'true');
-            preview.innerHTML = `<img src="${item.src}" alt="" loading="lazy" decoding="async">`;
-            preview.addEventListener('click', (event) => {
-                event.stopPropagation();
-                openLightbox(item.src, item.title || '', item.description || '', currentGroupImages);
-            });
-            previews.appendChild(preview);
-        });
-    } else {
-        previews.style.display = 'none';
-    }
-
-    lightbox.classList.add('active');
-    lightbox.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-    document.querySelector('.lightbox-close').focus();
-}
-
-function closeLightbox() {
-    const lightbox = document.getElementById('lightbox');
-    if (!lightbox || !lightbox.classList.contains('active')) return;
-    lightbox.classList.remove('active');
-    lightbox.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    currentGroupImages = [];
-    if (lightboxReturnFocus && typeof lightboxReturnFocus.focus === 'function') {
-        lightboxReturnFocus.focus();
-    }
-    lightboxReturnFocus = null;
-}
-
-function navigateLightbox(direction) {
-    if (!allImages.length) return;
-    currentImageIndex = (currentImageIndex + direction + allImages.length) % allImages.length;
-    const image = allImages[currentImageIndex];
-    openLightbox(
-        image.src,
-        image.title || '',
-        image.description || '',
-        currentGroupImages
-    );
-}
-document.addEventListener('DOMContentLoaded', function() {
-    _domReady = true;
-    _dataReady = typeof commercialProjects !== 'undefined' || _dataReady;
-    _init();
-});
-document.addEventListener('data-ready', function() { _dataReady = true; _init(); });
-
-
-
-
-// 加载视频 iframe
-function loadVideoIframe(placeholder, video) {
-    if (placeholder.dataset.loaded) return;
-    placeholder.dataset.loaded = 'true';
-
-    const wrapper = placeholder.parentElement;
+function loadCommercialVideo(placeholder, item, project) {
     const iframe = document.createElement('iframe');
-    iframe.src = video.src + (video.src.includes('?') ? '&autoplay=1' : '?autoplay=1');
-    iframe.title = video.title || '视频';
-    iframe.setAttribute('allow', 'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; autoplay');
+    iframe.className = 'commercial-media commercial-media-video';
+    iframe.src = item.src + (item.src.includes('?') ? '&autoplay=1' : '?autoplay=1');
+    iframe.title = item.title || project.title || '项目视频';
+    iframe.setAttribute(
+        'allow',
+        'accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; autoplay'
+    );
     iframe.allowFullscreen = true;
-    wrapper.replaceChild(iframe, placeholder);
+    placeholder.parentElement.replaceChildren(iframe);
+}
+
+function bindCommercialControls() {
+    const viewer = document.getElementById('commercial-viewer');
+    const previous = viewer.querySelector('[data-commercial-prev]');
+    const next = viewer.querySelector('[data-commercial-next]');
+
+    previous.addEventListener('click', () => setCommercialSlide(commercialSlideIndex - 1));
+    next.addEventListener('click', () => setCommercialSlide(commercialSlideIndex + 1));
+    viewer.addEventListener('keydown', event => {
+        const target = event.target;
+        if (target !== viewer || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            setCommercialSlide(commercialSlideIndex - 1);
+        }
+        if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            setCommercialSlide(commercialSlideIndex + 1);
+        }
+    });
 }

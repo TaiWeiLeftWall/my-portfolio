@@ -40,7 +40,7 @@ const PORTFOLIO_LINKS = [
     ['index.html#category=landscape', '风光'],
     ['videos.html', '视频'],
     ['commercial.html', '商业项目'],
-    ['about.html', 'About'],
+    ['about.html', '关于我'],
 ];
 
 function setMenuExpanded(expanded) {
@@ -84,7 +84,6 @@ function renderPortfolioShell() {
             <div class="portfolio-nav-links">
                 ${PORTFOLIO_LINKS.map(([href, label]) => `<a href="${href}" data-nav-link>${label}</a>`).join('')}
             </div>
-            <div class="portfolio-contact"><a href="about.html">合作：sleepylagoon2894</a></div>
         </nav>`;
 
     placeholder.replaceWith(shell);

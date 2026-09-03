@@ -270,7 +270,11 @@ def assert_gallery_columns_and_focus(browser):
 def assert_minimal_shell_and_mobile_menu(browser):
     desktop = open_page(browser, "index", width=1280, height=720)
     assert desktop.locator(".portfolio-sidebar").count() == 1
-    assert desktop.locator(".portfolio-nav a").count() == 8
+    assert desktop.locator(".portfolio-nav a").count() == 7
+    assert desktop.locator(".portfolio-contact").count() == 0
+    assert desktop.locator(
+        ".portfolio-nav a[data-nav-link][href='about.html']"
+    ).inner_text() == "关于我"
     assert desktop.locator(".navbar, .sub-nav, footer").count() == 0
     assert desktop.locator("[data-menu-toggle]:visible").count() == 0
     desktop.close()

@@ -141,6 +141,9 @@ def assert_reduced_motion_is_respected(browser):
     page.emulate_media(reduced_motion="reduce")
     page.goto((SITE_ROOT / "index.html").as_uri(), wait_until="domcontentloaded")
     assert page.locator("html").evaluate("element => getComputedStyle(element).scrollBehavior") == "auto"
+    assert page.locator("body").evaluate(
+        "element => getComputedStyle(element).animationDuration"
+    ) == "0s"
     assert page.locator(".selected-work img").first.evaluate(
         "element => getComputedStyle(element).transitionDuration"
     ) == "0s"
@@ -160,6 +163,18 @@ def assert_reduced_motion_is_respected(browser):
         "element => getComputedStyle(element).animationDuration"
     ) == "0s"
     page.close()
+
+
+def assert_page_entry_fade_is_short(browser):
+    for name in ("index", "videos", "commercial", "commercial-detail", "about"):
+        query = "?project=brand-a" if name == "commercial-detail" else ""
+        page = open_page(browser, name, wait_ms=50, query=query)
+        animation = page.locator("body").evaluate(
+            "node => ({ name: getComputedStyle(node).animationName, "
+            "duration: getComputedStyle(node).animationDuration })"
+        )
+        assert animation == {"name": "pageFadeIn", "duration": "0.2s"}
+        page.close()
 
 
 def assert_responsive_breakpoints(browser):
@@ -346,6 +361,7 @@ def main():
             assert_commercial_detail_sequence(browser)
             assert_missing_commercial_covers_have_clean_fallback(browser)
             assert_media_loading_is_deliberate(browser)
+            assert_page_entry_fade_is_short(browser)
             assert_reduced_motion_is_respected(browser)
             assert_font_loading_is_declared_in_markup(browser)
             assert_responsive_breakpoints(browser)

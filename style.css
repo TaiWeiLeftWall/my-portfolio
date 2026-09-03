@@ -1490,6 +1490,12 @@ body {
     min-height: 100dvh;
     background: var(--portfolio-paper);
     color: var(--portfolio-ink);
+    animation: pageFadeIn 200ms ease-out both;
+}
+
+@keyframes pageFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .portfolio-sidebar {
@@ -1851,6 +1857,11 @@ body > .commercial-page {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    body {
+        animation: none !important;
+        animation-duration: 0s !important;
+    }
+
     .selected-work img {
         transition-duration: 0s !important;
         transition: none !important;

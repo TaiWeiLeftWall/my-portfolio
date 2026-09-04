@@ -1493,6 +1493,15 @@ body {
     animation: pageFadeIn 200ms ease-out both;
 }
 
+.image-load-fade {
+    opacity: 0;
+    transition: opacity 300ms ease;
+}
+
+.image-load-fade.is-loaded {
+    opacity: 1;
+}
+
 @keyframes pageFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -1695,7 +1704,7 @@ body > .commercial-page {
 
 @media (hover: hover) {
     .selected-work img {
-        transition: transform 280ms ease;
+        transition: opacity 300ms ease, transform 280ms ease;
     }
 
     .selected-work:hover img {
@@ -1878,6 +1887,11 @@ body.project-open .project-viewer {
     body {
         animation: none !important;
         animation-duration: 0s !important;
+    }
+
+    .image-load-fade {
+        opacity: 1 !important;
+        transition: none !important;
     }
 
     .selected-work img {

@@ -108,6 +108,7 @@ function createCommercialMedia(item, project) {
     image.alt = item.title || project.title || '项目图片';
     image.loading = 'eager';
     image.decoding = 'async';
+    enableImageLoadFade(image);
     return image;
 }
 

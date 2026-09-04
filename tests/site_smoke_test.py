@@ -154,6 +154,59 @@ def assert_media_loading_is_deliberate(browser):
     page.close()
 
 
+def assert_images_fade_after_loading(browser):
+    index = open_page_with_portrait_images(browser, "index", 1280, 720)
+    overview_image = index.locator(".selected-work img").first
+    assert overview_image.evaluate(
+        "node => node.classList.contains('image-load-fade')"
+    )
+    assert overview_image.evaluate(
+        "node => node.classList.contains('is-loaded')"
+    )
+
+    overview_image.evaluate("node => node.classList.remove('is-loaded')")
+    index.wait_for_timeout(350)
+    assert overview_image.evaluate("node => getComputedStyle(node).opacity") == "0"
+    overview_image.dispatch_event("load")
+    index.wait_for_timeout(350)
+    assert overview_image.evaluate("node => getComputedStyle(node).opacity") == "1"
+    assert overview_image.evaluate(
+        "node => getComputedStyle(node).transitionDuration.split(',')[0].trim()"
+    ) == "0.3s"
+
+    index.locator(".selected-work").first.click()
+    index.locator("#project-viewer").press("ArrowRight")
+    assert index.locator(".project-image").evaluate(
+        "node => node.classList.contains('image-load-fade')"
+    )
+    index.close()
+
+    commercial = open_page_with_portrait_images(browser, "commercial", 1280, 720)
+    assert commercial.locator(".project-card-cover img").first.evaluate(
+        "node => node.classList.contains('image-load-fade')"
+    )
+    commercial.close()
+
+    detail = open_page_with_portrait_images(
+        browser,
+        "commercial-detail",
+        1280,
+        720,
+        query="?project=brand-a",
+    )
+    detail.locator(".commercial-viewer").press("ArrowRight")
+    assert detail.locator("img.commercial-media").evaluate(
+        "node => node.classList.contains('image-load-fade')"
+    )
+    detail.close()
+
+    about = open_page_with_portrait_images(browser, "about", 1280, 720)
+    assert about.locator(".about-image img").evaluate(
+        "node => node.classList.contains('image-load-fade')"
+    )
+    about.close()
+
+
 def assert_reduced_motion_is_respected(browser):
     page = browser.new_page(viewport={"width": 1440, "height": 1000})
     page.emulate_media(reduced_motion="reduce")
@@ -165,6 +218,9 @@ def assert_reduced_motion_is_respected(browser):
     assert page.locator(".selected-work img").first.evaluate(
         "element => getComputedStyle(element).transitionDuration"
     ) == "0s"
+    assert page.locator(".selected-work img").first.evaluate(
+        "element => getComputedStyle(element).opacity"
+    ) == "1"
     page.locator(".selected-work").first.click()
     assert page.locator(".project-slide").evaluate(
         "element => getComputedStyle(element).animationDuration"
@@ -484,6 +540,7 @@ def main():
             assert_commercial_detail_sequence(browser)
             assert_missing_commercial_covers_have_clean_fallback(browser)
             assert_media_loading_is_deliberate(browser)
+            assert_images_fade_after_loading(browser)
             assert_page_entry_fade_is_short(browser)
             assert_reduced_motion_is_respected(browser)
             assert_font_loading_is_declared_in_markup(browser)

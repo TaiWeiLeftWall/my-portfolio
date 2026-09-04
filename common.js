@@ -17,6 +17,7 @@ function getLazyImageObserver() {
 
 function loadLazyImage(img) {
     if (!img || !img.dataset.src) return;
+    img.classList.remove('is-loaded');
     img.src = img.dataset.src;
     delete img.dataset.src;
 }
@@ -28,6 +29,26 @@ function observeLazyImage(img) {
     } else {
         loadLazyImage(img);
     }
+}
+
+function enableImageLoadFade(img) {
+    if (!img || img.classList.contains('image-load-fade')) return;
+    img.classList.add('image-load-fade');
+    const reveal = () => img.classList.add('is-loaded');
+    img.addEventListener('load', reveal);
+    if (img.complete && img.naturalWidth > 0 && !img.dataset.src) {
+        requestAnimationFrame(reveal);
+    }
+}
+
+function enableStaticImageLoadFades() {
+    document.querySelectorAll('img').forEach(enableImageLoadFade);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', enableStaticImageLoadFades, { once: true });
+} else {
+    enableStaticImageLoadFades();
 }
 
 // ==========================================

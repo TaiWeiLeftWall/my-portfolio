@@ -40,7 +40,7 @@ function createProjectCard(project) {
     const cover = card.querySelector('.project-card-cover');
     const missingText = card.querySelector('.missing-cover-text');
 
-    image.addEventListener('load', () => image.classList.add('loaded'));
+    enableImageLoadFade(image);
     image.addEventListener('error', () => {
         cover.classList.add('is-missing');
         cover.setAttribute('aria-label', `${project.client} 暂无封面`);

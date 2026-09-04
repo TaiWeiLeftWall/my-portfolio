@@ -67,6 +67,7 @@ function createSelectedWork(project, projectIndex) {
     image.decoding = 'async';
     image.draggable = false;
     if (projectIndex === 0) image.setAttribute('fetchpriority', 'high');
+    enableImageLoadFade(image);
     image.addEventListener('error', () => {
         image.hidden = true;
         if (!button.querySelector('.image-fallback')) {
@@ -161,6 +162,7 @@ function createImageSlide(project, imageIndex) {
     image.alt = imageAlt(project, record);
     image.loading = 'eager';
     image.decoding = 'async';
+    enableImageLoadFade(image);
     image.addEventListener('error', () => {
         const fallback = document.createElement('p');
         fallback.className = 'image-fallback project-image-fallback';

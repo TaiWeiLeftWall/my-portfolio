@@ -9,7 +9,7 @@ const photos = [];
 const photoGroups = [
     {
         "category": "portrait",
-        "title": "",
+        "title": "留别III",
         "description": "",
         "date": "2024-06-03",
         "cols": 3,
@@ -63,7 +63,7 @@ const photoGroups = [
     },
     {
         "category": "performance",
-        "title": "",
+        "title": "25GR摇滚节",
         "description": "",
         "date": "2025-05-30",
         "cols": 3,
@@ -152,9 +152,9 @@ const photoGroups = [
     },
     {
         "category": "portrait",
-        "title": "",
+        "title": "心海I",
         "description": "",
-        "date": "2025-12",
+        "date": "2025-12-19",
         "cols": 3,
         "images": [
             {
@@ -171,42 +171,13 @@ const photoGroups = [
     },
     {
         "category": "portrait",
-        "title": "",
+        "title": "中环",
         "description": "",
-        "date": "2025-11",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-01/1778573171198-jnl3k616nwe.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-01/1778573173683-64kjgkrczh8.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-11-01/1778573194919-na8k7slrm6.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2025-10",
+        "date": "2025-10-09",
         "cols": 3,
         "images": [
             {
                 "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-10-01/1778573147741-kimvutkgpsd.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-10-01/1778573191823-xwzq9v963l.jpg",
                 "title": "",
                 "description": ""
             },
@@ -219,37 +190,9 @@ const photoGroups = [
     },
     {
         "category": "portrait",
-        "title": "",
+        "title": "西湖吴山",
         "description": "",
-        "date": "2025-07",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-07-01/1778573242599-pd2h0hljd8.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2025-04",
-        "cols": 3,
-        "images": [
-            {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2025-04-01/1778573259172-d3t5iis85iv.jpg",
-                "title": "",
-                "description": ""
-            }
-        ]
-    },
-    {
-        "category": "portrait",
-        "title": "",
-        "description": "",
-        "date": "2024-11",
+        "date": "2024-11-23",
         "cols": 3,
         "images": [
             {
@@ -258,27 +201,54 @@ const photoGroups = [
                 "description": ""
             },
             {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573175933-217u44ddv8ih.jpg",
-                "title": "",
-                "description": ""
-            },
-            {
                 "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573188236-lah7s7zpv7.jpg",
                 "title": "",
                 "description": ""
-            },
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "title": "杭州动物园",
+        "description": "",
+        "date": "2024-11-06",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573175933-217u44ddv8ih.jpg",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "title": "金沙湖",
+        "description": "",
+        "date": "2024-11-04",
+        "cols": 3,
+        "images": [
             {
                 "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573204546-jawj2dy9bmc.jpg",
                 "title": "",
                 "description": ""
             },
             {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573206828-5mce4orwp73.jpg",
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573216145-usaaudujl7.jpg",
                 "title": "",
                 "description": ""
-            },
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "title": "焦点万圣影棚",
+        "description": "",
+        "date": "2024-11-02",
+        "cols": 3,
+        "images": [
             {
-                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573216145-usaaudujl7.jpg",
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/portrait/2024-11-01/1778573206828-5mce4orwp73.jpg",
                 "title": "",
                 "description": ""
             },
@@ -291,7 +261,7 @@ const photoGroups = [
     },
     {
         "category": "portrait",
-        "title": "",
+        "title": "关前正街",
         "description": "",
         "date": "2025-10-10",
         "cols": 3,
@@ -320,7 +290,7 @@ const photoGroups = [
     },
     {
         "category": "landscape",
-        "title": "",
+        "title": "虎跑",
         "description": "",
         "date": "2025-12-06",
         "cols": 3,
@@ -349,7 +319,7 @@ const photoGroups = [
     },
     {
         "category": "portrait",
-        "title": "",
+        "title": "植物园",
         "description": "",
         "date": "2025-11-21",
         "cols": 3,
@@ -428,9 +398,9 @@ const photoGroups = [
     },
     {
         "category": "portrait",
-        "title": "",
+        "title": "心海II",
         "description": "",
-        "date": "2025-12-20",
+        "date": "2025-12-21",
         "cols": 3,
         "images": [
             {

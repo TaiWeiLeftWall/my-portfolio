@@ -220,6 +220,14 @@ def assert_content_inventory_and_routes(browser):
     for name in ("index", "videos", "commercial", "commercial-detail", "about"):
         errors = []
         page = browser.new_page(viewport={"width": 1280, "height": 720})
+        page.route(
+            "**/*",
+            lambda route: route.fulfill(
+                status=200, content_type="image/svg+xml", body=PORTRAIT_SVG
+            )
+            if route.request.resource_type == "image"
+            else route.continue_(),
+        )
         page.on("console", lambda message, errors=errors: errors.append(message.text)
                 if message.type == "error" else None)
         page.on("pageerror", lambda error, errors=errors: errors.append(str(error)))
@@ -232,7 +240,7 @@ def assert_content_inventory_and_routes(browser):
     assert pages["index"].evaluate("photoGroups.length") == 12
     assert pages["index"].evaluate(
         "photoGroups.reduce((n, group) => n + group.images.length, 0)"
-    ) == 70
+    ) == 64
     assert pages["videos"].evaluate(
         "typeof videos !== 'undefined' ? videos.length : 0"
     ) == 15
@@ -324,7 +332,7 @@ def assert_selected_works_contract(browser):
     assert page.locator("#selected-grid .selected-work").count() == 12
     assert page.locator("#selected-grid .selected-work img").count() == 12
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
-    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 70
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 64
     first_sources = page.evaluate("photoGroups.map(group => group.images[0].src)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src)"

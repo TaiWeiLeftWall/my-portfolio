@@ -34,7 +34,10 @@ function getPortfolioProjects() {
         });
 }
 
-function overviewColumnCount() {
+function overviewColumnCount(category = 'all') {
+    if (category === 'performance' || category === 'landscape') {
+        return window.matchMedia('(max-width: 800px)').matches ? 2 : 3;
+    }
     const grid = document.getElementById('selected-grid');
     const width = grid ? grid.clientWidth : 0;
     if (width >= 1000) return 4;
@@ -100,7 +103,9 @@ function renderOverview(category = 'all') {
         return;
     }
 
-    const columnCount = Math.min(overviewColumnCount(), projects.length);
+    const preserveSparseColumns = category === 'performance' || category === 'landscape';
+    const requestedColumns = overviewColumnCount(category);
+    const columnCount = preserveSparseColumns ? requestedColumns : Math.min(requestedColumns, projects.length);
     const chunkSize = Math.ceil(projects.length / columnCount);
     const columns = Array.from({ length: columnCount }, (_, columnIndex) => {
         const start = columnIndex * chunkSize;

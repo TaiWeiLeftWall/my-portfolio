@@ -293,6 +293,33 @@ def assert_gallery_columns_and_focus(browser):
     about.close()
 
 
+def assert_sparse_categories_keep_grid_columns(browser):
+    for category in ("performance", "landscape"):
+        desktop = open_page(
+            browser,
+            "index",
+            width=1280,
+            height=720,
+            wait_ms=100,
+            query=f"#category={category}",
+        )
+        assert desktop.locator(".selected-column").count() == 3
+        assert desktop.locator(".selected-work").count() == 1
+        desktop.close()
+
+        mobile = open_page(
+            browser,
+            "index",
+            width=390,
+            height=844,
+            wait_ms=100,
+            query=f"#category={category}",
+        )
+        assert mobile.locator(".selected-column").count() == 2
+        assert mobile.locator(".selected-work").count() == 1
+        mobile.close()
+
+
 def assert_minimal_shell_and_mobile_menu(browser):
     desktop = open_page(browser, "index", width=1280, height=720)
     assert desktop.locator(".portfolio-sidebar").count() == 1
@@ -463,6 +490,7 @@ def main():
             assert_responsive_breakpoints(browser)
             assert_content_inventory_and_routes(browser)
             assert_gallery_columns_and_focus(browser)
+            assert_sparse_categories_keep_grid_columns(browser)
         finally:
             browser.close()
     print("site smoke checks passed")

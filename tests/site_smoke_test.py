@@ -73,7 +73,7 @@ def assert_minimal_commercial_overview(browser):
 def assert_interactions_are_accessible(browser):
     page = open_page(browser, "index")
     assert page.locator("nav a[aria-current='page']").count() == 1
-    assert page.locator("button.selected-work").count() == 12
+    assert page.locator("button.selected-work").count() == 17
     assert page.locator(".selected-work:not(button)").count() == 0
     assert page.locator("button[data-project-prev]").count() == 1
     assert page.locator("button[data-project-next]").count() == 1
@@ -293,10 +293,10 @@ def assert_content_inventory_and_routes(browser):
         assert not errors, f"{name} emitted browser errors: {errors}"
         pages[name] = page
 
-    assert pages["index"].evaluate("photoGroups.length") == 12
+    assert pages["index"].evaluate("photoGroups.length") == 17
     assert pages["index"].evaluate(
         "photoGroups.reduce((n, group) => n + group.images.length, 0)"
-    ) == 64
+    ) == 100
     assert pages["videos"].evaluate(
         "typeof videos !== 'undefined' ? videos.length : 0"
     ) == 15
@@ -449,15 +449,35 @@ def assert_minimal_shell_and_mobile_menu(browser):
 def assert_selected_works_contract(browser):
     page = open_page(browser, "index", width=1280, height=720)
     assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
-    assert page.locator("#selected-grid .selected-work").count() == 12
-    assert page.locator("#selected-grid .selected-work img").count() == 12
+    assert page.locator("#selected-grid .selected-work").count() == 17
+    assert page.locator("#selected-grid .selected-work img").count() == 17
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
-    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 64
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 100
     first_sources = page.evaluate("photoGroups.map(group => group.images[0].src)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src)"
     )
     assert rendered_sources == first_sources
+    page.close()
+
+
+def assert_real_graduation_inventory(browser):
+    page = open_page(
+        browser,
+        "index",
+        width=1280,
+        height=720,
+        query="#collection=graduation",
+    )
+    assert page.evaluate(
+        "photoGroups.filter(group => group.collection === 'graduation').length"
+    ) == 6
+    assert page.evaluate(
+        "photoGroups.filter(group => group.collection === 'graduation')"
+        ".reduce((total, group) => total + group.images.length, 0)"
+    ) == 45
+    assert page.locator("#selected-grid .selected-work").count() == 6
+    assert page.locator("#selected-grid .selected-column").count() == 3
     page.close()
 
 
@@ -486,8 +506,9 @@ def assert_photo_project_viewer(browser):
 
 def mark_first_six_as_graduation(page):
     page.evaluate(
+        "photoGroups.forEach(group => { group.collection = ''; });"
         "photoGroups.slice(0, 6).forEach(group => "
-        "{ group.collection = 'graduation'; })"
+        "{ group.collection = 'graduation'; });"
     )
 
 
@@ -635,6 +656,7 @@ def main():
         try:
             assert_minimal_shell_and_mobile_menu(browser)
             assert_selected_works_contract(browser)
+            assert_real_graduation_inventory(browser)
             assert_photo_project_viewer(browser)
             assert_graduation_collection_state(browser)
             assert_single_media_fits_viewport(browser)

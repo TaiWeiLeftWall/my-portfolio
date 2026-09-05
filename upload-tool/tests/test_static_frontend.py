@@ -18,6 +18,28 @@ FRONTEND_SCRIPTS = [
 
 
 class StaticFrontendTests(unittest.TestCase):
+    def _evaluate_data_js(self, expression):
+        program = """
+const fs = require('fs');
+const vm = require('vm');
+const context = {};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync('data.js', 'utf8'), context, { filename: 'data.js' });
+const result = vm.runInContext(%s, context);
+process.stdout.write(JSON.stringify(result));
+""" % json.dumps(expression)
+        result = subprocess.run(
+            ["node", "-e", program],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
     def test_all_tracked_frontend_javascript_has_valid_syntax(self):
         for script in FRONTEND_SCRIPTS:
             with self.subTest(script=script.relative_to(ROOT)):
@@ -102,6 +124,30 @@ process.stdout.write(JSON.stringify(groups));
                 {"title": "虎跑", "date": "2025-12-06", "count": 4},
                 {"title": "植物园", "date": "2025-11-21", "count": 14},
                 {"title": "心海II", "date": "2025-12-21", "count": 6},
+                {"title": "徐浩蓝毕业照", "date": "2023-06-06", "count": 6},
+                {"title": "沈媛毕业照", "date": "2023-06-09", "count": 9},
+                {"title": "洪媛玥毕业照", "date": "2024-06-09", "count": 7},
+                {"title": "24届吉协毕业照", "date": "2024-06-16", "count": 4},
+                {"title": "25届焦点毕业照", "date": "2025-06-24", "count": 10},
+            ],
+        )
+
+    def test_graduation_collection_inventory(self):
+        groups = self._evaluate_data_js(
+            "photoGroups.filter(group => group.collection === 'graduation')"
+            ".map(({title,date,images}) => ({title,date,count:images.length}))"
+            ".sort((a,b) => a.date.localeCompare(b.date))"
+        )
+
+        self.assertEqual(
+            groups,
+            [
+                {"title": "徐浩蓝毕业照", "date": "2023-06-06", "count": 6},
+                {"title": "沈媛毕业照", "date": "2023-06-09", "count": 9},
+                {"title": "留别III", "date": "2024-06-03", "count": 9},
+                {"title": "洪媛玥毕业照", "date": "2024-06-09", "count": 7},
+                {"title": "24届吉协毕业照", "date": "2024-06-16", "count": 4},
+                {"title": "25届焦点毕业照", "date": "2025-06-24", "count": 10},
             ],
         )
 

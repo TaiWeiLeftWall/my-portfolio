@@ -4,10 +4,16 @@ const CATEGORY_LABELS = {
     landscape: '风光',
 };
 
+const COLLECTIONS = {
+    graduation: { title: '毕业照', category: 'portrait' },
+};
+
 let activeProject = null;
 let activeSlideIndex = 0;
 let projectReturnFocus = null;
 let projectReturnScrollY = 0;
+let projectReturnHash = '#selected';
+let projectClosePendingHash = '';
 let resizeTimer = null;
 
 function projectIdFor(group, index) {
@@ -21,6 +27,7 @@ function getPortfolioProjects() {
         .map((group, index) => ({
             id: projectIdFor(group, index),
             category: group.category || '',
+            collection: group.collection || '',
             categoryLabel: CATEGORY_LABELS[group.category] || group.category || '',
             title: group.title || '',
             description: group.description || '',
@@ -92,10 +99,9 @@ function createSelectedColumn(projects, sourceOffset) {
     return column;
 }
 
-function renderOverview(category = 'all') {
+function renderProjectOverview(projects, fixedColumns = false) {
     const grid = document.getElementById('selected-grid');
     if (!grid) return;
-    const projects = getPortfolioProjects().filter(project => category === 'all' || project.category === category);
     if (!projects.length) {
         const empty = document.createElement('p');
         empty.className = 'portfolio-empty';
@@ -104,15 +110,37 @@ function renderOverview(category = 'all') {
         return;
     }
 
-    const preserveSparseColumns = category === 'performance' || category === 'landscape';
-    const requestedColumns = overviewColumnCount(category);
-    const columnCount = preserveSparseColumns ? requestedColumns : Math.min(requestedColumns, projects.length);
+    const requestedColumns = fixedColumns
+        ? (window.matchMedia('(max-width: 800px)').matches ? 2 : 3)
+        : overviewColumnCount();
+    const columnCount = fixedColumns ? requestedColumns : Math.min(requestedColumns, projects.length);
     const chunkSize = Math.ceil(projects.length / columnCount);
     const columns = Array.from({ length: columnCount }, (_, columnIndex) => {
         const start = columnIndex * chunkSize;
         return createSelectedColumn(projects.slice(start, start + chunkSize), start);
     });
     grid.replaceChildren(...columns);
+}
+
+function renderOverview(category = 'all') {
+    const heading = document.getElementById('selected-heading');
+    if (heading) heading.textContent = category === 'all'
+        ? '沉礁摄影作品集'
+        : (CATEGORY_LABELS[category] || '摄影作品');
+    const projects = getPortfolioProjects().filter(project => category === 'all' || project.category === category);
+    renderProjectOverview(projects, category === 'performance' || category === 'landscape');
+}
+
+function renderCollection(collectionId) {
+    const collection = COLLECTIONS[collectionId];
+    if (!collection) return false;
+    const heading = document.getElementById('selected-heading');
+    if (heading) heading.textContent = collection.title;
+    const projects = getPortfolioProjects()
+        .filter(project => project.collection === collectionId)
+        .sort((a, b) => a.date.localeCompare(b.date));
+    renderProjectOverview(projects, true);
+    return true;
 }
 
 function slideCount(project) {
@@ -175,7 +203,11 @@ function createImageSlide(project, imageIndex) {
 
 function updateProjectHash() {
     if (!activeProject) return;
-    history.replaceState(null, '', `#work=${encodeURIComponent(activeProject.id)}&slide=${activeSlideIndex}`);
+    history.replaceState(
+        { ...(history.state || {}), portfolioProject: true },
+        '',
+        `#work=${encodeURIComponent(activeProject.id)}&slide=${activeSlideIndex}`,
+    );
     updateActiveNavigation();
 }
 
@@ -191,9 +223,12 @@ function showProjectSlide(index, updateHash = true) {
     if (updateHash) updateProjectHash();
 }
 
-function openProject(projectId, slideIndex = 0, trigger = document.activeElement) {
+function openProject(projectId, slideIndex = 0, trigger = document.activeElement, pushHistory = true) {
     const project = getPortfolioProjects().find(item => item.id === projectId);
     if (!project) return false;
+    if (pushHistory && !location.hash.startsWith('#work=')) {
+        projectReturnHash = location.hash || '#selected';
+    }
     activeProject = project;
     projectReturnFocus = trigger && typeof trigger.focus === 'function' ? trigger : null;
     projectReturnScrollY = window.scrollY;
@@ -202,7 +237,15 @@ function openProject(projectId, slideIndex = 0, trigger = document.activeElement
     document.getElementById('selected-view').hidden = true;
     const viewer = document.getElementById('project-viewer');
     viewer.hidden = false;
-    showProjectSlide(Number.isFinite(Number(slideIndex)) ? Number(slideIndex) : 0, true);
+    showProjectSlide(Number.isFinite(Number(slideIndex)) ? Number(slideIndex) : 0, false);
+    if (pushHistory) {
+        history.pushState(
+            { portfolioProject: true },
+            '',
+            `#work=${encodeURIComponent(activeProject.id)}&slide=${activeSlideIndex}`,
+        );
+    }
+    updateActiveNavigation();
     viewer.focus({ preventScroll: true });
     return true;
 }
@@ -213,8 +256,14 @@ function closeProject() {
     viewer.hidden = true;
     document.getElementById('selected-view').hidden = false;
     document.body.classList.remove('project-open');
-    history.replaceState(null, '', '#selected');
-    updateActiveNavigation();
+    const shouldReturnThroughHistory = history.state?.portfolioProject === true;
+    if (shouldReturnThroughHistory) {
+        projectClosePendingHash = projectReturnHash;
+        history.back();
+    } else {
+        history.replaceState(null, '', projectReturnHash);
+        updateActiveNavigation();
+    }
     const returnTarget = projectReturnFocus;
     activeProject = null;
     projectReturnFocus = null;
@@ -226,7 +275,7 @@ function closeProject() {
 function parsePortfolioHash() {
     const params = new URLSearchParams(location.hash.replace(/^#/, ''));
     if (params.has('work')) {
-        const opened = openProject(params.get('work'), Number(params.get('slide') || 0), null);
+        const opened = openProject(params.get('work'), Number(params.get('slide') || 0), null, false);
         if (opened) return;
     }
 
@@ -238,6 +287,15 @@ function parsePortfolioHash() {
         window.scrollTo({ top: projectReturnScrollY, left: 0, behavior: 'instant' });
         projectReturnScrollY = 0;
     }
+    const currentOverviewHash = location.hash || '#selected';
+    if (projectClosePendingHash && currentOverviewHash === projectClosePendingHash) {
+        projectClosePendingHash = '';
+        updateActiveNavigation();
+        return;
+    }
+    projectClosePendingHash = '';
+    const collection = params.get('collection');
+    if (collection && renderCollection(collection)) return;
     const category = params.get('category');
     renderOverview(Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category) ? category : 'all');
 }
@@ -267,8 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
             if (activeProject) return;
-            const params = new URLSearchParams(location.hash.replace(/^#/, ''));
-            renderOverview(params.get('category') || 'all');
+            parsePortfolioHash();
         }, 150);
     });
 });

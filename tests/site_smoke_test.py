@@ -484,6 +484,74 @@ def assert_photo_project_viewer(browser):
     page.close()
 
 
+def mark_first_six_as_graduation(page):
+    page.evaluate(
+        "photoGroups.slice(0, 6).forEach(group => "
+        "{ group.collection = 'graduation'; })"
+    )
+
+
+def assert_graduation_collection_state(browser):
+    desktop = open_page(browser, "index", width=1280, height=720)
+    mark_first_six_as_graduation(desktop)
+    desktop.evaluate("location.hash = 'category=portrait'")
+    desktop.wait_for_timeout(100)
+    desktop.evaluate("location.hash = 'collection=graduation'")
+    desktop.wait_for_timeout(100)
+
+    assert desktop.locator("#selected-heading").inner_text() == "毕业照"
+    assert desktop.locator("#selected-grid .selected-work").count() == 6
+    assert desktop.locator("#selected-grid .selected-column").count() == 3
+    assert desktop.evaluate(
+        "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
+
+    desktop.set_viewport_size({"width": 390, "height": 844})
+    desktop.wait_for_timeout(250)
+    assert desktop.locator("#selected-heading").inner_text() == "毕业照"
+    assert desktop.locator("#selected-grid .selected-work").count() == 6
+    assert desktop.locator("#selected-grid .selected-column").count() == 2
+    desktop.set_viewport_size({"width": 1280, "height": 720})
+    desktop.wait_for_timeout(250)
+    assert desktop.locator("#selected-grid .selected-column").count() == 3
+
+    trigger = desktop.locator("#selected-grid .selected-work").first
+    trigger.focus()
+    trigger.press("Enter")
+    assert "#work=" in desktop.url
+    desktop.locator("[data-project-close]").click()
+    assert desktop.url.endswith("#collection=graduation")
+    assert trigger.evaluate("node => node === document.activeElement")
+
+    trigger.press("Enter")
+    desktop.go_back(wait_until="domcontentloaded")
+    desktop.wait_for_timeout(100)
+    assert desktop.url.endswith("#collection=graduation")
+    assert desktop.locator("#selected-grid .selected-work").count() == 6
+    desktop.go_back(wait_until="domcontentloaded")
+    desktop.wait_for_timeout(100)
+    assert desktop.url.endswith("#category=portrait")
+    desktop.go_forward(wait_until="domcontentloaded")
+    desktop.wait_for_timeout(100)
+    assert desktop.url.endswith("#collection=graduation")
+    desktop.go_forward(wait_until="domcontentloaded")
+    desktop.wait_for_timeout(100)
+    assert "#work=" in desktop.url
+    assert desktop.locator("#project-viewer").get_attribute("hidden") is None
+    desktop.close()
+
+    mobile = open_page(browser, "index", width=390, height=844)
+    mark_first_six_as_graduation(mobile)
+    mobile.evaluate("location.hash = 'collection=graduation'")
+    mobile.wait_for_timeout(100)
+    assert mobile.locator("#selected-grid .selected-work").count() == 6
+    assert mobile.locator("#selected-grid .selected-column").count() == 2
+    assert mobile.evaluate(
+        "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
+    mobile.close()
+
+
 def assert_box_within_viewport(page, selector, width, height):
     box = page.locator(selector).bounding_box()
     assert box is not None
@@ -568,6 +636,7 @@ def main():
             assert_minimal_shell_and_mobile_menu(browser)
             assert_selected_works_contract(browser)
             assert_photo_project_viewer(browser)
+            assert_graduation_collection_state(browser)
             assert_single_media_fits_viewport(browser)
             assert_video_and_about_are_restrained(browser)
             assert_minimal_commercial_overview(browser)

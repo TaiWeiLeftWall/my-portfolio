@@ -379,7 +379,23 @@ def assert_sparse_categories_keep_grid_columns(browser):
 def assert_minimal_shell_and_mobile_menu(browser):
     desktop = open_page(browser, "index", width=1280, height=720)
     assert desktop.locator(".portfolio-sidebar").count() == 1
-    assert desktop.locator(".portfolio-nav a").count() == 7
+    assert desktop.locator(".portfolio-nav-section").count() == 3
+    assert desktop.locator(".portfolio-nav-heading").all_inner_texts() == [
+        "PROJECTS 项目",
+        "EDITORIAL",
+        "INFO",
+    ]
+    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 8
+    projects = desktop.locator(".portfolio-nav-section").first
+    portrait_item = projects.locator(".portfolio-nav-item").first
+    assert portrait_item.locator(
+        ":scope > a[href='index.html#category=portrait']"
+    ).inner_text() == "人像"
+    graduation = portrait_item.locator(
+        ".portfolio-nav-child[href='index.html#collection=graduation']"
+    )
+    assert graduation.count() == 1
+    assert graduation.inner_text() == "毕业照"
     assert desktop.locator(".portfolio-contact").count() == 0
     assert desktop.locator(
         ".portfolio-nav a[data-nav-link][href='about.html']"
@@ -391,6 +407,27 @@ def assert_minimal_shell_and_mobile_menu(browser):
     assert desktop.locator(".navbar, .sub-nav, footer").count() == 0
     assert desktop.locator("[data-menu-toggle]:visible").count() == 0
     desktop.close()
+
+    collection = open_page(
+        browser,
+        "index",
+        width=1280,
+        height=720,
+        query="#collection=graduation",
+    )
+    active_child = collection.locator(
+        ".portfolio-nav-child[href='index.html#collection=graduation']"
+    )
+    portrait_parent = collection.locator(
+        ".portfolio-nav a[href='index.html#category=portrait']"
+    )
+    assert active_child.get_attribute("aria-current") == "page"
+    assert "active" in (active_child.get_attribute("class") or "").split()
+    assert "ancestor-active" in (
+        portrait_parent.get_attribute("class") or ""
+    ).split()
+    assert portrait_parent.get_attribute("aria-current") is None
+    collection.close()
 
     mobile = open_page(browser, "index", width=390, height=844)
     toggle = mobile.locator("[data-menu-toggle]")

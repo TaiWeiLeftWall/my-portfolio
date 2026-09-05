@@ -1551,7 +1551,44 @@ body {
 .portfolio-nav-links {
     display: flex;
     flex-direction: column;
+    gap: 26px;
+}
+
+.portfolio-nav-primary,
+.portfolio-nav-sections,
+.portfolio-nav-items,
+.portfolio-nav-children {
+    display: flex;
+    flex-direction: column;
+}
+
+.portfolio-nav-sections {
+    gap: 28px;
+}
+
+.portfolio-nav-items,
+.portfolio-nav-children {
     gap: 8px;
+}
+
+.portfolio-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.portfolio-nav-heading {
+    margin: 0 0 10px;
+    color: var(--portfolio-muted);
+    font-size: 11px;
+    line-height: 1.5;
+    letter-spacing: 1px;
+}
+
+.portfolio-nav-child {
+    margin-left: 14px;
+    font-size: 13px !important;
 }
 
 .portfolio-nav a {
@@ -1562,7 +1599,8 @@ body {
 }
 
 .portfolio-nav a:hover,
-.portfolio-nav a.active {
+.portfolio-nav a.active,
+.portfolio-nav a.ancestor-active {
     color: var(--portfolio-ink);
     opacity: 1;
 }

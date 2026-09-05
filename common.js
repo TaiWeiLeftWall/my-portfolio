@@ -54,15 +54,62 @@ if (document.readyState === 'loading') {
 // ==========================================
 // Minimal portfolio shell
 // ==========================================
-const PORTFOLIO_LINKS = [
-    ['index.html', 'Selected Works'],
-    ['index.html#category=portrait', '人像'],
-    ['index.html#category=performance', '演出'],
-    ['index.html#category=landscape', '风光'],
-    ['videos.html', '视频'],
-    ['commercial.html', '商业项目'],
-    ['about.html', '关于我'],
-];
+const PORTFOLIO_NAVIGATION = {
+    primary: [
+        { href: 'index.html', label: 'Selected Works' },
+    ],
+    sections: [
+        {
+            label: 'PROJECTS 项目',
+            items: [
+                {
+                    href: 'index.html#category=portrait',
+                    label: '人像',
+                    children: [
+                        { href: 'index.html#collection=graduation', label: '毕业照' },
+                    ],
+                },
+                { href: 'index.html#category=performance', label: '演出' },
+                { href: 'index.html#category=landscape', label: '风光' },
+            ],
+        },
+        {
+            label: 'EDITORIAL',
+            items: [
+                { href: 'videos.html', label: '视频' },
+                { href: 'commercial.html', label: '商业项目' },
+            ],
+        },
+        {
+            label: 'INFO',
+            items: [
+                { href: 'about.html', label: '关于我' },
+            ],
+        },
+    ],
+};
+
+function renderPortfolioLink(item, className = '') {
+    const classAttribute = className ? ` class="${className}"` : '';
+    return `<a href="${item.href}"${classAttribute} data-nav-link>${item.label}</a>`;
+}
+
+function renderPortfolioNavItem(item) {
+    const children = Array.isArray(item.children) && item.children.length
+        ? `<div class="portfolio-nav-children">${item.children.map(child => renderPortfolioLink(child, 'portfolio-nav-child')).join('')}</div>`
+        : '';
+    return `<div class="portfolio-nav-item">${renderPortfolioLink(item)}${children}</div>`;
+}
+
+function renderPortfolioNavSections(sections) {
+    return sections.map(section => `
+        <section class="portfolio-nav-section">
+            <p class="portfolio-nav-heading">${section.label}</p>
+            <div class="portfolio-nav-items">
+                ${section.items.map(renderPortfolioNavItem).join('')}
+            </div>
+        </section>`).join('');
+}
 
 function setMenuExpanded(expanded) {
     const nav = document.querySelector('.portfolio-nav');
@@ -76,6 +123,9 @@ function setMenuExpanded(expanded) {
 function updateActiveNavigation() {
     const page = location.pathname.split('/').pop() || 'index.html';
     const current = `${page}${location.hash}`;
+    const ancestorHref = page === 'index.html' && location.hash === '#collection=graduation'
+        ? 'index.html#category=portrait'
+        : '';
     document.querySelectorAll('.portfolio-nav a[data-nav-link]').forEach(link => {
         const href = link.getAttribute('href');
         const commercialDetail = page === 'commercial-detail.html' && href === 'commercial.html';
@@ -84,6 +134,7 @@ function updateActiveNavigation() {
             && href === 'index.html';
         const active = href === current || (!location.hash && href === page) || commercialDetail || selectedState;
         link.classList.toggle('active', active);
+        link.classList.toggle('ancestor-active', href === ancestorHref);
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
     });
@@ -103,7 +154,12 @@ function renderPortfolioShell() {
         </div>
         <nav class="portfolio-nav" id="portfolio-navigation" data-expanded="false" aria-label="作品集导航">
             <div class="portfolio-nav-links">
-                ${PORTFOLIO_LINKS.map(([href, label]) => `<a href="${href}" data-nav-link>${label}</a>`).join('')}
+                <div class="portfolio-nav-primary">
+                    ${PORTFOLIO_NAVIGATION.primary.map(item => renderPortfolioLink(item)).join('')}
+                </div>
+                <div class="portfolio-nav-sections">
+                    ${renderPortfolioNavSections(PORTFOLIO_NAVIGATION.sections)}
+                </div>
             </div>
         </nav>`;
 

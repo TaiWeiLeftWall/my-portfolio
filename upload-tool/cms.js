@@ -128,7 +128,7 @@ function renderGroups(container) {
     else html += '<div class="preview-strip" style="background:var(--bg)"></div>';
     html += '<div class="card-info">';
     if (g.date) html += '<span class="date">' + esc(g.date) + '</span>';
-    html += '<span class="cat">' + esc(g.category) + (g.title ? ' · ' + esc(g.title) : '') + '</span>';
+    html += '<span class="cat">' + esc(g.category) + (g.collection ? ' / ' + esc(g.collection) : '') + (g.title ? ' · ' + esc(g.title) : '') + '</span>';
     html += '<span class="count">' + count + ' 张图片</span>';
     html += '</div><div class="card-actions" onclick="event.stopPropagation()">';
     html += '<button class="btn-ghost" onclick="editGroup(' + g.id + ')">✎ 编辑</button>';
@@ -257,6 +257,7 @@ function openPanel(state) {
     html += '<div class="panel-field"><label>分类</label><select id="ef-category">';
     ['portrait','landscape','street','performance','official'].forEach(function(c) { html += '<option value="' + c + '"' + (data.category===c?' selected':'') + '>' + c + '</option>'; });
     html += '</select></div>';
+    html += '<div class="panel-field"><label>合集标记</label><input id="ef-collection" value="' + esc(data.collection||'') + '" placeholder="例如 graduation"></div>';
     html += '<div class="panel-field"><label>标题</label><input id="ef-title" value="' + esc(data.title||'') + '"></div>';
     html += '<div class="panel-field"><label>描述</label><textarea id="ef-desc">' + esc(data.description||'') + '</textarea></div>';
     html += '<div class="panel-field"><label>列数</label><select id="ef-cols">';
@@ -327,7 +328,7 @@ async function savePanel() {
   if (saveButton) saveButton.disabled = true;
   try {
     if (type === 'group') {
-      body = { date: $('ef-date').value, category: $('ef-category').value, title: $('ef-title').value, description: $('ef-desc').value, cols: parseInt($('ef-cols').value) };
+      body = { date: $('ef-date').value, category: $('ef-category').value, collection: $('ef-collection').value.trim(), title: $('ef-title').value, description: $('ef-desc').value, cols: parseInt($('ef-cols').value) };
       url = '/api/photo-groups' + (state.mode === 'edit' ? '/' + data.id : '');
     } else if (type === 'photo') {
       body = { src: $('ef-src').value, title: $('ef-title').value, description: $('ef-desc').value };
@@ -431,7 +432,7 @@ async function deleteProject(id) {
 
 function handleAdd() {
   if (currentTab === 'groups') {
-    openPanel(createEditorState('group', { id: 0, date: '', category: 'portrait', title: '', description: '', cols: 3 }));
+    openPanel(createEditorState('group', { id: 0, date: '', category: 'portrait', collection: '', title: '', description: '', cols: 3 }));
   } else if (currentTab === 'videos') { addVideo(); }
   else if (currentTab === 'commercial') { addProject(); }
 }

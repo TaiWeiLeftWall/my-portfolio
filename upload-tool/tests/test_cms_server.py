@@ -1078,6 +1078,7 @@ class HttpApiTests(unittest.TestCase):
             "/api/photo-groups",
             {
                 "category": "portrait",
+                "collection": "graduation",
                 "title": "HTTP group",
                 "date": "2026-07-16",
                 "sort_order": 17,
@@ -1088,7 +1089,22 @@ class HttpApiTests(unittest.TestCase):
         self.assertEqual(payload, {"ok": True, "id": payload["id"]})
         created = self.db.get_photo_group(payload["id"])
         self.assertEqual(created["title"], "HTTP group")
+        self.assertEqual(created["collection"], "graduation")
         self.assertEqual(created["sort_order"], 17)
+
+        update_status, update_payload = self.json_request(
+            "PUT",
+            f"/api/photo-groups/{payload['id']}",
+            {"collection": "graduation-archive"},
+        )
+        state_status, state_payload = self.request("GET", "/api/state")
+
+        self.assertEqual((update_status, update_payload), (200, {"ok": True}))
+        self.assertEqual(state_status, 200)
+        self.assertEqual(
+            state_payload["photoGroups"][0]["collection"],
+            "graduation-archive",
+        )
 
     def test_malformed_json_has_stable_error_contract(self):
         status, payload = self.request(

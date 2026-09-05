@@ -46,15 +46,19 @@ class DatabaseTests(unittest.TestCase):
 
         self.assertIsNone(self.db.get_photo_item(item_id))
 
-    def test_schema_v2_persists_successful_idempotency_responses(self):
+    def test_schema_v3_persists_idempotency_and_photo_collection_fields(self):
         conn = self.db.connect()
         try:
-            self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 2)
+            self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 3)
             columns = {
                 row[1]: row[2]
                 for row in conn.execute(
                     "pragma table_info(idempotency_records)"
                 ).fetchall()
+            }
+            group_columns = {
+                row[1]: row[2]
+                for row in conn.execute("pragma table_info(photo_groups)").fetchall()
             }
         finally:
             conn.close()
@@ -69,6 +73,48 @@ class DatabaseTests(unittest.TestCase):
                 "created_at": "TEXT",
             },
         )
+        self.assertEqual(group_columns["collection"], "TEXT")
+
+    def test_photo_group_collection_round_trips_through_create_update_and_state(self):
+        group = self.db.create_photo_group(
+            {
+                "category": "portrait",
+                "title": "Graduation",
+                "date": "2025-06-24",
+                "collection": "graduation",
+            }
+        )
+
+        self.assertEqual(group["collection"], "graduation")
+        self.assertEqual(
+            self.db.state()["photoGroups"][0]["collection"], "graduation"
+        )
+
+        updated = self.db.update_photo_group(group["id"], {"title": "Updated"})
+
+        self.assertEqual(updated["collection"], "graduation")
+
+    def test_photo_group_collection_defaults_to_empty_string(self):
+        group = self.db.create_photo_group({"category": "portrait"})
+
+        self.assertEqual(group["collection"], "")
+
+    def test_bulk_import_and_frontend_export_preserve_collection(self):
+        self.db.bulk_import(
+            [
+                {
+                    "category": "portrait",
+                    "title": "Graduation",
+                    "date": "2025-06-24",
+                    "collection": "graduation",
+                    "images": [],
+                }
+            ]
+        )
+
+        data_js, _commercial_js = self.db._frontend_strings()
+
+        self.assertIn('"collection": "graduation"', data_js)
 
     def test_health_reports_orphan_without_deleting_it(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -89,6 +135,7 @@ class DatabaseTests(unittest.TestCase):
                 "title": "Before",
                 "date": "2026-07-16",
                 "cols": 4,
+                "collection": "graduation",
                 "sort_order": 73,
             }
         )
@@ -99,6 +146,7 @@ class DatabaseTests(unittest.TestCase):
         self.assertEqual(updated["sort_order"], 73)
         self.assertEqual(updated["category"], "landscape")
         self.assertEqual(updated["cols"], 4)
+        self.assertEqual(updated["collection"], "graduation")
 
     def test_version_increase_backs_up_existing_database_and_preserves_orphans(self):
         with self.db.connect() as conn:
@@ -117,7 +165,7 @@ class DatabaseTests(unittest.TestCase):
             self.assertEqual(conn.execute("pragma user_version").fetchone()[0], 0)
         self.assertEqual(self.db.health()["orphan_photo_items"], 1)
 
-    def test_real_v1_schema_migrates_to_v2_and_preserves_existing_rows(self):
+    def test_real_v1_schema_migrates_to_v3_and_preserves_existing_rows(self):
         legacy_path = self.root / "legacy-v1.sqlite"
         conn = sqlite3.connect(legacy_path)
         try:
@@ -160,16 +208,61 @@ class DatabaseTests(unittest.TestCase):
             backup.close()
         migrated = legacy.connect()
         try:
-            self.assertEqual(migrated.execute("pragma user_version").fetchone()[0], 2)
+            self.assertEqual(migrated.execute("pragma user_version").fetchone()[0], 3)
             self.assertIsNotNone(
                 migrated.execute(
                     "select 1 from sqlite_master where type='table' and name='idempotency_records'"
                 ).fetchone()
             )
             row = migrated.execute(
-                "select title,sort_order from photo_groups"
+                "select title,collection,sort_order from photo_groups"
             ).fetchone()
-            self.assertEqual(dict(row), {"title": "legacy row", "sort_order": 9})
+            self.assertEqual(
+                dict(row),
+                {"title": "legacy row", "collection": "", "sort_order": 9},
+            )
+        finally:
+            migrated.close()
+
+    def test_real_v2_schema_migrates_to_v3_and_preserves_existing_rows(self):
+        legacy_path = self.root / "legacy-v2.sqlite"
+        conn = sqlite3.connect(legacy_path)
+        try:
+            conn.execute(
+                """create table photo_groups (
+                id integer primary key autoincrement,
+                category text not null default 'portrait',
+                title text not null default '',
+                description text not null default '',
+                date text not null default '',
+                cols integer not null default 3,
+                sort_order integer not null default 0
+                )"""
+            )
+            conn.execute(
+                """insert into photo_groups
+                (category,title,description,date,cols,sort_order)
+                values(?,?,?,?,?,?)""",
+                ("portrait", "v2 row", "", "2025-06-24", 3, 11),
+            )
+            conn.execute("pragma user_version = 2")
+            conn.commit()
+        finally:
+            conn.close()
+
+        legacy = Database(legacy_path, self.root, self.root / "legacy-v2-media")
+        legacy.initialize(seed=False)
+
+        migrated = legacy.connect()
+        try:
+            self.assertEqual(migrated.execute("pragma user_version").fetchone()[0], 3)
+            row = migrated.execute(
+                "select title,collection,sort_order from photo_groups"
+            ).fetchone()
+            self.assertEqual(
+                dict(row),
+                {"title": "v2 row", "collection": "", "sort_order": 11},
+            )
         finally:
             migrated.close()
 

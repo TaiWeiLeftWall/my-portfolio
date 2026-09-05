@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 VALID_CATEGORIES = {"portrait", "landscape", "street", "performance", "official"}
 VALID_COMMERCIAL_CATEGORIES = {"公務攝影", "演出攝影", "體育攝影", "空間攝影", "廣告", "視頻", "電商"}
@@ -33,6 +33,7 @@ SCHEMA_STATEMENTS = (
     create table if not exists photo_groups (
         id integer primary key autoincrement,
         category text not null default 'portrait',
+        collection text not null default '',
         title text not null default '',
         description text not null default '',
         date text not null default '',
@@ -149,6 +150,12 @@ class Database:
                         conn.execute(statement)
                     self._ensure_column(conn, "videos", "platform", "text not null default ''")
                     self._ensure_column(conn, "videos", "source", "text not null default ''")
+                    self._ensure_column(
+                        conn,
+                        "photo_groups",
+                        "collection",
+                        "text not null default ''",
+                    )
                     conn.execute(f"pragma user_version = {SCHEMA_VERSION}")
                 except Exception:
                     conn.rollback()
@@ -205,9 +212,11 @@ console.log(JSON.stringify(ctx.__out));
             for group_index, group in enumerate(data.get("photoGroups", [])):
                 cursor = conn.execute(
                     """insert into photo_groups
-                    (category,title,description,date,cols,sort_order) values(?,?,?,?,?,?)""",
+                    (category,collection,title,description,date,cols,sort_order)
+                    values(?,?,?,?,?,?,?)""",
                     (
                         group.get("category", "portrait"),
+                        str(group.get("collection", "") or "").strip(),
                         group.get("title", ""),
                         group.get("description", ""),
                         group.get("date", ""),
@@ -456,6 +465,7 @@ console.log(JSON.stringify(ctx.__out));
             raise ValidationError("invalid photo category")
         values = (
             category,
+            str(data.get("collection", "") or "").strip(),
             data.get("title", ""),
             data.get("description", ""),
             self._validate_date(data.get("date", "")),
@@ -465,7 +475,8 @@ console.log(JSON.stringify(ctx.__out));
         with self.connect() as conn:
             cursor = conn.execute(
                 """insert into photo_groups
-                (category,title,description,date,cols,sort_order) values(?,?,?,?,?,?)""",
+                (category,collection,title,description,date,cols,sort_order)
+                values(?,?,?,?,?,?,?)""",
                 values,
             )
             group_id = cursor.lastrowid
@@ -488,6 +499,7 @@ console.log(JSON.stringify(ctx.__out));
                     raise ValidationError("invalid photo category")
                 values = (
                     category,
+                    str(data.get("collection", "") or "").strip(),
                     data.get("title", ""),
                     data.get("description", ""),
                     self._validate_date(data.get("date", "")),
@@ -496,8 +508,8 @@ console.log(JSON.stringify(ctx.__out));
                 )
                 cursor = conn.execute(
                     """insert into photo_groups
-                    (category,title,description,date,cols,sort_order)
-                    values(?,?,?,?,?,?)""",
+                    (category,collection,title,description,date,cols,sort_order)
+                    values(?,?,?,?,?,?,?)""",
                     values,
                 )
                 payload = {"ok": True, "id": cursor.lastrowid}
@@ -524,6 +536,7 @@ console.log(JSON.stringify(ctx.__out));
                     raise ValidationError("invalid photo category")
                 values = (
                     category,
+                    str(merged.get("collection", "") or "").strip(),
                     merged["title"],
                     merged["description"],
                     self._validate_date(merged["date"]),
@@ -533,7 +546,8 @@ console.log(JSON.stringify(ctx.__out));
                 )
                 conn.execute(
                     """update photo_groups set
-                    category=?,title=?,description=?,date=?,cols=?,sort_order=? where id=?""",
+                    category=?,collection=?,title=?,description=?,date=?,cols=?,sort_order=?
+                    where id=?""",
                     values,
                 )
                 updated = self._require_row(
@@ -963,9 +977,11 @@ console.log(JSON.stringify(ctx.__out));
                 date = self._validate_date(group.get("date", ""))
                 cursor = conn.execute(
                     """insert into photo_groups
-                    (category,title,description,date,cols,sort_order) values(?,?,?,?,?,?)""",
+                    (category,collection,title,description,date,cols,sort_order)
+                    values(?,?,?,?,?,?,?)""",
                     (
                         category,
+                        str(group.get("collection", "") or "").strip(),
                         group.get("title", ""),
                         group.get("description", ""),
                         date,
@@ -1005,6 +1021,7 @@ console.log(JSON.stringify(ctx.__out));
                 [
                     {
                         "category": group["category"],
+                        "collection": group["collection"],
                         "title": group["title"],
                         "description": group["description"],
                         "date": group["date"],

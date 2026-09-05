@@ -239,6 +239,44 @@ async function testSaveRequestOwnership() {
   assert.deepEqual(failureMessages, [], "an old failure must not display an error in a newer editor");
 }
 
+async function testGroupEditorRoundTripsCollection() {
+  const h = createHarness();
+  const requests = [];
+  h.cms.setApi(async (url, options) => {
+    requests.push({ url, options });
+    return { ok: true };
+  });
+  h.cms.setLoadData(async () => {});
+  h.cms.openPanel(h.cms.editEditorState("group", {
+    id: 9,
+    category: "portrait",
+    collection: "graduation",
+    title: "留别III",
+    description: "",
+    date: "2024-06-03",
+    cols: 3,
+  }));
+
+  assert.match(
+    h.element("panel-inner").innerHTML,
+    /id="ef-collection"[^>]*value="graduation"/,
+    "the group editor must render the stored collection value",
+  );
+  h.element("ef-date").value = "2024-06-03";
+  h.element("ef-category").value = "portrait";
+  h.element("ef-collection").value = " graduation ";
+  h.element("ef-title").value = "留别III";
+  h.element("ef-desc").value = "";
+  h.element("ef-cols").value = "3";
+
+  await h.cms.savePanel();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "/api/photo-groups/9");
+  assert.equal(requests[0].options.method, "PUT");
+  assert.equal(JSON.parse(requests[0].options.body).collection, "graduation");
+}
+
 async function testMultipartContract() {
   const h = createHarness();
   let request;
@@ -478,6 +516,7 @@ async function testHealthDomContract() {
 }
 
 await testSaveRequestOwnership();
+await testGroupEditorRoundTripsCollection();
 await testMultipartContract();
 await testSingleUploadsUseStableOperationKeys();
 await testBulkRetriesReuseOperationKeys();

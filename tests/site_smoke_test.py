@@ -592,7 +592,7 @@ def assert_single_media_fits_viewport(browser):
         )
         trigger = page.locator(".selected-work").first
         trigger.focus()
-        page.evaluate("window.scrollTo(0, 300)")
+        page.evaluate("window.scrollTo({ top: 300, behavior: 'instant' })")
         previous_scroll = page.evaluate("window.scrollY")
         assert previous_scroll > 0
         trigger.evaluate("node => node.click()")

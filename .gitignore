@@ -31,3 +31,6 @@ latest
 # Python test caches
 __pycache__/
 *.py[cod]
+
+# Browser test artifacts
+.playwright-cli/

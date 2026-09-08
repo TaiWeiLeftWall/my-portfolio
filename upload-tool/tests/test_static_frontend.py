@@ -129,6 +129,10 @@ process.stdout.write(JSON.stringify(groups));
                 {"title": "洪媛玥毕业照", "date": "2024-06-09", "count": 7},
                 {"title": "24届吉协毕业照", "date": "2024-06-16", "count": 4},
                 {"title": "25届焦点毕业照", "date": "2025-06-24", "count": 10},
+                {"title": "Joint乐队合照", "date": "2023-09-28", "count": 5},
+                {"title": "合唱队专场海报 2024", "date": "", "count": 10},
+                {"title": "吉协乐手介绍", "date": "2025-05-16", "count": 12},
+                {"title": "合唱队专场海报 2025", "date": "", "count": 10},
             ],
         )
 
@@ -148,6 +152,22 @@ process.stdout.write(JSON.stringify(groups));
                 {"title": "洪媛玥毕业照", "date": "2024-06-09", "count": 7},
                 {"title": "24届吉协毕业照", "date": "2024-06-16", "count": 4},
                 {"title": "25届焦点毕业照", "date": "2025-06-24", "count": 10},
+            ],
+        )
+
+    def test_poster_collection_inventory(self):
+        groups = self._evaluate_data_js(
+            "photoGroups.filter(group => group.collection === 'poster')"
+            ".map(({title,date,images}) => ({title,date,count:images.length}))"
+        )
+
+        self.assertEqual(
+            groups,
+            [
+                {"title": "Joint乐队合照", "date": "2023-09-28", "count": 5},
+                {"title": "合唱队专场海报 2024", "date": "", "count": 10},
+                {"title": "吉协乐手介绍", "date": "2025-05-16", "count": 12},
+                {"title": "合唱队专场海报 2025", "date": "", "count": 10},
             ],
         )
 

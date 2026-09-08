@@ -6,6 +6,7 @@ const CATEGORY_LABELS = {
 
 const COLLECTIONS = {
     graduation: { title: '毕业照', category: 'portrait' },
+    poster: { title: '海报拍摄', category: 'portrait', sortByDate: false },
 };
 
 let activeProject = null;
@@ -114,10 +115,17 @@ function renderProjectOverview(projects, fixedColumns = false) {
         ? (window.matchMedia('(max-width: 800px)').matches ? 2 : 3)
         : overviewColumnCount();
     const columnCount = fixedColumns ? requestedColumns : Math.min(requestedColumns, projects.length);
-    const chunkSize = Math.ceil(projects.length / columnCount);
+    const baseSize = Math.floor(projects.length / columnCount);
+    const remainder = projects.length % columnCount;
+    let sourceOffset = 0;
     const columns = Array.from({ length: columnCount }, (_, columnIndex) => {
-        const start = columnIndex * chunkSize;
-        return createSelectedColumn(projects.slice(start, start + chunkSize), start);
+        const columnSize = baseSize + (columnIndex < remainder ? 1 : 0);
+        const column = createSelectedColumn(
+            projects.slice(sourceOffset, sourceOffset + columnSize),
+            sourceOffset,
+        );
+        sourceOffset += columnSize;
+        return column;
     });
     grid.replaceChildren(...columns);
 }
@@ -137,8 +145,10 @@ function renderCollection(collectionId) {
     const heading = document.getElementById('selected-heading');
     if (heading) heading.textContent = collection.title;
     const projects = getPortfolioProjects()
-        .filter(project => project.collection === collectionId)
-        .sort((a, b) => a.date.localeCompare(b.date));
+        .filter(project => project.collection === collectionId);
+    if (collection.sortByDate !== false) {
+        projects.sort((a, b) => a.date.localeCompare(b.date));
+    }
     renderProjectOverview(projects, true);
     return true;
 }

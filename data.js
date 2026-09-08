@@ -676,6 +676,231 @@ const photoGroups = [
                 "description": ""
             }
         ]
+    },
+    {
+        "category": "portrait",
+        "collection": "poster",
+        "title": "Joint乐队合照",
+        "description": "",
+        "date": "2023-09-28",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/279f5cf27e59b24183280c610529975f3f416580cfba4d02edb2548d1254379b",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/92e44cb770a8b5ee7b1089d82a2468a1cbd74c5bab15d85f7d090cfabd78e900",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/e5ea1ceed78f5f2995ce874c5aba33d0232fc75a38a5b710f2e2ca0d37004b39",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/a85c3ae7e3411f390b0485173226dc75b4402f84093a5b68f5a4efe0ff2340c3",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d043afdc7a74a20269bb9ae8c766afc8cb4abf7c148ef78c6971a658c7b413c2",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "collection": "poster",
+        "title": "合唱队专场海报 2024",
+        "description": "",
+        "date": "",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/15fb1cde8e1f847b0b33564acc8e33c82b296999cfee2e94337db41a13ae03ef",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/c911f07c344e1522aa02958710fb2d42c6806ed8a10496d702e339becccb8ad6",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/9b9dc8bee6f76325b866f5ff5a9bcd04d799ecde93fc6c08d4b8db484869cd82",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d863f7e5c89fb400f59e3134b668d7c9eb60b0a0d61ca82959febb782618bb71",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/a3488294a99e0f6b8fd73f6acc5fad04fed0977837a4287008af34d356138576",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/ff160e80ed51d294e1b91a1fd634b99b19d05c3e883c55ebbb8ff489ab9e6013",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/6e218cf5c2fd70ce04449a4314d1ea7efda2279e967be9d89eecc64070990a21",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/9f6d08795fec85518eb23f2599f2c64575867d78ce80b7168494b7132b773279",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/deb3662b18da896fc0b72e44e60ca53abf8b0fa38354678d802fccd5275b769b",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/2053faf8b4bb017368a6a47562598b574a9dcf13fbe827d1e69019e8bcf7114d",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "collection": "poster",
+        "title": "吉协乐手介绍",
+        "description": "",
+        "date": "2025-05-16",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/7d57607e25b52e9f248ad7f511992a507f6a91a0db07591992b806e391d1fcd6",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/baf83ae3d6d2732edc49f6d687e765335c74d3df5a47cd9d37e3566afea8f7c0",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/2973c1392d6428c4a3ed0280dd66a05aacf09f98e8de5214328da8c9ec8e57d1",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/69763c57cccc3c4efd36b0945cd8272126199cdc37472405dcfcb6320c17a398",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/4333d0e38aa9dbc128352517d1bde122241f6bef5d3946524e0702404f8d0697",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d12565b5c3f4b04a3eb610e595d3d48047ffb6c240f258f2f94e200784b22321",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d5f3e7726468e1f2f0863fd916fa3eb7a2f0cc29ce354c641ffbb60499750a7b",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/839023f85f1c7601fbee4bd969793786ae9f77bf3b4c773de5f5b551cf20e597",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/bcdb82d8052323204be44ae53d5e9268e29bfe22df14c15f6c857ca2b9985726",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/ae361fa97c2e78a901682acfacea2a2cb6d1e3725f14a6651c636f88fbdbf3d1",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/9c385c929415456fbeeb8e81dfe32e684a058a93215ddd734117fec7d721b721",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/67b7b0bd43f241c1bacb11b6ef1be0a0f71f4fcb33355d29b8bc6eeedb44f412",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "collection": "poster",
+        "title": "合唱队专场海报 2025",
+        "description": "",
+        "date": "",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/c5de79600a92c4bfbac4944fc885a0be8448de0240492c0b92aeedc293de36e1",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/e9dd68a4af70cc6ef2f578becf02cd81ca0f8db184a6ff3be916724e632d1f12",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/cc853d8f044705dd837b1dc5bcd9d7eb351effe0324482677ea5383aaf6becdc",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/c070d86c5da31abb22fa2d187427da989c7e6399a796127b5adcb17feac538d1",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/91d9abf9f4823c9ac333504837f14e65060744bcd604d11da69420033bac75d7",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/78328a272ff75dfec9f7e3ba0394fee4ee016274074a37e93b8709900251a01e",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/dfa6c6763ab261734d5a6e5a00b50a1ce62dda6e6e6fb59ee142b8bed8f35e77",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/ee93b895b32f343efac92d1529dc59b4ed5ad04c76db9c4e9fdff00da9898307",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/8566be73a034a334273d8da9304f693ff30f477aec0381f67eb99c3b20ca5b31",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/7a50bf7d64151a8903cad3dfdde7ce01a2f0b1917aed93233cacb231833617b1",
+                "title": "",
+                "description": ""
+            }
+        ]
     }
 ];
 

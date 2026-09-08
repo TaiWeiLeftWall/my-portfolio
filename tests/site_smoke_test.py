@@ -73,7 +73,7 @@ def assert_minimal_commercial_overview(browser):
 def assert_interactions_are_accessible(browser):
     page = open_page(browser, "index")
     assert page.locator("nav a[aria-current='page']").count() == 1
-    assert page.locator("button.selected-work").count() == 17
+    assert page.locator("button.selected-work").count() == 21
     assert page.locator(".selected-work:not(button)").count() == 0
     assert page.locator("button[data-project-prev]").count() == 1
     assert page.locator("button[data-project-next]").count() == 1
@@ -293,10 +293,10 @@ def assert_content_inventory_and_routes(browser):
         assert not errors, f"{name} emitted browser errors: {errors}"
         pages[name] = page
 
-    assert pages["index"].evaluate("photoGroups.length") == 17
+    assert pages["index"].evaluate("photoGroups.length") == 21
     assert pages["index"].evaluate(
         "photoGroups.reduce((n, group) => n + group.images.length, 0)"
-    ) == 100
+    ) == 137
     assert pages["videos"].evaluate(
         "typeof videos !== 'undefined' ? videos.length : 0"
     ) == 15
@@ -385,7 +385,7 @@ def assert_minimal_shell_and_mobile_menu(browser):
         "EDITORIAL",
         "INFO",
     ]
-    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 8
+    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 9
     projects = desktop.locator(".portfolio-nav-section").first
     portrait_item = projects.locator(".portfolio-nav-item").first
     assert portrait_item.locator(
@@ -396,6 +396,11 @@ def assert_minimal_shell_and_mobile_menu(browser):
     )
     assert graduation.count() == 1
     assert graduation.inner_text() == "毕业照"
+    poster = portrait_item.locator(
+        ".portfolio-nav-child[href='index.html#collection=poster']"
+    )
+    assert poster.count() == 1
+    assert poster.inner_text() == "海报拍摄"
     assert desktop.locator(".portfolio-contact").count() == 0
     assert desktop.locator(
         ".portfolio-nav a[data-nav-link][href='about.html']"
@@ -429,6 +434,25 @@ def assert_minimal_shell_and_mobile_menu(browser):
     assert portrait_parent.get_attribute("aria-current") is None
     collection.close()
 
+    poster_collection = open_page(
+        browser,
+        "index",
+        width=1280,
+        height=720,
+        query="#collection=poster",
+    )
+    poster_child = poster_collection.locator(
+        ".portfolio-nav-child[href='index.html#collection=poster']"
+    )
+    poster_parent = poster_collection.locator(
+        ".portfolio-nav a[href='index.html#category=portrait']"
+    )
+    assert poster_child.get_attribute("aria-current") == "page"
+    assert "ancestor-active" in (
+        poster_parent.get_attribute("class") or ""
+    ).split()
+    poster_collection.close()
+
     mobile = open_page(browser, "index", width=390, height=844)
     toggle = mobile.locator("[data-menu-toggle]")
     assert toggle.is_visible()
@@ -449,10 +473,10 @@ def assert_minimal_shell_and_mobile_menu(browser):
 def assert_selected_works_contract(browser):
     page = open_page(browser, "index", width=1280, height=720)
     assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
-    assert page.locator("#selected-grid .selected-work").count() == 17
-    assert page.locator("#selected-grid .selected-work img").count() == 17
+    assert page.locator("#selected-grid .selected-work").count() == 21
+    assert page.locator("#selected-grid .selected-work img").count() == 21
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
-    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 100
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 137
     first_sources = page.evaluate("photoGroups.map(group => group.images[0].src)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src)"
@@ -478,6 +502,44 @@ def assert_real_graduation_inventory(browser):
     ) == 45
     assert page.locator("#selected-grid .selected-work").count() == 6
     assert page.locator("#selected-grid .selected-column").count() == 3
+    page.close()
+
+
+def assert_real_poster_inventory(browser):
+    page = open_page(
+        browser,
+        "index",
+        width=1280,
+        height=720,
+        query="#collection=poster",
+    )
+    assert page.locator("#selected-heading").inner_text() == "海报拍摄"
+    assert page.evaluate(
+        "photoGroups.filter(group => group.collection === 'poster').length"
+    ) == 4
+    assert page.evaluate(
+        "photoGroups.filter(group => group.collection === 'poster')"
+        ".reduce((total, group) => total + group.images.length, 0)"
+    ) == 37
+    assert page.locator("#selected-grid .selected-work").count() == 4
+    assert page.locator("#selected-grid .selected-column").count() == 3
+    assert page.locator("#selected-grid .selected-column").evaluate_all(
+        "columns => columns.map(column => column.children.length)"
+    ) == [2, 1, 1]
+    assert page.locator("#selected-grid .selected-work").evaluate_all(
+        "works => works.map(work => work.getAttribute('aria-label'))"
+    ) == [
+        "查看项目：Joint乐队合照 · 人像 · 2023-09-28",
+        "查看项目：合唱队专场海报 2024 · 人像",
+        "查看项目：吉协乐手介绍 · 人像 · 2025-05-16",
+        "查看项目：合唱队专场海报 2025 · 人像",
+    ]
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.wait_for_timeout(250)
+    assert page.locator("#selected-grid .selected-column").count() == 2
+    assert page.evaluate(
+        "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+    )
     page.close()
 
 
@@ -657,6 +719,7 @@ def main():
             assert_minimal_shell_and_mobile_menu(browser)
             assert_selected_works_contract(browser)
             assert_real_graduation_inventory(browser)
+            assert_real_poster_inventory(browser)
             assert_photo_project_viewer(browser)
             assert_graduation_collection_state(browser)
             assert_single_media_fits_viewport(browser)

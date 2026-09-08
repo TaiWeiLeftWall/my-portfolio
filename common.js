@@ -67,6 +67,7 @@ const PORTFOLIO_NAVIGATION = {
                     label: '人像',
                     children: [
                         { href: 'index.html#collection=graduation', label: '毕业照' },
+                        { href: 'index.html#collection=poster', label: '海报拍摄' },
                     ],
                 },
                 { href: 'index.html#category=performance', label: '演出' },
@@ -123,9 +124,10 @@ function setMenuExpanded(expanded) {
 function updateActiveNavigation() {
     const page = location.pathname.split('/').pop() || 'index.html';
     const current = `${page}${location.hash}`;
-    const ancestorHref = page === 'index.html' && location.hash === '#collection=graduation'
-        ? 'index.html#category=portrait'
-        : '';
+    const ancestorItem = PORTFOLIO_NAVIGATION.sections
+        .flatMap(section => section.items)
+        .find(item => item.children?.some(child => child.href === current));
+    const ancestorHref = ancestorItem?.href || '';
     document.querySelectorAll('.portfolio-nav a[data-nav-link]').forEach(link => {
         const href = link.getAttribute('href');
         const commercialDetail = page === 'commercial-detail.html' && href === 'commercial.html';

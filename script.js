@@ -1,5 +1,6 @@
 const CATEGORY_LABELS = {
     portrait: '人像',
+    stilllife: '静物',
     performance: '演出',
     landscape: '风光',
 };
@@ -7,6 +8,9 @@ const CATEGORY_LABELS = {
 const COLLECTIONS = {
     graduation: { title: '毕业照', category: 'portrait' },
     poster: { title: '海报拍摄', category: 'portrait', sortByDate: false },
+    objects: { title: '小物件', category: 'stilllife' },
+    jewelry: { title: '首饰', category: 'stilllife' },
+    digital: { title: '数码', category: 'stilllife' },
 };
 
 let activeProject = null;

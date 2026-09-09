@@ -15,7 +15,14 @@ from typing import Any, Iterable
 
 SCHEMA_VERSION = 3
 
-VALID_CATEGORIES = {"portrait", "landscape", "street", "performance", "official"}
+VALID_CATEGORIES = {
+    "portrait",
+    "stilllife",
+    "landscape",
+    "street",
+    "performance",
+    "official",
+}
 VALID_COMMERCIAL_CATEGORIES = {"公務攝影", "演出攝影", "體育攝影", "空間攝影", "廣告", "視頻", "電商"}
 
 REORDER_SCOPES = {

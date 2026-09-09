@@ -5,6 +5,7 @@ const ALLOWED_UPLOADS = new Map([
 ]);
 const ALLOWED_CATEGORIES = new Set([
   "portrait",
+  "stilllife",
   "landscape",
   "street",
   "performance",

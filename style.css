@@ -1571,6 +1571,10 @@ body {
     gap: 8px;
 }
 
+.portfolio-nav-children[hidden] {
+    display: none;
+}
+
 .portfolio-nav-item {
     display: flex;
     flex-direction: column;

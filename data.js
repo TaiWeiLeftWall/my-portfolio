@@ -901,6 +901,351 @@ const photoGroups = [
                 "description": ""
             }
         ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半数字玻璃杯",
+        "description": "",
+        "date": "2022-12-18",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/c35282146411179e37ccd1f1d1718c9786d33430572f215208a71117a33c69e6",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半小瓷杯",
+        "description": "",
+        "date": "2023-04-05",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/3caf948cf0c9de4e98d2b211ccdcdbcbf6cc8c206ff91db2ccd13cd0a7e916ea",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/3fd3f549b9673c75a091c668d7be62d8c4d2de4088586c22f99fc034e35c0e8e",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "返航计划",
+        "description": "",
+        "date": "2023-10-28",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/719d3ac41ad30cde18dce52ce3439db75ebb1d988e4bea9415f4292dade46419",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/2fb76b4b171afe00c565a1eabfb70ee50130d8034ce6188bc42835d87343766f",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半产品照",
+        "description": "",
+        "date": "2024-03-14",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/64dc039e54e7f42727b5a1b2c5db1e85f478e3080982de56063ee4b51a777481",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/6141806bfdb2236b07911136055c3dc52d3c3fb47560e55b6b4429c8fd1fc7bb",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半套装：废墟",
+        "description": "",
+        "date": "2024-05-01",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/407642ad49366d17c1ca56b3a05449b7924b4b28193c28a43a28b3f76796a64c",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/ad9fea7346bac7731ea49ae18322350b5f930208fb1e3046a06f228f77f5b950",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半套装：猫咪",
+        "description": "",
+        "date": "2024-05-01",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/2aa191faf68e5ce5f1ca5ceb00893f9e7d23b9219a67486e2fcbecaf57e17965",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/4c66d12960a80bc726dd955b5fe2e3468371c2936ca6c5a99811c7eb7adce828",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/b029e4392f20f85e108daa39556bb1fce4838223de5aa1250b53e607f706ba45",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半套装：沙滩",
+        "description": "",
+        "date": "2024-05-01",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/959201ff1f6ecb62c06ea876cb1d1d915e40109acf4c6956d92d328708852f91",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/b5d0137b75777aac62608566fa3a34942675896f24b7d92526636e7d6e1c6f07",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/c4c6e7fcee9fdff3a386e91576d28c33eff8a8f030f5e1e87e88c5c2072bd962",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d269a7f9e67499b56506d49f1aee10caf795bcb23e100e88e0fd4529d8aca091",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d50d5d4b1da880b57399478ad5e1c0d7a3025003d53f081ce9e8227ea027ce31",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半纸感杯",
+        "description": "",
+        "date": "2024-06-11",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/a8e6eb3dd658ff62f8c73121ff210350735e009b7e0d408fb329b21d8cc5bd0f",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/26ebd4ce5f8f96e4a451672d8d14625a8b14bdfcb16a94b9184221ce5f8219ef",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半桌面保温杯",
+        "description": "",
+        "date": "2024-07-01",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/dd93430bbca47ba5a5ba00cae6ad3f12a4cabbcec0ec36e6da5f4f28843b28cc",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "三顿半桌面保温杯",
+        "description": "",
+        "date": "2024-09-30",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/10513da6baac6da304808ad5127835e92edb7be67f5693f68422fe16848fc24d",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/23cf0837b2acf6b2e5516ba4b0a45fbf39395be349c78118b8e10c146eed598a",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/46114797b7e36b214a0c90a92b65025ce2ca79c1b1d364735f00cc001566e463",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "objects",
+        "title": "郊眠寺拨片",
+        "description": "",
+        "date": "2025-01-13",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/dc8896e02061065bc283efcbe2dbb04e3c622965a50ffec7887a1e40fc693eeb",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/15fb7835eda3cc89c333325d83db256a507b45817ef1e56c07c3b241485b14ab",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/5483bae7ed17b3717874a012b7690652abfff867252f6f7788bb63b4d815e358",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/7dd19ae8580945e8bad0bf9c50cf8a17912e6ee796c3adf7818828d282aaaa76",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "jewelry",
+        "title": "蝴蝶项链",
+        "description": "",
+        "date": "2024-10-10",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/3e95fc0a8466438958a82598b8f45419bdba082775e241ea0dcf3bd3a672aeca",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/704888a6b0a174ab7935fbf98f0ce45506a1ebd2f3beeee353082559b3bacf7e",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/e0ef151f698fc57d6127cfc3a97676a6b8e2360c1921979fab8b92d6f1831b97",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/360306a8b68988c3a12e3a18dcdb34661666f984c00dc6baffe3518967d09535",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/214c96987ab8c2b208994bb59380882f625b35fbe7b74dc39c9930f410a586e6",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "digital",
+        "title": "lunafury33EVO",
+        "description": "",
+        "date": "2026-03-23",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/36427e8d5493d184a713f2ccff439a731719f1971754c052f310b1eb9cc6764a",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/eedbeb3c76a82a69867b4b7c11ead3e6859b41cffd19a8375d8652532ef84ab7",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/03e1d58af7dd9a484a6b37440332d68c6be85849673dd634e570dc8e89d3e71d",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/e8e2c7eba0f5f8c04dbb3a39d033952740a2e783ac401d8ca97042535f427afa",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/f636cc69fcf8482211d4f9453648fa6118a94741a4615c92064d4d3064d86b92",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "stilllife",
+        "collection": "digital",
+        "title": "唯卓仕55evo",
+        "description": "",
+        "date": "2026-04-24",
+        "cols": 3,
+        "images": [
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/003b0ff630cfd5ffc2de4bc76765351a69ddaf0860af28f64ece02370e40f05c",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/b1da007e735a42c0f21bb02ea9d995c25b6afa4bde4e271906dfdbc42b73bd18",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/791b6668e1ed37d312e429045b4eeb41bda95176aaa9678e6a4bd07151e13adc",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "https://pub-0f1fd51184d04cc28d2ffffbd03a30de.r2.dev/images/idempotent/d9c7d333c0ee439ca224504f869df7da5267cdcaff7ccd8f93831421812a707e",
+                "title": "",
+                "description": ""
+            }
+        ]
     }
 ];
 

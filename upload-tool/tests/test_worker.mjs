@@ -248,6 +248,19 @@ test("rejects upload categories outside the allowlist", async () => {
   assert.equal(env.MY_BUCKET.puts.length, 0);
 });
 
+test("accepts the still life upload category", async () => {
+  const { response, payload, env } = await invoke({
+    path: "/upload?category=stilllife&date=2026-07-16&filename=photo.jpg",
+    method: "POST",
+    headers: { "Content-Type": "image/jpeg" },
+    body: new Uint8Array([1, 2, 3]),
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.ok, true);
+  assert.equal(env.MY_BUCKET.puts[0].options.customMetadata.category, "stilllife");
+});
+
 test("rejects upload dates that are not real YYYY-MM-DD dates", async () => {
   const { response, payload, env } = await invoke({
     path: "/upload?category=street&date=2026-02-30&filename=photo.png",

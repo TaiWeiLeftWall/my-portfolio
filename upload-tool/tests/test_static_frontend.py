@@ -133,6 +133,20 @@ process.stdout.write(JSON.stringify(groups));
                 {"title": "合唱队专场海报 2024", "date": "", "count": 10},
                 {"title": "吉协乐手介绍", "date": "2025-05-16", "count": 12},
                 {"title": "合唱队专场海报 2025", "date": "", "count": 10},
+                {"title": "三顿半数字玻璃杯", "date": "2022-12-18", "count": 1},
+                {"title": "三顿半小瓷杯", "date": "2023-04-05", "count": 2},
+                {"title": "返航计划", "date": "2023-10-28", "count": 2},
+                {"title": "三顿半产品照", "date": "2024-03-14", "count": 2},
+                {"title": "三顿半套装：废墟", "date": "2024-05-01", "count": 2},
+                {"title": "三顿半套装：猫咪", "date": "2024-05-01", "count": 3},
+                {"title": "三顿半套装：沙滩", "date": "2024-05-01", "count": 5},
+                {"title": "三顿半纸感杯", "date": "2024-06-11", "count": 2},
+                {"title": "三顿半桌面保温杯", "date": "2024-07-01", "count": 1},
+                {"title": "三顿半桌面保温杯", "date": "2024-09-30", "count": 3},
+                {"title": "郊眠寺拨片", "date": "2025-01-13", "count": 4},
+                {"title": "蝴蝶项链", "date": "2024-10-10", "count": 5},
+                {"title": "lunafury33EVO", "date": "2026-03-23", "count": 5},
+                {"title": "唯卓仕55evo", "date": "2026-04-24", "count": 4},
             ],
         )
 
@@ -169,6 +183,39 @@ process.stdout.write(JSON.stringify(groups));
                 {"title": "吉协乐手介绍", "date": "2025-05-16", "count": 12},
                 {"title": "合唱队专场海报 2025", "date": "", "count": 10},
             ],
+        )
+
+    def test_still_life_collection_inventory(self):
+        groups = self._evaluate_data_js(
+            "Object.fromEntries(['objects','jewelry','digital'].map(collection => ["
+            "collection, photoGroups.filter(group => group.collection === collection)"
+            ".map(({title,date,images}) => ({title,date,count:images.length}))]))"
+        )
+
+        self.assertEqual(
+            groups,
+            {
+                "objects": [
+                    {"title": "三顿半数字玻璃杯", "date": "2022-12-18", "count": 1},
+                    {"title": "三顿半小瓷杯", "date": "2023-04-05", "count": 2},
+                    {"title": "返航计划", "date": "2023-10-28", "count": 2},
+                    {"title": "三顿半产品照", "date": "2024-03-14", "count": 2},
+                    {"title": "三顿半套装：废墟", "date": "2024-05-01", "count": 2},
+                    {"title": "三顿半套装：猫咪", "date": "2024-05-01", "count": 3},
+                    {"title": "三顿半套装：沙滩", "date": "2024-05-01", "count": 5},
+                    {"title": "三顿半纸感杯", "date": "2024-06-11", "count": 2},
+                    {"title": "三顿半桌面保温杯", "date": "2024-07-01", "count": 1},
+                    {"title": "三顿半桌面保温杯", "date": "2024-09-30", "count": 3},
+                    {"title": "郊眠寺拨片", "date": "2025-01-13", "count": 4},
+                ],
+                "jewelry": [
+                    {"title": "蝴蝶项链", "date": "2024-10-10", "count": 5},
+                ],
+                "digital": [
+                    {"title": "lunafury33EVO", "date": "2026-03-23", "count": 5},
+                    {"title": "唯卓仕55evo", "date": "2026-04-24", "count": 4},
+                ],
+            },
         )
 
     def test_curated_photo_deletions_and_november_split(self):

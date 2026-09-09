@@ -73,7 +73,7 @@ def assert_minimal_commercial_overview(browser):
 def assert_interactions_are_accessible(browser):
     page = open_page(browser, "index")
     assert page.locator("nav a[aria-current='page']").count() == 1
-    assert page.locator("button.selected-work").count() == 21
+    assert page.locator("button.selected-work").count() == 35
     assert page.locator(".selected-work:not(button)").count() == 0
     assert page.locator("button[data-project-prev]").count() == 1
     assert page.locator("button[data-project-next]").count() == 1
@@ -293,10 +293,10 @@ def assert_content_inventory_and_routes(browser):
         assert not errors, f"{name} emitted browser errors: {errors}"
         pages[name] = page
 
-    assert pages["index"].evaluate("photoGroups.length") == 21
+    assert pages["index"].evaluate("photoGroups.length") == 35
     assert pages["index"].evaluate(
         "photoGroups.reduce((n, group) => n + group.images.length, 0)"
-    ) == 137
+    ) == 178
     assert pages["videos"].evaluate(
         "typeof videos !== 'undefined' ? videos.length : 0"
     ) == 15
@@ -385,7 +385,7 @@ def assert_minimal_shell_and_mobile_menu(browser):
         "EDITORIAL",
         "INFO",
     ]
-    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 9
+    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 13
     projects = desktop.locator(".portfolio-nav-section").first
     portrait_item = projects.locator(".portfolio-nav-item").first
     assert portrait_item.locator(
@@ -401,6 +401,34 @@ def assert_minimal_shell_and_mobile_menu(browser):
     )
     assert poster.count() == 1
     assert poster.inner_text() == "海报拍摄"
+    portrait_parent = portrait_item.locator(
+        ":scope > a[href='index.html#category=portrait']"
+    )
+    assert portrait_parent.get_attribute("aria-expanded") == "false"
+    assert portrait_item.locator(".portfolio-nav-children").get_attribute("hidden") == ""
+    still_life_item = projects.locator(".portfolio-nav-item").nth(1)
+    still_life_parent = still_life_item.locator(
+        ":scope > a[href='index.html#category=stilllife']"
+    )
+    assert still_life_parent.inner_text() == "静物"
+    assert still_life_parent.get_attribute("aria-expanded") == "false"
+    assert still_life_item.locator(".portfolio-nav-child").all_inner_texts() == [
+        "小物件",
+        "首饰",
+        "数码",
+    ]
+    portrait_parent.click()
+    desktop.wait_for_timeout(100)
+    assert desktop.url.endswith("#category=portrait")
+    assert portrait_parent.get_attribute("aria-expanded") == "true"
+    assert portrait_item.locator(".portfolio-nav-children").get_attribute("hidden") is None
+    assert still_life_parent.get_attribute("aria-expanded") == "false"
+    still_life_parent.click()
+    desktop.wait_for_timeout(100)
+    assert desktop.url.endswith("#category=stilllife")
+    assert still_life_parent.get_attribute("aria-expanded") == "true"
+    assert still_life_item.locator(".portfolio-nav-children").get_attribute("hidden") is None
+    assert portrait_parent.get_attribute("aria-expanded") == "false"
     assert desktop.locator(".portfolio-contact").count() == 0
     assert desktop.locator(
         ".portfolio-nav a[data-nav-link][href='about.html']"
@@ -431,6 +459,8 @@ def assert_minimal_shell_and_mobile_menu(browser):
     assert "ancestor-active" in (
         portrait_parent.get_attribute("class") or ""
     ).split()
+    assert portrait_parent.get_attribute("aria-expanded") == "true"
+    assert active_child.is_visible()
     assert portrait_parent.get_attribute("aria-current") is None
     collection.close()
 
@@ -453,6 +483,24 @@ def assert_minimal_shell_and_mobile_menu(browser):
     ).split()
     poster_collection.close()
 
+    objects_collection = open_page(
+        browser,
+        "index",
+        width=1280,
+        height=720,
+        query="#collection=objects",
+    )
+    objects_child = objects_collection.locator(
+        ".portfolio-nav-child[href='index.html#collection=objects']"
+    )
+    still_life_parent = objects_collection.locator(
+        ".portfolio-nav a[href='index.html#category=stilllife']"
+    )
+    assert objects_child.get_attribute("aria-current") == "page"
+    assert objects_child.is_visible()
+    assert still_life_parent.get_attribute("aria-expanded") == "true"
+    objects_collection.close()
+
     mobile = open_page(browser, "index", width=390, height=844)
     toggle = mobile.locator("[data-menu-toggle]")
     assert toggle.is_visible()
@@ -465,7 +513,16 @@ def assert_minimal_shell_and_mobile_menu(browser):
     toggle.click()
     assert toggle.get_attribute("aria-expanded") == "true"
     assert mobile.locator(".portfolio-nav").get_attribute("data-expanded") == "true"
-    mobile.locator(".portfolio-nav a[data-nav-link][href='about.html']").click()
+    mobile_portrait_parent = mobile.locator(
+        ".portfolio-nav a[data-nav-link][href='index.html#category=portrait']"
+    )
+    mobile_portrait_parent.click()
+    mobile.wait_for_timeout(100)
+    assert mobile.locator("[data-menu-toggle]").get_attribute("aria-expanded") == "true"
+    assert mobile_portrait_parent.get_attribute("aria-expanded") == "true"
+    mobile.locator(
+        ".portfolio-nav-child[href='index.html#collection=graduation']"
+    ).click()
     assert mobile.locator("[data-menu-toggle]").get_attribute("aria-expanded") == "false"
     mobile.close()
 
@@ -473,10 +530,10 @@ def assert_minimal_shell_and_mobile_menu(browser):
 def assert_selected_works_contract(browser):
     page = open_page(browser, "index", width=1280, height=720)
     assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
-    assert page.locator("#selected-grid .selected-work").count() == 21
-    assert page.locator("#selected-grid .selected-work img").count() == 21
+    assert page.locator("#selected-grid .selected-work").count() == 35
+    assert page.locator("#selected-grid .selected-work img").count() == 35
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
-    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 137
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 178
     first_sources = page.evaluate("photoGroups.map(group => group.images[0].src)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src)"
@@ -541,6 +598,41 @@ def assert_real_poster_inventory(browser):
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
     )
     page.close()
+
+
+def assert_real_still_life_inventory(browser):
+    expected = {
+        "objects": ("小物件", 11, 27),
+        "jewelry": ("首饰", 1, 5),
+        "digital": ("数码", 2, 9),
+    }
+    for collection, (heading, group_count, image_count) in expected.items():
+        page = open_page(
+            browser,
+            "index",
+            width=1280,
+            height=720,
+            query=f"#collection={collection}",
+        )
+        assert page.locator("#selected-heading").inner_text() == heading
+        assert page.evaluate(
+            "collection => photoGroups.filter(group => group.collection === collection).length",
+            collection,
+        ) == group_count
+        assert page.evaluate(
+            "collection => photoGroups.filter(group => group.collection === collection)"
+            ".reduce((total, group) => total + group.images.length, 0)",
+            collection,
+        ) == image_count
+        assert page.locator("#selected-grid .selected-work").count() == group_count
+        assert page.locator("#selected-grid .selected-column").count() == 3
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.wait_for_timeout(250)
+        assert page.locator("#selected-grid .selected-column").count() == 2
+        assert page.evaluate(
+            "document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+        )
+        page.close()
 
 
 def assert_photo_project_viewer(browser):
@@ -720,6 +812,7 @@ def main():
             assert_selected_works_contract(browser)
             assert_real_graduation_inventory(browser)
             assert_real_poster_inventory(browser)
+            assert_real_still_life_inventory(browser)
             assert_photo_project_viewer(browser)
             assert_graduation_collection_state(browser)
             assert_single_media_fits_viewport(browser)

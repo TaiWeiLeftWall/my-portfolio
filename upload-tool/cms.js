@@ -255,7 +255,7 @@ function openPanel(state) {
     html = '<h3 style="font-size:14px;font-weight:600;margin-bottom:4px">编辑图片组</h3>';
     html += '<div class="panel-field"><label>日期</label><input id="ef-date" value="' + esc(data.date||'') + '" placeholder="YYYY-MM-DD"></div>';
     html += '<div class="panel-field"><label>分类</label><select id="ef-category">';
-    ['portrait','landscape','street','performance','official'].forEach(function(c) { html += '<option value="' + c + '"' + (data.category===c?' selected':'') + '>' + c + '</option>'; });
+    ['portrait','stilllife','landscape','street','performance','official'].forEach(function(c) { html += '<option value="' + c + '"' + (data.category===c?' selected':'') + '>' + c + '</option>'; });
     html += '</select></div>';
     html += '<div class="panel-field"><label>合集标记</label><input id="ef-collection" value="' + esc(data.collection||'') + '" placeholder="例如 graduation"></div>';
     html += '<div class="panel-field"><label>标题</label><input id="ef-title" value="' + esc(data.title||'') + '"></div>';

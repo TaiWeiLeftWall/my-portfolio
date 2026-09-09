@@ -99,6 +99,20 @@ class DatabaseTests(unittest.TestCase):
 
         self.assertEqual(group["collection"], "")
 
+    def test_still_life_category_is_valid_for_regular_and_idempotent_creation(self):
+        regular = self.db.create_photo_group(
+            {"category": "stilllife", "collection": "objects"}
+        )
+        status, payload = self.db.create_photo_group_idempotent(
+            {"category": "stilllife", "collection": "digital"},
+            "stilllife-category-test-operation-key",
+            "photo_group_create",
+        )
+
+        self.assertEqual(regular["category"], "stilllife")
+        self.assertEqual(status, 200)
+        self.assertEqual(self.db.get_photo_group(payload["id"])["category"], "stilllife")
+
     def test_bulk_import_and_frontend_export_preserve_collection(self):
         self.db.bulk_import(
             [

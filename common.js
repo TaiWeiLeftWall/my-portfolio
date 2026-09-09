@@ -65,9 +65,20 @@ const PORTFOLIO_NAVIGATION = {
                 {
                     href: 'index.html#category=portrait',
                     label: '人像',
+                    id: 'portrait',
                     children: [
                         { href: 'index.html#collection=graduation', label: '毕业照' },
                         { href: 'index.html#collection=poster', label: '海报拍摄' },
+                    ],
+                },
+                {
+                    href: 'index.html#category=stilllife',
+                    label: '静物',
+                    id: 'stilllife',
+                    children: [
+                        { href: 'index.html#collection=objects', label: '小物件' },
+                        { href: 'index.html#collection=jewelry', label: '首饰' },
+                        { href: 'index.html#collection=digital', label: '数码' },
                     ],
                 },
                 { href: 'index.html#category=performance', label: '演出' },
@@ -90,16 +101,21 @@ const PORTFOLIO_NAVIGATION = {
     ],
 };
 
-function renderPortfolioLink(item, className = '') {
+function renderPortfolioLink(item, className = '', attributes = '') {
     const classAttribute = className ? ` class="${className}"` : '';
-    return `<a href="${item.href}"${classAttribute} data-nav-link>${item.label}</a>`;
+    const extraAttributes = attributes ? ` ${attributes}` : '';
+    return `<a href="${item.href}"${classAttribute} data-nav-link${extraAttributes}>${item.label}</a>`;
 }
 
 function renderPortfolioNavItem(item) {
-    const children = Array.isArray(item.children) && item.children.length
-        ? `<div class="portfolio-nav-children">${item.children.map(child => renderPortfolioLink(child, 'portfolio-nav-child')).join('')}</div>`
-        : '';
-    return `<div class="portfolio-nav-item">${renderPortfolioLink(item)}${children}</div>`;
+    if (!Array.isArray(item.children) || !item.children.length) {
+        return `<div class="portfolio-nav-item">${renderPortfolioLink(item)}</div>`;
+    }
+
+    const childrenId = `portfolio-nav-children-${item.id}`;
+    const parentAttributes = `data-nav-parent aria-expanded="false" aria-controls="${childrenId}"`;
+    const children = `<div class="portfolio-nav-children" id="${childrenId}" hidden>${item.children.map(child => renderPortfolioLink(child, 'portfolio-nav-child')).join('')}</div>`;
+    return `<div class="portfolio-nav-item">${renderPortfolioLink(item, '', parentAttributes)}${children}</div>`;
 }
 
 function renderPortfolioNavSections(sections) {
@@ -121,6 +137,20 @@ function setMenuExpanded(expanded) {
     toggle.textContent = expanded ? '关闭' : '菜单';
 }
 
+function setSubmenuExpanded(parentLink, expanded) {
+    const childrenId = parentLink?.getAttribute('aria-controls');
+    const children = childrenId ? document.getElementById(childrenId) : null;
+    if (!parentLink || !children) return;
+    parentLink.setAttribute('aria-expanded', String(expanded));
+    children.hidden = !expanded;
+}
+
+function setOnlySubmenuExpanded(activeParent) {
+    document.querySelectorAll('[data-nav-parent]').forEach(parentLink => {
+        setSubmenuExpanded(parentLink, parentLink === activeParent);
+    });
+}
+
 function updateActiveNavigation() {
     const page = location.pathname.split('/').pop() || 'index.html';
     const current = `${page}${location.hash}`;
@@ -140,6 +170,14 @@ function updateActiveNavigation() {
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
     });
+
+    const owningParent = [...document.querySelectorAll('[data-nav-parent]')].find(parentLink => {
+        const parentHref = parentLink.getAttribute('href');
+        const childHrefs = [...parentLink.parentElement.querySelectorAll('.portfolio-nav-child')]
+            .map(child => child.getAttribute('href'));
+        return parentHref === current || childHrefs.includes(current);
+    });
+    setOnlySubmenuExpanded(owningParent || null);
 }
 
 function renderPortfolioShell() {
@@ -172,8 +210,24 @@ function renderPortfolioShell() {
     shell.querySelector('[data-menu-toggle]').addEventListener('click', event => {
         setMenuExpanded(event.currentTarget.getAttribute('aria-expanded') !== 'true');
     });
-    shell.querySelectorAll('a').forEach(link => {
-        link.addEventListener('click', () => setMenuExpanded(false));
+    shell.querySelectorAll('a[data-nav-link]').forEach(link => {
+        link.addEventListener('click', event => {
+            if (!link.matches('[data-nav-parent]')) {
+                setMenuExpanded(false);
+                return;
+            }
+
+            const page = location.pathname.split('/').pop() || 'index.html';
+            const current = `${page}${location.hash}`;
+            const isCurrentParent = link.getAttribute('href') === current;
+            if (isCurrentParent) {
+                event.preventDefault();
+                const expanded = link.getAttribute('aria-expanded') === 'true';
+                setSubmenuExpanded(link, !expanded);
+                return;
+            }
+            setOnlySubmenuExpanded(link);
+        });
     });
     window.addEventListener('hashchange', updateActiveNavigation);
     updateActiveNavigation();

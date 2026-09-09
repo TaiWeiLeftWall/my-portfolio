@@ -7,12 +7,15 @@ const CATEGORY_LABELS = {
 
 const COLLECTIONS = {
     graduation: { title: '毕业照', category: 'portrait' },
-    poster: { title: '海报拍摄', category: 'portrait', sortByDate: false },
+    poster: { title: '海报拍摄', category: 'portrait' },
     objects: { title: '小物件', category: 'stilllife' },
     jewelry: { title: '首饰', category: 'stilllife' },
     digital: { title: '数码', category: 'stilllife' },
 };
 
+const overviewCoverIndexByProjectId = new Map();
+const overviewOrderByProjectId = new Map();
+let nextOverviewOrder = 0;
 let activeProject = null;
 let activeSlideIndex = 0;
 let projectReturnFocus = null;
@@ -26,9 +29,48 @@ function projectIdFor(group, index) {
     return raw.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
 }
 
+function shuffled(items) {
+    const result = [...items];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+    }
+    return result;
+}
+
+function randomizeOverviewProjects(projects) {
+    const newProjectIds = [];
+    projects.forEach(project => {
+        if (!overviewCoverIndexByProjectId.has(project.id)) {
+            overviewCoverIndexByProjectId.set(
+                project.id,
+                Math.floor(Math.random() * project.images.length),
+            );
+        }
+        if (!overviewOrderByProjectId.has(project.id)) newProjectIds.push(project.id);
+    });
+
+    shuffled(newProjectIds).forEach(projectId => {
+        overviewOrderByProjectId.set(projectId, nextOverviewOrder);
+        nextOverviewOrder += 1;
+    });
+
+    return projects
+        .map(project => {
+            const coverIndex = Math.min(
+                overviewCoverIndexByProjectId.get(project.id),
+                project.images.length - 1,
+            );
+            return { ...project, overviewImage: project.images[coverIndex] };
+        })
+        .sort((a, b) => (
+            overviewOrderByProjectId.get(a.id) - overviewOrderByProjectId.get(b.id)
+        ));
+}
+
 function getPortfolioProjects() {
     if (typeof photoGroups === 'undefined' || !Array.isArray(photoGroups)) return [];
-    return photoGroups
+    const projects = photoGroups
         .map((group, index) => ({
             id: projectIdFor(group, index),
             category: group.category || '',
@@ -44,6 +86,7 @@ function getPortfolioProjects() {
             console.warn(`Skipping empty portfolio project: ${project.id}`);
             return false;
         });
+    return randomizeOverviewProjects(projects);
 }
 
 function overviewColumnCount(category = 'all') {
@@ -73,8 +116,8 @@ function createSelectedWork(project, projectIndex) {
     button.setAttribute('aria-label', `查看项目：${projectLabel(project)}`);
 
     const image = document.createElement('img');
-    image.src = project.images[0].src;
-    image.alt = imageAlt(project, project.images[0]);
+    image.src = project.overviewImage.src;
+    image.alt = imageAlt(project, project.overviewImage);
     image.loading = projectIndex === 0 ? 'eager' : 'lazy';
     image.decoding = 'async';
     image.draggable = false;
@@ -150,9 +193,6 @@ function renderCollection(collectionId) {
     if (heading) heading.textContent = collection.title;
     const projects = getPortfolioProjects()
         .filter(project => project.collection === collectionId);
-    if (collection.sortByDate !== false) {
-        projects.sort((a, b) => a.date.localeCompare(b.date));
-    }
     renderProjectOverview(projects, true);
     return true;
 }

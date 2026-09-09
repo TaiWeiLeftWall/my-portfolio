@@ -28,6 +28,14 @@ def open_page(
     return page
 
 
+def open_page_with_random(browser, random_value, width=1440, height=1000, query=""):
+    page = browser.new_page(viewport={"width": width, "height": height})
+    page.add_init_script(f"Math.random = () => {float(random_value)};")
+    page.goto((SITE_ROOT / "index.html").as_uri() + query, wait_until="domcontentloaded")
+    page.wait_for_timeout(100)
+    return page
+
+
 def open_page_with_portrait_images(browser, name, width, height, query=""):
     page = browser.new_page(viewport={"width": width, "height": height})
 
@@ -528,18 +536,43 @@ def assert_minimal_shell_and_mobile_menu(browser):
 
 
 def assert_selected_works_contract(browser):
-    page = open_page(browser, "index", width=1280, height=720)
+    page = open_page_with_random(browser, 0.999999, width=1280, height=720)
     assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
     assert page.locator("#selected-grid .selected-work").count() == 35
     assert page.locator("#selected-grid .selected-work img").count() == 35
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
     assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 178
-    first_sources = page.evaluate("photoGroups.map(group => group.images[0].src)")
+    last_sources = page.evaluate("photoGroups.map(group => group.images.at(-1).src)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src)"
     )
-    assert rendered_sources == first_sources
+    assert rendered_sources == last_sources
+
+    original_ids = page.evaluate(
+        "photoGroups.map((group, index) => projectIdFor(group, index))"
+    )
+    rendered_ids = page.locator("#selected-grid .selected-work").evaluate_all(
+        "works => works.map(work => work.dataset.projectId)"
+    )
+    assert rendered_ids == original_ids
+
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.wait_for_timeout(250)
+    assert page.locator("#selected-grid .selected-work").evaluate_all(
+        "works => works.map(work => work.dataset.projectId)"
+    ) == rendered_ids
+    assert page.locator("#selected-grid .selected-work img").evaluate_all(
+        "images => images.map(image => image.src)"
+    ) == rendered_sources
     page.close()
+
+    shuffled = open_page_with_random(browser, 0, width=1280, height=720)
+    shuffled_ids = shuffled.locator("#selected-grid .selected-work").evaluate_all(
+        "works => works.map(work => work.dataset.projectId)"
+    )
+    assert shuffled_ids != original_ids
+    assert sorted(shuffled_ids) == sorted(original_ids)
+    shuffled.close()
 
 
 def assert_real_graduation_inventory(browser):
@@ -583,14 +616,14 @@ def assert_real_poster_inventory(browser):
     assert page.locator("#selected-grid .selected-column").evaluate_all(
         "columns => columns.map(column => column.children.length)"
     ) == [2, 1, 1]
-    assert page.locator("#selected-grid .selected-work").evaluate_all(
+    assert sorted(page.locator("#selected-grid .selected-work").evaluate_all(
         "works => works.map(work => work.getAttribute('aria-label'))"
-    ) == [
+    )) == sorted([
         "查看项目：Joint乐队合照 · 人像 · 2023-09-28",
         "查看项目：合唱队专场海报 2024 · 人像",
         "查看项目：吉协乐手介绍 · 人像 · 2025-05-16",
         "查看项目：合唱队专场海报 2025 · 人像",
-    ]
+    ])
     page.set_viewport_size({"width": 390, "height": 844})
     page.wait_for_timeout(250)
     assert page.locator("#selected-grid .selected-column").count() == 2
@@ -638,12 +671,17 @@ def assert_real_still_life_inventory(browser):
 def assert_photo_project_viewer(browser):
     page = open_page(browser, "index", width=1280, height=720)
     trigger = page.locator("button.selected-work").first
+    project_id = trigger.get_attribute("data-project-id")
     trigger.focus()
     trigger.press("Enter")
     viewer = page.locator("#project-viewer")
     assert viewer.get_attribute("hidden") is None
     assert viewer.locator(".project-statement").is_visible()
-    total = page.evaluate("1 + photoGroups[0].images.length")
+    total = page.evaluate(
+        "projectId => 1 + getPortfolioProjects()"
+        ".find(project => project.id === projectId).images.length",
+        project_id,
+    )
     assert viewer.locator("[data-slide-counter]").inner_text() == f"1 / {total}"
     viewer.press("ArrowRight")
     assert viewer.locator(".project-image").is_visible()

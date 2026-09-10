@@ -188,8 +188,8 @@ function renderPortfolioShell() {
     shell.className = 'portfolio-sidebar';
     shell.innerHTML = `
         <div class="portfolio-identity">
-            <a href="index.html" class="portfolio-name">沉礁</a>
-            <span class="portfolio-role">杭州自由摄影师</span>
+            <a href="index.html" class="portfolio-name">林伟杰 WEIJIE LIN</a>
+            <span class="portfolio-role">摄影师 · 杭州</span>
             <button type="button" data-menu-toggle aria-expanded="false" aria-controls="portfolio-navigation">菜单</button>
         </div>
         <nav class="portfolio-nav" id="portfolio-navigation" data-expanded="false" aria-label="作品集导航">

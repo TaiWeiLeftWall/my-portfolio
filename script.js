@@ -180,7 +180,7 @@ function renderProjectOverview(projects, fixedColumns = false) {
 function renderOverview(category = 'all') {
     const heading = document.getElementById('selected-heading');
     if (heading) heading.textContent = category === 'all'
-        ? '沉礁摄影作品集'
+        ? '林伟杰 WEIJIE LIN 摄影作品集'
         : (CATEGORY_LABELS[category] || '摄影作品');
     const projects = getPortfolioProjects().filter(project => category === 'all' || project.category === category);
     renderProjectOverview(projects, category === 'performance' || category === 'landscape');

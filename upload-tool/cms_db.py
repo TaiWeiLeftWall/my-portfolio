@@ -1021,7 +1021,7 @@ console.log(JSON.stringify(ctx.__out));
             "// ==========================================\n"
             "// 摄影作品集数据文件 - 由 upload-tool/cms_server.py 导出\n"
             "// ==========================================\n\n"
-            'const photographerName = "摄影师名称";\n\n'
+            'const photographerName = "林伟杰 WEIJIE LIN";\n\n'
             "const photos = [];\n\n"
             "const photoGroups = "
             + json.dumps(

@@ -64,6 +64,32 @@ def assert_public_pages(browser):
     page.close()
 
 
+def assert_site_identity_and_about_content(browser):
+    expected_titles = {
+        "index": "摄影作品集 | 林伟杰 WEIJIE LIN",
+        "about": "关于我 | 林伟杰 WEIJIE LIN",
+        "videos": "视频作品 | 林伟杰 WEIJIE LIN",
+        "commercial": "商业项目 | 林伟杰 WEIJIE LIN",
+        "commercial-detail": "项目详情 | 林伟杰 WEIJIE LIN",
+    }
+    for name, expected_title in expected_titles.items():
+        query = "?project=brand-a" if name == "commercial-detail" else ""
+        page = open_page(browser, name, wait_ms=100, query=query)
+        assert page.title() == expected_title
+        assert page.locator(".portfolio-name").inner_text() == "林伟杰 WEIJIE LIN"
+        assert page.locator(".portfolio-role").inner_text() == "摄影师 · 杭州"
+        page.close()
+
+    about = open_page(browser, "about", wait_ms=100)
+    about_text = about.locator("main").inner_text()
+    assert "林伟杰（WEIJIE LIN）" in about_text
+    assert "人像、演出、静物与风光" in about_text
+    assert about.locator("a[href='mailto:sleepylagoon2894@163.com']").count() == 1
+    assert about.locator("a[href='tel:+8617708693806']").count() == 1
+    assert "合作：sleepylagoon2894" not in about_text
+    about.close()
+
+
 def assert_minimal_commercial_overview(browser):
     page = open_page(browser, "commercial", width=1280, height=720, wait_ms=250)
     assert page.locator("#project-grid .project-card").count() == 3
@@ -838,7 +864,7 @@ def assert_video_and_about_are_restrained(browser):
     assert about.locator(".about-image img").count() == 1
     assert about.locator(".about-links a[target='_blank']").count() == 4
     assert about.locator(".social-module, .social-icon").count() == 0
-    assert "合作：sleepylagoon2894" in about.locator("main").inner_text()
+    assert about.locator(".about-contact a").count() == 2
     about.close()
 
 
@@ -857,6 +883,7 @@ def main():
             assert_video_and_about_are_restrained(browser)
             assert_minimal_commercial_overview(browser)
             assert_public_pages(browser)
+            assert_site_identity_and_about_content(browser)
             assert_interactions_are_accessible(browser)
             assert_commercial_detail_is_accessible(browser)
             assert_commercial_detail_sequence(browser)

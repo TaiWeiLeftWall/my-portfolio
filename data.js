@@ -2,7 +2,7 @@
 // 摄影作品集数据文件 - 由 upload-tool/cms_server.py 导出
 // ==========================================
 
-const photographerName = "摄影师名称";
+const photographerName = "林伟杰 WEIJIE LIN";
 
 const photos = [];
 

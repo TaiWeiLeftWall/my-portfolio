@@ -1,5 +1,5 @@
 /* ========================================
-   沉礁摄影作品集 - Apple Design System
+   林伟杰 WEIJIE LIN 摄影作品集 - Apple Design System
    Primary: Apple Human Interface Guidelines
    ======================================== */
 
@@ -1446,7 +1446,17 @@ footer p {
     margin-top: 34px;
 }
 
-.about-links a {
+.about-contact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+    margin-top: 14px;
+    font-style: normal;
+}
+
+.about-links a,
+.about-contact a {
     color: var(--portfolio-secondary);
     font-size: 12px;
 }

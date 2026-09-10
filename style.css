@@ -1535,6 +1535,8 @@ body {
 }
 
 .portfolio-name {
+    grid-column: 1;
+    grid-row: 1;
     color: var(--portfolio-ink);
     font-size: 16px;
     font-weight: 400;
@@ -1543,7 +1545,8 @@ body {
 }
 
 .portfolio-role {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-row: 2;
     margin-top: 2px;
     color: var(--portfolio-muted);
     font-size: 12px;
@@ -1625,12 +1628,57 @@ body {
 
 [data-menu-toggle] {
     display: none;
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 44px;
+    min-height: 44px;
     border: 0;
     padding: 0;
     background: transparent;
     color: var(--portfolio-secondary);
     font: inherit;
     cursor: pointer;
+}
+
+.portfolio-menu-icon {
+    position: relative;
+    width: 13px;
+    height: 13px;
+}
+
+.portfolio-menu-icon::before,
+.portfolio-menu-icon::after {
+    position: absolute;
+    top: 6px;
+    left: 1px;
+    width: 11px;
+    height: 1px;
+    background: currentColor;
+    content: '';
+    transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.portfolio-menu-icon::after {
+    transform: rotate(90deg);
+}
+
+[data-menu-toggle][aria-expanded='true'] .portfolio-menu-icon::after {
+    opacity: 0;
+    transform: rotate(0deg);
+}
+
+@keyframes portfolioMenuIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes portfolioSubmenuIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 body > main,
@@ -1672,13 +1720,30 @@ body > .commercial-page {
         overflow: visible;
     }
 
+    .portfolio-identity {
+        min-height: 44px;
+        align-items: center;
+    }
+
+    .portfolio-name {
+        align-self: end;
+    }
+
+    .portfolio-role {
+        align-self: start;
+    }
+
     [data-menu-toggle] {
         display: inline-flex;
+        margin: -5px -8px -5px 12px;
+        color: var(--portfolio-ink);
+        font-size: 12px;
+        letter-spacing: .3px;
     }
 
     .portfolio-nav {
         min-height: 0;
-        margin-top: 18px;
+        margin-top: 14px;
     }
 
     .portfolio-nav[data-expanded='false'] {
@@ -1688,7 +1753,72 @@ body > .commercial-page {
     .portfolio-nav[data-expanded='true'] {
         display: flex;
         max-height: 46dvh;
+        padding: 16px 0 6px;
+        border-top: 1px solid var(--portfolio-rule);
         overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-width: none;
+        animation: portfolioMenuIn 180ms ease both;
+    }
+
+    .portfolio-nav[data-expanded='true']::-webkit-scrollbar {
+        display: none;
+    }
+
+    .portfolio-nav-links {
+        gap: 20px;
+    }
+
+    .portfolio-nav-sections {
+        gap: 20px;
+    }
+
+    .portfolio-nav-heading {
+        margin-bottom: 5px;
+        font-size: 10px;
+    }
+
+    .portfolio-nav-items,
+    .portfolio-nav-children {
+        gap: 0;
+    }
+
+    .portfolio-nav-item {
+        width: 100%;
+        gap: 0;
+    }
+
+    .portfolio-nav a {
+        display: flex;
+        width: 100%;
+        min-height: 40px;
+        align-items: center;
+    }
+
+    .portfolio-nav-child {
+        min-height: 36px !important;
+        margin-left: 0;
+        font-size: 12px !important;
+    }
+
+    .portfolio-nav-children:not([hidden]) {
+        width: calc(100% - 5px);
+        margin: 0 0 5px 5px;
+        padding-left: 14px;
+        border-left: 1px solid var(--portfolio-rule);
+        animation: portfolioSubmenuIn 160ms ease both;
+    }
+
+    [data-nav-parent]::after {
+        margin-left: auto;
+        color: var(--portfolio-muted);
+        font-size: 13px;
+        line-height: 1;
+        content: '＋';
+    }
+
+    [data-nav-parent][aria-expanded='true']::after {
+        content: '−';
     }
 
     body > main,
@@ -1958,5 +2088,16 @@ body.project-open .project-viewer {
     .project-slide {
         animation: none !important;
         animation-duration: 0s !important;
+    }
+
+    .portfolio-nav,
+    .portfolio-nav-children {
+        animation: none !important;
+        animation-duration: 0s !important;
+    }
+
+    .portfolio-menu-icon::before,
+    .portfolio-menu-icon::after {
+        transition: none !important;
     }
 }

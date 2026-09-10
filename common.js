@@ -56,7 +56,7 @@ if (document.readyState === 'loading') {
 // ==========================================
 const PORTFOLIO_NAVIGATION = {
     primary: [
-        { href: 'index.html', label: 'Selected Works' },
+        { href: 'index.html', label: '精选作品' },
     ],
     sections: [
         {
@@ -134,7 +134,8 @@ function setMenuExpanded(expanded) {
     if (!nav || !toggle) return;
     nav.dataset.expanded = String(expanded);
     toggle.setAttribute('aria-expanded', String(expanded));
-    toggle.textContent = expanded ? '关闭' : '菜单';
+    const label = toggle.querySelector('[data-menu-label]');
+    if (label) label.textContent = expanded ? '收起 Close' : '菜单 Menu';
 }
 
 function setSubmenuExpanded(parentLink, expanded) {
@@ -190,7 +191,10 @@ function renderPortfolioShell() {
         <div class="portfolio-identity">
             <a href="index.html" class="portfolio-name">林伟杰 WEIJIE LIN</a>
             <span class="portfolio-role">摄影师 · 杭州</span>
-            <button type="button" data-menu-toggle aria-expanded="false" aria-controls="portfolio-navigation">菜单</button>
+            <button type="button" data-menu-toggle aria-expanded="false" aria-controls="portfolio-navigation">
+                <span data-menu-label>菜单 Menu</span>
+                <span class="portfolio-menu-icon" aria-hidden="true"></span>
+            </button>
         </div>
         <nav class="portfolio-nav" id="portfolio-navigation" data-expanded="false" aria-label="作品集导航">
             <div class="portfolio-nav-links">

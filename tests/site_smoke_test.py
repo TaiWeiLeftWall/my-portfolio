@@ -261,6 +261,19 @@ def assert_reduced_motion_is_respected(browser):
     ) == "0s"
     page.close()
 
+    mobile = browser.new_page(viewport={"width": 390, "height": 844})
+    mobile.emulate_media(reduced_motion="reduce")
+    mobile.goto((SITE_ROOT / "index.html").as_uri(), wait_until="domcontentloaded")
+    mobile.locator("[data-menu-toggle]").click()
+    assert mobile.locator(".portfolio-nav").evaluate(
+        "element => getComputedStyle(element).animationDuration"
+    ) == "0s"
+    mobile.locator("[data-nav-parent]").first.click()
+    assert mobile.locator(".portfolio-nav-children").first.evaluate(
+        "element => getComputedStyle(element).animationDuration"
+    ) == "0s"
+    mobile.close()
+
     page = browser.new_page(viewport={"width": 1440, "height": 1000})
     page.emulate_media(reduced_motion="reduce")
     page.goto(
@@ -420,6 +433,7 @@ def assert_minimal_shell_and_mobile_menu(browser):
         "INFO",
     ]
     assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 13
+    assert desktop.locator(".portfolio-nav-primary a").inner_text() == "精选作品"
     projects = desktop.locator(".portfolio-nav-section").first
     portrait_item = projects.locator(".portfolio-nav-item").first
     assert portrait_item.locator(
@@ -538,6 +552,15 @@ def assert_minimal_shell_and_mobile_menu(browser):
     mobile = open_page(browser, "index", width=390, height=844)
     toggle = mobile.locator("[data-menu-toggle]")
     assert toggle.is_visible()
+    assert toggle.inner_text() == "菜单 Menu"
+    toggle_box = toggle.bounding_box()
+    name_box = mobile.locator(".portfolio-name").bounding_box()
+    assert toggle_box is not None and name_box is not None
+    assert toggle_box["width"] >= 44 and toggle_box["height"] >= 44
+    assert abs(
+        (toggle_box["y"] + toggle_box["height"] / 2)
+        - (name_box["y"] + name_box["height"] / 2)
+    ) <= 12
     assert mobile.locator(".portfolio-sidebar").evaluate(
         "node => ({ position: getComputedStyle(node).position, "
         "overflowY: getComputedStyle(node).overflowY })"
@@ -545,15 +568,34 @@ def assert_minimal_shell_and_mobile_menu(browser):
     assert toggle.get_attribute("aria-expanded") == "false"
     assert mobile.locator(".portfolio-nav").get_attribute("data-expanded") == "false"
     toggle.click()
+    assert toggle.inner_text() == "收起 Close"
     assert toggle.get_attribute("aria-expanded") == "true"
     assert mobile.locator(".portfolio-nav").get_attribute("data-expanded") == "true"
+    assert mobile.locator(".portfolio-nav").evaluate(
+        "node => ({ borderTopWidth: getComputedStyle(node).borderTopWidth, "
+        "scrollbarWidth: getComputedStyle(node).scrollbarWidth, "
+        "overscrollBehaviorY: getComputedStyle(node).overscrollBehaviorY })"
+    ) == {
+        "borderTopWidth": "1px",
+        "scrollbarWidth": "none",
+        "overscrollBehaviorY": "contain",
+    }
     mobile_portrait_parent = mobile.locator(
         ".portfolio-nav a[data-nav-link][href='index.html#category=portrait']"
     )
+    assert mobile_portrait_parent.evaluate(
+        "node => getComputedStyle(node, '::after').content"
+    ) == '"＋"'
     mobile_portrait_parent.click()
     mobile.wait_for_timeout(100)
     assert mobile.locator("[data-menu-toggle]").get_attribute("aria-expanded") == "true"
     assert mobile_portrait_parent.get_attribute("aria-expanded") == "true"
+    assert mobile_portrait_parent.evaluate(
+        "node => getComputedStyle(node, '::after').content"
+    ) == '"−"'
+    assert mobile.locator(".portfolio-nav-children").first.evaluate(
+        "node => getComputedStyle(node).animationDuration"
+    ) == "0.16s"
     mobile.locator(
         ".portfolio-nav-child[href='index.html#collection=graduation']"
     ).click()

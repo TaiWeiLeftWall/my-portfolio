@@ -3,6 +3,7 @@ const CATEGORY_LABELS = {
     stilllife: '静物',
     performance: '演出',
     landscape: '风光',
+    news: '新闻摄影',
 };
 
 const COLLECTIONS = {
@@ -90,7 +91,7 @@ function getPortfolioProjects() {
 }
 
 function overviewColumnCount(category = 'all') {
-    if (category === 'performance' || category === 'landscape') {
+    if (['performance', 'landscape', 'news'].includes(category)) {
         return window.matchMedia('(max-width: 800px)').matches ? 2 : 3;
     }
     const grid = document.getElementById('selected-grid');
@@ -116,7 +117,10 @@ function createSelectedWork(project, projectIndex) {
     button.setAttribute('aria-label', `查看项目：${projectLabel(project)}`);
 
     const image = document.createElement('img');
-    image.src = project.overviewImage.src;
+    const overviewSrc = project.overviewImage.src;
+    image.src = /^images\/news\/\d{2}-\d{3}\.jpg$/.test(overviewSrc)
+        ? overviewSrc.replace('images/news/', 'images/news/thumbs/')
+        : overviewSrc;
     image.alt = imageAlt(project, project.overviewImage);
     image.loading = projectIndex === 0 ? 'eager' : 'lazy';
     image.decoding = 'async';
@@ -183,7 +187,7 @@ function renderOverview(category = 'all') {
         ? '林伟杰 WEIJIE LIN 摄影作品集'
         : (CATEGORY_LABELS[category] || '摄影作品');
     const projects = getPortfolioProjects().filter(project => category === 'all' || project.category === category);
-    renderProjectOverview(projects, category === 'performance' || category === 'landscape');
+    renderProjectOverview(projects, ['performance', 'landscape', 'news'].includes(category));
 }
 
 function renderCollection(collectionId) {

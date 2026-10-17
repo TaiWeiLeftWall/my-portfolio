@@ -22,6 +22,7 @@ VALID_CATEGORIES = {
     "street",
     "performance",
     "official",
+    "news",
 }
 VALID_COMMERCIAL_CATEGORIES = {"公務攝影", "演出攝影", "體育攝影", "空間攝影", "廣告", "視頻", "電商"}
 

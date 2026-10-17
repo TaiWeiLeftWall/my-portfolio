@@ -107,7 +107,7 @@ def assert_minimal_commercial_overview(browser):
 def assert_interactions_are_accessible(browser):
     page = open_page(browser, "index")
     assert page.locator("nav a[aria-current='page']").count() == 1
-    assert page.locator("button.selected-work").count() == 35
+    assert page.locator("button.selected-work").count() == 83
     assert page.locator(".selected-work:not(button)").count() == 0
     assert page.locator("button[data-project-prev]").count() == 1
     assert page.locator("button[data-project-next]").count() == 1
@@ -340,10 +340,10 @@ def assert_content_inventory_and_routes(browser):
         assert not errors, f"{name} emitted browser errors: {errors}"
         pages[name] = page
 
-    assert pages["index"].evaluate("photoGroups.length") == 35
+    assert pages["index"].evaluate("photoGroups.length") == 83
     assert pages["index"].evaluate(
         "photoGroups.reduce((n, group) => n + group.images.length, 0)"
-    ) == 178
+    ) == 1140
     assert pages["videos"].evaluate(
         "typeof videos !== 'undefined' ? videos.length : 0"
     ) == 15
@@ -432,7 +432,7 @@ def assert_minimal_shell_and_mobile_menu(browser):
         "EDITORIAL",
         "INFO",
     ]
-    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 13
+    assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 14
     assert desktop.locator(".portfolio-nav-primary a").inner_text() == "精选作品"
     projects = desktop.locator(".portfolio-nav-section").first
     portrait_item = projects.locator(".portfolio-nav-item").first
@@ -606,13 +606,13 @@ def assert_minimal_shell_and_mobile_menu(browser):
 def assert_selected_works_contract(browser):
     page = open_page_with_random(browser, 0.999999, width=1280, height=720)
     assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
-    assert page.locator("#selected-grid .selected-work").count() == 35
-    assert page.locator("#selected-grid .selected-work img").count() == 35
+    assert page.locator("#selected-grid .selected-work").count() == 83
+    assert page.locator("#selected-grid .selected-work img").count() == 83
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
-    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 178
-    last_sources = page.evaluate("photoGroups.map(group => group.images.at(-1).src)")
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 1140
+    last_sources = page.evaluate("photoGroups.map(group => new URL(group.images.at(-1).src, location.href).href)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
-        "images => images.map(image => image.src)"
+        "images => images.map(image => image.src.replace('/images/news/thumbs/', '/images/news/'))"
     )
     assert rendered_sources == last_sources
 
@@ -630,7 +630,7 @@ def assert_selected_works_contract(browser):
         "works => works.map(work => work.dataset.projectId)"
     ) == rendered_ids
     assert page.locator("#selected-grid .selected-work img").evaluate_all(
-        "images => images.map(image => image.src)"
+        "images => images.map(image => image.src.replace('/images/news/thumbs/', '/images/news/'))"
     ) == rendered_sources
     page.close()
 

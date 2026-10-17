@@ -6536,6 +6536,196 @@ const photoGroups = [
                 "description": ""
             }
         ]
+    },
+    {
+        "category": "portrait",
+        "collection": "",
+        "title": "通普路",
+        "description": "",
+        "date": "2026-08-30",
+        "cols": 3,
+        "images": [
+            {
+                "src": "images/portrait/tongpu-road-20260830/001.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/tongpu-road-20260830/002.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/tongpu-road-20260830/003.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/tongpu-road-20260830/004.jpg",
+                "title": "",
+                "description": ""
+            }
+        ]
+    },
+    {
+        "category": "portrait",
+        "collection": "",
+        "title": "工联 CC",
+        "description": "",
+        "date": "2026-10-08",
+        "cols": 3,
+        "images": [
+            {
+                "src": "images/portrait/gonglian-cc-20261008/001.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/002.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/003.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/004.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/005.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/006.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/007.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/008.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/009.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/010.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/011.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/012.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/013.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/014.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/015.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/016.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/017.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/018.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/019.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/020.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/021.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/022.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/023.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/024.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/025.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/026.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/027.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/028.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/029.jpg",
+                "title": "",
+                "description": ""
+            },
+            {
+                "src": "images/portrait/gonglian-cc-20261008/030.jpg",
+                "title": "",
+                "description": ""
+            }
+        ]
     }
 ];
 

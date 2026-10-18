@@ -83,12 +83,12 @@ const PORTFOLIO_NAVIGATION = {
                 },
                 { href: 'index.html#category=performance', label: '演出' },
                 { href: 'index.html#category=landscape', label: '风光' },
-                { href: 'index.html#category=news', label: '新闻摄影' },
             ],
         },
         {
             label: 'EDITORIAL',
             items: [
+                { href: 'index.html#category=news', label: '新闻摄影' },
                 { href: 'videos.html', label: '视频' },
                 { href: 'commercial.html', label: '商业项目' },
             ],

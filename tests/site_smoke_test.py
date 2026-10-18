@@ -107,7 +107,7 @@ def assert_minimal_commercial_overview(browser):
 def assert_interactions_are_accessible(browser):
     page = open_page(browser, "index")
     assert page.locator("nav a[aria-current='page']").count() == 1
-    assert page.locator("button.selected-work").count() == 85
+    assert page.locator("button.selected-work").count() == 37
     assert page.locator(".selected-work:not(button)").count() == 0
     assert page.locator("button[data-project-prev]").count() == 1
     assert page.locator("button[data-project-next]").count() == 1
@@ -603,21 +603,46 @@ def assert_minimal_shell_and_mobile_menu(browser):
     mobile.close()
 
 
+def assert_news_is_editorial_only(browser):
+    for width, height in ((1280, 720), (390, 844)):
+        page = open_page(browser, "index", width=width, height=height, wait_ms=100)
+        editorial = page.locator(".portfolio-nav-section").filter(has=page.locator(".portfolio-nav-heading", has_text="EDITORIAL"))
+        assert editorial.locator("a[href='index.html#category=news']").count() == 1
+        assert page.locator(".portfolio-nav-section").first.locator("a[href='index.html#category=news']").count() == 0
+        assert page.locator(".selected-work").count() == 37
+        assert page.locator(".selected-work[data-project-id^='news-']").count() == 0
+        if width == 390:
+            page.locator("[data-menu-toggle]").click()
+        editorial.locator("a[href='index.html#category=news']").click()
+        page.wait_for_timeout(200)
+        assert page.locator(".selected-work[data-project-id^='news-']").count() == 48
+        assert page.locator(".selected-work").count() == 48
+        assert page.locator("#selected-heading").inner_text() == "新闻摄影"
+        if width == 390:
+            assert page.locator("[data-menu-toggle]").get_attribute("aria-expanded") == "false"
+            page.locator("[data-menu-toggle]").click()
+        page.locator(".portfolio-nav-primary a").click()
+        page.wait_for_timeout(200)
+        assert page.locator(".selected-work").count() == 37
+        assert page.locator(".selected-work[data-project-id^='news-']").count() == 0
+        page.close()
+
+
 def assert_selected_works_contract(browser):
     page = open_page_with_random(browser, 0.999999, width=1280, height=720)
     assert page.locator(".filter-bar, .filter-sidebar, .mode-btn, .date-filter").count() == 0
-    assert page.locator("#selected-grid .selected-work").count() == 85
-    assert page.locator("#selected-grid .selected-work img").count() == 85
+    assert page.locator("#selected-grid .selected-work").count() == 37
+    assert page.locator("#selected-grid .selected-work img").count() == 37
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
     assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 1174
-    last_sources = page.evaluate("photoGroups.map(group => new URL(group.images.at(-1).src, location.href).href)")
+    last_sources = page.evaluate("photoGroups.filter(group => group.category !== 'news').map(group => new URL(group.images.at(-1).src, location.href).href)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src.replace('/images/news/thumbs/', '/images/news/'))"
     )
     assert rendered_sources == last_sources
 
     original_ids = page.evaluate(
-        "photoGroups.map((group, index) => projectIdFor(group, index))"
+        "photoGroups.map((group, index) => projectIdFor(group, index)).filter(id => !id.startsWith('news-'))"
     )
     rendered_ids = page.locator("#selected-grid .selected-work").evaluate_all(
         "works => works.map(work => work.dataset.projectId)"
@@ -914,6 +939,7 @@ def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
+            assert_news_is_editorial_only(browser)
             assert_minimal_shell_and_mobile_menu(browser)
             assert_selected_works_contract(browser)
             assert_real_graduation_inventory(browser)

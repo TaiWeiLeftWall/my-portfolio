@@ -186,7 +186,9 @@ function renderOverview(category = 'all') {
     if (heading) heading.textContent = category === 'all'
         ? '林伟杰 WEIJIE LIN 摄影作品集'
         : (CATEGORY_LABELS[category] || '摄影作品');
-    const projects = getPortfolioProjects().filter(project => category === 'all' || project.category === category);
+    const projects = getPortfolioProjects().filter(project => category === 'all'
+        ? project.category !== 'news'
+        : project.category === category);
     renderProjectOverview(projects, ['performance', 'landscape', 'news'].includes(category));
 }
 

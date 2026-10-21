@@ -1,7 +1,7 @@
 const CATEGORY_LABELS = {
     portrait: '人像',
     stilllife: '静物',
-    performance: '演出',
+    performance: '演出摄影',
     landscape: '风光',
     news: '新闻摄影',
 };
@@ -13,6 +13,50 @@ const COLLECTIONS = {
     jewelry: { title: '首饰', category: 'stilllife' },
     digital: { title: '数码', category: 'stilllife' },
 };
+
+const PERFORMANCE_GENRES = {
+    rock: { label: '摇滚现场', series: {
+        gr: 'GR摇滚节', newyear: '跨年演出', livehouse: 'Livehouse现场',
+    } },
+    campus: { label: '校园演出现场', series: {
+        corridor: '藤廊音乐会', lawn: '草坪音乐会', welcome: '迎新晚会', 'campus-other': '其他校内演出',
+    } },
+};
+
+function performanceGenre(project) {
+    const series = project.collection.replace(/^performance-/, '');
+    return Object.keys(PERFORMANCE_GENRES).find(key =>
+        Object.hasOwn(PERFORMANCE_GENRES[key].series, series)) || '';
+}
+
+function performancePath(project) {
+    const genre = PERFORMANCE_GENRES[performanceGenre(project)];
+    return genre ? `${genre.label} / ${genre.series[project.collection.replace(/^performance-/, '')]}` : '';
+}
+
+function performanceFilterLink(label, genre, series, active) {
+    const link = document.createElement('a');
+    link.href = `#category=performance${genre === 'all' ? '' : `&genre=${genre}`}${series ? `&series=${series}` : ''}`;
+    link.textContent = label;
+    if (active) link.setAttribute('aria-current', 'true');
+    return link;
+}
+
+function performanceTitle(project) {
+    const [scene, event] = project.title.split('｜');
+    return event ? { scene, event } : { scene: '摇滚现场', event: project.title };
+}
+
+function isPerformanceArchive(project) {
+    return project.images[0]?.src.startsWith('images/performance-archive/')
+        || Boolean(performanceThumbnail(project.images[0]?.src));
+}
+
+function performanceThumbnail(src) {
+    return typeof PERFORMANCE_ARCHIVE_MEDIA !== 'undefined'
+        && Object.hasOwn(PERFORMANCE_ARCHIVE_MEDIA, src)
+        ? PERFORMANCE_ARCHIVE_MEDIA[src] : '';
+}
 
 const overviewCoverIndexByProjectId = new Map();
 const overviewOrderByProjectId = new Map();
@@ -45,7 +89,8 @@ function randomizeOverviewProjects(projects) {
         if (!overviewCoverIndexByProjectId.has(project.id)) {
             overviewCoverIndexByProjectId.set(
                 project.id,
-                Math.floor(Math.random() * project.images.length),
+                Math.floor(Math.random() * (project.category === 'performance'
+                    ? Math.min(3, project.images.length) : project.images.length)),
             );
         }
         if (!overviewOrderByProjectId.has(project.id)) newProjectIds.push(project.id);
@@ -74,6 +119,7 @@ function getPortfolioProjects() {
     const projects = photoGroups
         .map((group, index) => ({
             id: projectIdFor(group, index),
+            sourceIndex: index,
             category: group.category || '',
             collection: group.collection || '',
             categoryLabel: CATEGORY_LABELS[group.category] || group.category || '',
@@ -120,7 +166,7 @@ function createSelectedWork(project, projectIndex) {
     const overviewSrc = project.overviewImage.src;
     image.src = /^images\/news\/\d{2}-\d{3}\.jpg$/.test(overviewSrc)
         ? overviewSrc.replace('images/news/', 'images/news/thumbs/')
-        : overviewSrc;
+        : performanceThumbnail(overviewSrc) || overviewSrc;
     image.alt = imageAlt(project, project.overviewImage);
     image.loading = projectIndex === 0 ? 'eager' : 'lazy';
     image.decoding = 'async';
@@ -138,6 +184,22 @@ function createSelectedWork(project, projectIndex) {
     });
 
     button.appendChild(image);
+    if (project.category === 'performance') {
+        const { scene, event } = performanceTitle(project);
+        const caption = document.createElement('span');
+        caption.className = 'performance-caption';
+        const title = document.createElement('span');
+        title.className = 'performance-card-title';
+        title.textContent = scene;
+        const meta = document.createElement('span');
+        meta.className = 'performance-card-meta';
+        meta.textContent = `${event} · ${project.date.slice(0, 4)}`;
+        const categoryPath = document.createElement('span');
+        categoryPath.className = 'performance-card-meta';
+        categoryPath.textContent = performancePath(project);
+        caption.append(title, meta, categoryPath);
+        button.appendChild(caption);
+    }
     button.addEventListener('click', () => openProject(project.id, 0, button));
     return button;
 }
@@ -181,20 +243,59 @@ function renderProjectOverview(projects, fixedColumns = false) {
     grid.replaceChildren(...columns);
 }
 
-function renderOverview(category = 'all') {
+function setPerformanceOverview(enabled) {
+    document.getElementById('selected-view').classList.toggle('performance-overview', enabled);
+    document.getElementById('selected-heading').classList.toggle('visually-hidden', !enabled);
+    document.querySelector('[data-performance-overview]').hidden = !enabled;
+    document.querySelector('[data-performance-filters]').hidden = !enabled;
+    document.querySelector('[data-performance-subfilters]').hidden = true;
+}
+
+function renderOverview(category = 'all', genre = 'all', series = '') {
+    setPerformanceOverview(category === 'performance');
     const heading = document.getElementById('selected-heading');
     if (heading) heading.textContent = category === 'all'
         ? '林伟杰 WEIJIE LIN 摄影作品集'
         : (CATEGORY_LABELS[category] || '摄影作品');
-    const projects = getPortfolioProjects().filter(project => category === 'all'
-        ? project.category !== 'news'
+    let projects = getPortfolioProjects().filter(project => category === 'all'
+        ? project.category !== 'news' && !isPerformanceArchive(project)
         : project.category === category);
+    if (category === 'performance') {
+        // The full archive uses the same session-stable shuffle as the other categories.
+        const filters = document.querySelector('[data-performance-filters]');
+        // Keep the previous theatre URL useful; the old broad music URL falls back to all.
+        if (genre === 'theatre') { genre = 'campus'; series = 'campus-other'; }
+        const activeGenre = Object.hasOwn(PERFORMANCE_GENRES, genre) ? genre : 'all';
+        const group = PERFORMANCE_GENRES[activeGenre];
+        const activeSeries = group && Object.hasOwn(group.series, series) ? series : '';
+        filters.replaceChildren(...['all', ...Object.keys(PERFORMANCE_GENRES)].map(key =>
+            performanceFilterLink(key === 'all' ? '全部' : PERFORMANCE_GENRES[key].label, key, '', key === activeGenre)));
+        const subfilters = document.querySelector('[data-performance-subfilters]');
+        subfilters.hidden = !group;
+        subfilters.replaceChildren(...(group ? [
+            performanceFilterLink('该类全部', activeGenre, '', !activeSeries),
+            ...Object.entries(group.series).map(([key, label]) =>
+                performanceFilterLink(label, activeGenre, key, key === activeSeries)),
+        ] : []));
+        if (group) projects = projects.filter(p => performanceGenre(p) === activeGenre);
+        if (activeSeries) projects = projects.filter(p => p.collection === `performance-${activeSeries}`);
+        const selectionLabel = group ? [group.label, group.series[activeSeries]].filter(Boolean).join(' / ') : '全部演出';
+        document.querySelector('[data-performance-status]').textContent = `${selectionLabel} · ${projects.length} 组`;
+        if (!projects.length) {
+            const empty = document.createElement('p');
+            empty.className = 'portfolio-empty';
+            empty.textContent = '此分类暂无作品，可切换其他分类浏览。';
+            document.getElementById('selected-grid').replaceChildren(empty);
+            return;
+        }
+    }
     renderProjectOverview(projects, ['performance', 'landscape', 'news'].includes(category));
 }
 
 function renderCollection(collectionId) {
     const collection = COLLECTIONS[collectionId];
     if (!collection) return false;
+    setPerformanceOverview(false);
     const heading = document.getElementById('selected-heading');
     if (heading) heading.textContent = collection.title;
     const projects = getPortfolioProjects()
@@ -204,7 +305,7 @@ function renderCollection(collectionId) {
 }
 
 function slideCount(project) {
-    return 1 + project.images.length;
+    return project.images.length + (project.category === 'performance' ? 0 : 1);
 }
 
 function wrapSlide(index, total) {
@@ -264,7 +365,8 @@ function createImageSlide(project, imageIndex) {
 function updateProjectHash() {
     if (!activeProject) return;
     history.replaceState(
-        { ...(history.state || {}), portfolioProject: true },
+        // Changing slides must not invent an overview history entry for a direct link.
+        history.state,
         '',
         `#work=${encodeURIComponent(activeProject.id)}&slide=${activeSlideIndex}`,
     );
@@ -274,18 +376,27 @@ function updateProjectHash() {
 function showProjectSlide(index, updateHash = true) {
     if (!activeProject) return;
     const total = slideCount(activeProject);
-    activeSlideIndex = wrapSlide(index, total);
+    const photoFirst = activeProject.category === 'performance';
+    // Retain existing slide=1 URLs for the first photograph, including old 25GR links.
+    activeSlideIndex = photoFirst ? wrapSlide(index - 1, total) + 1 : wrapSlide(index, total);
     const host = document.querySelector('[data-project-slide]');
     host.replaceChildren(activeSlideIndex === 0
         ? createStatementSlide(activeProject)
         : createImageSlide(activeProject, activeSlideIndex - 1));
-    document.querySelector('[data-slide-counter]').textContent = `${activeSlideIndex + 1} / ${total}`;
+    document.querySelector('[data-slide-counter]').textContent = `${activeSlideIndex + (photoFirst ? 0 : 1)} / ${total}`;
     if (updateHash) updateProjectHash();
 }
 
 function openProject(projectId, slideIndex = 0, trigger = document.activeElement, pushHistory = true) {
     const project = getPortfolioProjects().find(item => item.id === projectId);
     if (!project) return false;
+    if (!pushHistory && !activeProject && project.category === 'performance') {
+        if (!projectReturnHash.startsWith('#category=performance')) {
+            projectReturnHash = '#category=performance';
+        }
+        const returnParams = new URLSearchParams(projectReturnHash.slice(1));
+        renderOverview('performance', returnParams.get('genre'), returnParams.get('series'));
+    }
     if (pushHistory && !location.hash.startsWith('#work=')) {
         projectReturnHash = location.hash || '#selected';
     }
@@ -297,7 +408,20 @@ function openProject(projectId, slideIndex = 0, trigger = document.activeElement
     document.getElementById('selected-view').hidden = true;
     const viewer = document.getElementById('project-viewer');
     viewer.hidden = false;
-    showProjectSlide(Number.isFinite(Number(slideIndex)) ? Number(slideIndex) : 0, false);
+    const photoFirst = project.category === 'performance';
+    viewer.classList.toggle('performance-viewer', photoFirst);
+    document.querySelector('[data-performance-heading]').hidden = !photoFirst;
+    document.querySelector('[data-performance-info]').open = false;
+    viewer.querySelector('[data-project-prev]').textContent = photoFirst ? '←' : '';
+    viewer.querySelector('[data-project-next]').textContent = photoFirst ? '→' : '';
+    if (photoFirst) {
+        const { scene, event } = performanceTitle(project);
+        document.querySelector('[data-performance-title]').textContent = scene;
+        document.querySelector('[data-performance-description]').textContent =
+            [performancePath(project), event, project.description, project.date, `${project.images.length} 张图片`].filter(Boolean).join(' · ');
+    }
+    const requestedSlide = Number.isFinite(Number(slideIndex)) ? Number(slideIndex) : 0;
+    showProjectSlide(photoFirst && requestedSlide === 0 ? 1 : requestedSlide, false);
     if (pushHistory) {
         history.pushState(
             { portfolioProject: true },
@@ -357,7 +481,7 @@ function parsePortfolioHash() {
     const collection = params.get('collection');
     if (collection && renderCollection(collection)) return;
     const category = params.get('category');
-    renderOverview(Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category) ? category : 'all');
+    renderOverview(Object.prototype.hasOwnProperty.call(CATEGORY_LABELS, category) ? category : 'all', params.get('genre'), params.get('series'));
 }
 
 function setupProjectViewer() {

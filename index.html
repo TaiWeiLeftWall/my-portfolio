@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;family=Noto+Sans+SC:wght@300;400;600;700&amp;display=swap">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=performance-archive-1">
 </head>
 <body>
     <nav class="navbar"></nav>
@@ -21,11 +21,24 @@
     <main class="portfolio-main">
         <section class="selected-view" id="selected-view" aria-labelledby="selected-heading">
             <h1 class="visually-hidden" id="selected-heading">林伟杰 WEIJIE LIN 摄影作品集</h1>
+            <div class="performance-intro" data-performance-overview hidden>
+                <p>摇滚现场与校园演出现场。<span>从舞台、人物到观众，记录演出中的不同瞬间。</span></p>
+                <nav class="performance-filters" data-performance-filters aria-label="演出类型筛选"></nav>
+                <nav class="performance-filters performance-subfilters" data-performance-subfilters aria-label="演出细分类筛选" hidden></nav>
+                <p class="performance-filter-status" data-performance-status aria-live="polite" aria-atomic="true"></p>
+            </div>
             <div class="selected-grid" id="selected-grid"></div>
         </section>
 
         <section class="project-viewer" id="project-viewer" tabindex="-1" aria-label="摄影项目浏览器" hidden>
             <button type="button" class="project-close" data-project-close>返回作品</button>
+            <header class="performance-project-heading" data-performance-heading hidden>
+                <h2 data-performance-title></h2>
+                <details data-performance-info>
+                    <summary>项目说明</summary>
+                    <p data-performance-description></p>
+                </details>
+            </header>
             <div class="project-slide" data-project-slide></div>
             <button type="button" class="project-zone project-zone-prev" data-project-prev aria-label="上一张"></button>
             <button type="button" class="project-zone project-zone-next" data-project-next aria-label="下一张"></button>
@@ -33,8 +46,9 @@
         </section>
     </main>
 
-    <script src="common.js"></script>
-    <script src="data.js?v=1"></script>
-    <script src="script.js?v=2"></script>
+    <script src="common.js?v=performance-archive-1"></script>
+    <script src="data.js?v=performance-archive-1"></script>
+    <script src="performance-media.js?v=1"></script>
+    <script src="script.js?v=performance-archive-1"></script>
 </body>
 </html>

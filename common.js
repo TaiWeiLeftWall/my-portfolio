@@ -81,7 +81,7 @@ const PORTFOLIO_NAVIGATION = {
                         { href: 'index.html#collection=digital', label: '数码' },
                     ],
                 },
-                { href: 'index.html#category=performance', label: '演出' },
+                { href: 'index.html#category=performance', label: '演出摄影' },
                 { href: 'index.html#category=landscape', label: '风光' },
             ],
         },
@@ -156,6 +156,9 @@ function setOnlySubmenuExpanded(activeParent) {
 function updateActiveNavigation() {
     const page = location.pathname.split('/').pop() || 'index.html';
     const current = `${page}${location.hash}`;
+    const params = new URLSearchParams(location.hash.slice(1));
+    const performanceRoute = page === 'index.html' && (params.get('category') === 'performance'
+        || (params.get('work') || '').startsWith('performance-'));
     const ancestorItem = PORTFOLIO_NAVIGATION.sections
         .flatMap(section => section.items)
         .find(item => item.children?.some(child => child.href === current));
@@ -164,9 +167,11 @@ function updateActiveNavigation() {
         const href = link.getAttribute('href');
         const commercialDetail = page === 'commercial-detail.html' && href === 'commercial.html';
         const selectedState = page === 'index.html'
+            && !performanceRoute
             && (location.hash === '#selected' || location.hash.startsWith('#work='))
             && href === 'index.html';
-        const active = href === current || (!location.hash && href === page) || commercialDetail || selectedState;
+        const active = href === current || (!location.hash && href === page) || commercialDetail || selectedState
+            || (performanceRoute && href === 'index.html#category=performance');
         link.classList.toggle('active', active);
         link.classList.toggle('ancestor-active', href === ancestorHref);
         if (active) link.setAttribute('aria-current', 'page');

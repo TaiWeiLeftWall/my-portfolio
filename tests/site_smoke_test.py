@@ -340,10 +340,10 @@ def assert_content_inventory_and_routes(browser):
         assert not errors, f"{name} emitted browser errors: {errors}"
         pages[name] = page
 
-    assert pages["index"].evaluate("photoGroups.length") == 85
+    assert pages["index"].evaluate("photoGroups.length") == 133
     assert pages["index"].evaluate(
         "photoGroups.reduce((n, group) => n + group.images.length, 0)"
-    ) == 1174
+    ) == 4062
     assert pages["videos"].evaluate(
         "typeof videos !== 'undefined' ? videos.length : 0"
     ) == 15
@@ -397,6 +397,16 @@ def assert_gallery_columns_and_focus(browser):
 
 
 def assert_sparse_categories_keep_grid_columns(browser):
+    def show_single_project(page, category):
+        # Exercise the sparse-layout edge case independently of archive growth.
+        page.evaluate("""
+          category => {
+            const project = photoGroups.find(group => group.category === category);
+            photoGroups.splice(0, photoGroups.length, project);
+            renderOverview(category);
+          }
+        """, category)
+
     for category in ("performance", "landscape"):
         desktop = open_page(
             browser,
@@ -406,6 +416,7 @@ def assert_sparse_categories_keep_grid_columns(browser):
             wait_ms=100,
             query=f"#category={category}",
         )
+        show_single_project(desktop, category)
         assert desktop.locator(".selected-column").count() == 3
         assert desktop.locator(".selected-work").count() == 1
         desktop.close()
@@ -418,6 +429,7 @@ def assert_sparse_categories_keep_grid_columns(browser):
             wait_ms=100,
             query=f"#category={category}",
         )
+        show_single_project(mobile, category)
         assert mobile.locator(".selected-column").count() == 2
         assert mobile.locator(".selected-work").count() == 1
         mobile.close()
@@ -634,15 +646,15 @@ def assert_selected_works_contract(browser):
     assert page.locator("#selected-grid .selected-work").count() == 37
     assert page.locator("#selected-grid .selected-work img").count() == 37
     assert page.locator(".watermark-overlay, .overlay, .stack-count").count() == 0
-    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 1174
-    last_sources = page.evaluate("photoGroups.filter(group => group.category !== 'news').map(group => new URL(group.images.at(-1).src, location.href).href)")
+    assert page.evaluate("photoGroups.reduce((n, group) => n + group.images.length, 0)") == 4062
+    last_sources = page.evaluate("photoGroups.slice(0,85).filter(group => group.category !== 'news').map(group => new URL((group.category === 'performance' ? group.images[2] : group.images.at(-1)).src, location.href).href)")
     rendered_sources = page.locator("#selected-grid .selected-work img").evaluate_all(
         "images => images.map(image => image.src.replace('/images/news/thumbs/', '/images/news/'))"
     )
     assert rendered_sources == last_sources
 
     original_ids = page.evaluate(
-        "photoGroups.map((group, index) => projectIdFor(group, index)).filter(id => !id.startsWith('news-'))"
+        "photoGroups.slice(0,85).map((group, index) => projectIdFor(group, index)).filter(id => !id.startsWith('news-'))"
     )
     rendered_ids = page.locator("#selected-grid .selected-work").evaluate_all(
         "works => works.map(work => work.dataset.projectId)"
@@ -763,7 +775,7 @@ def assert_real_still_life_inventory(browser):
 
 def assert_photo_project_viewer(browser):
     page = open_page(browser, "index", width=1280, height=720)
-    trigger = page.locator("button.selected-work").first
+    trigger = page.locator("button.selected-work:not([data-project-id^='performance-'])").first
     project_id = trigger.get_attribute("data-project-id")
     trigger.focus()
     trigger.press("Enter")
@@ -935,6 +947,43 @@ def assert_video_and_about_are_restrained(browser):
     about.close()
 
 
+def assert_performance_archive_navigation(browser):
+    for width, height in ((1280, 720), (390, 844)):
+        page = open_page_with_portrait_images(
+            browser, "index", width, height, query="#category=performance"
+        )
+        assert page.locator(".selected-work").count() == 49
+        assert not page.locator("[data-performance-subfilters]").is_visible()
+        assert page.locator(".selected-column").count() == (2 if width <= 800 else 3)
+        top = page.locator("[data-performance-filters]")
+        sub = page.locator("[data-performance-subfilters]")
+        for label, total, children in (
+            ("摇滚现场", 14, (("GR摇滚节", 5), ("跨年演出", 2), ("Livehouse现场", 7))),
+            ("校园演出现场", 35, (("藤廊音乐会", 5), ("草坪音乐会", 8),
+                                ("迎新晚会", 14), ("其他校内演出", 8))),
+        ):
+            top.get_by_role("link", name=label, exact=True).click()
+            page.wait_for_function("n => document.querySelectorAll('.selected-work').length === n", arg=total)
+            for child, count in children:
+                sub.get_by_role("link", name=child, exact=True).click()
+                page.wait_for_function("n => document.querySelectorAll('.selected-work').length === n", arg=count)
+        overview = page.url
+        page.locator(".selected-work").first.click()
+        page.wait_for_function("document.querySelector('.project-image')?.naturalWidth > 0")
+        assert page.locator(".project-statement").count() == 0
+        box = page.locator(".project-image").bounding_box()
+        assert box and box["x"] >= 0 and box["y"] >= 0
+        assert box["x"] + box["width"] <= width + 1
+        assert box["y"] + box["height"] <= height + 1
+        page.locator("#project-viewer").press("ArrowRight")
+        page.locator("#project-viewer").press("Escape")
+        page.wait_for_url(overview)
+        assert page.locator(".selected-work").count() == 8
+        assert sub.locator("[aria-current]").inner_text() == "其他校内演出"
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        page.close()
+
+
 def main():
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -965,6 +1014,7 @@ def main():
             assert_content_inventory_and_routes(browser)
             assert_gallery_columns_and_focus(browser)
             assert_sparse_categories_keep_grid_columns(browser)
+            assert_performance_archive_navigation(browser)
         finally:
             browser.close()
     print("site smoke checks passed")

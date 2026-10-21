@@ -10,6 +10,7 @@ FRONTEND_SCRIPTS = [
     ROOT / "load-data.js",
     ROOT / "script.js",
     ROOT / "data.js",
+    ROOT / "performance-media.js",
     ROOT / "commercial.js",
     ROOT / "commercial-list.js",
     ROOT / "commercial-detail.js",
@@ -94,7 +95,9 @@ const context = {};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('data.js', 'utf8'), context, { filename: 'data.js' });
 const groups = vm.runInContext(
-  'photoGroups.map(({ title, date, images }) => ({ title, date, count: images.length }))',
+  // This fixture protects the original 35 groups, not the size of a growing archive.
+  // The original 16 GR photos retain their positions; the full event is checked below.
+  'photoGroups.slice(0, 35).map(({ title, date, images, category }) => ({ title, date, count: category === "performance" ? images.slice(0, 16).length : images.length }))',
   context,
 );
 process.stdout.write(JSON.stringify(groups));
@@ -149,6 +152,29 @@ process.stdout.write(JSON.stringify(groups));
                 {"title": "唯卓仕55evo", "date": "2026-04-24", "count": 4},
             ],
         )
+
+    def test_full_performance_archive_inventory(self):
+        summary = self._evaluate_data_js("""
+          (() => {
+            const events = photoGroups.filter(g => g.category === 'performance');
+            return {
+              groups: photoGroups.length,
+              photos: photoGroups.reduce((n,g) => n + g.images.length, 0),
+              events: events.length,
+              performancePhotos: events.reduce((n,g) => n + g.images.length, 0),
+              series: Object.fromEntries(['gr','newyear','livehouse','corridor','lawn','welcome','campus-other']
+                .map(s => [s, events.filter(g => g.collection === `performance-${s}`).length])),
+              allNonempty: events.every(g => g.images.length > 0),
+              oneOriginalGR: events.filter(g => g.date === '2025-05-30').length
+            };
+          })()
+        """)
+        self.assertEqual(summary, {
+            "groups": 133, "photos": 4062, "events": 49, "performancePhotos": 2904,
+            "series": {"gr": 5, "newyear": 2, "livehouse": 7, "corridor": 5, "lawn": 8,
+                       "welcome": 14, "campus-other": 8},
+            "allNonempty": True, "oneOriginalGR": 1,
+        })
 
     def test_graduation_collection_inventory(self):
         groups = self._evaluate_data_js(

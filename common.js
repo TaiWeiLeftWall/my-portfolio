@@ -71,6 +71,13 @@ const PORTFOLIO_NAVIGATION = {
                         { href: 'index.html#collection=poster', label: '海报拍摄' },
                     ],
                 },
+                { href: 'index.html#category=landscape', label: '风光' },
+            ],
+        },
+        {
+            label: 'EDITORIAL',
+            // Order by the Chinese labels' pinyin: jing, shang, shi, xin, yan.
+            items: [
                 {
                     href: 'index.html#category=stilllife',
                     label: '静物',
@@ -81,16 +88,10 @@ const PORTFOLIO_NAVIGATION = {
                         { href: 'index.html#collection=digital', label: '数码' },
                     ],
                 },
-                { href: 'index.html#category=performance', label: '演出摄影' },
-                { href: 'index.html#category=landscape', label: '风光' },
-            ],
-        },
-        {
-            label: 'EDITORIAL',
-            items: [
-                { href: 'index.html#category=news', label: '新闻摄影' },
-                { href: 'videos.html', label: '视频' },
                 { href: 'commercial.html', label: '商业项目' },
+                { href: 'videos.html', label: '视频' },
+                { href: 'index.html#category=news', label: '新闻摄影' },
+                { href: 'index.html#category=performance', label: '演出摄影' },
             ],
         },
         {

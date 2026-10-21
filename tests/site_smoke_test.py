@@ -447,6 +447,11 @@ def assert_minimal_shell_and_mobile_menu(browser):
     assert desktop.locator(".portfolio-nav a[data-nav-link]").count() == 14
     assert desktop.locator(".portfolio-nav-primary a").inner_text() == "精选作品"
     projects = desktop.locator(".portfolio-nav-section").first
+    assert projects.locator(".portfolio-nav-item > a").all_inner_texts() == ["人像", "风光"]
+    editorial = desktop.locator(".portfolio-nav-section").nth(1)
+    assert editorial.locator(".portfolio-nav-item > a").all_inner_texts() == [
+        "静物", "商业项目", "视频", "新闻摄影", "演出摄影",
+    ]
     portrait_item = projects.locator(".portfolio-nav-item").first
     assert portrait_item.locator(
         ":scope > a[href='index.html#category=portrait']"
@@ -466,7 +471,7 @@ def assert_minimal_shell_and_mobile_menu(browser):
     )
     assert portrait_parent.get_attribute("aria-expanded") == "false"
     assert portrait_item.locator(".portfolio-nav-children").get_attribute("hidden") == ""
-    still_life_item = projects.locator(".portfolio-nav-item").nth(1)
+    still_life_item = editorial.locator(".portfolio-nav-item").first
     still_life_parent = still_life_item.locator(
         ":scope > a[href='index.html#category=stilllife']"
     )
